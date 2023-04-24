@@ -1,9 +1,11 @@
-﻿module Regex.Regex
+﻿// This is not used in anywhere of this project, it's simply for demostration
+module Regex.Regex
 
 type internal RegexUnit =
     | Empty
     // | All
-    // | Range of char * char
+    // | Range of (char * char)[]
+    // | NotRange of (char * char)[]
     | Normal of char
     | Star of RegexUnit
     | Concat of RegexUnit[]
@@ -73,6 +75,14 @@ let internal parseRegex (str: string) =
 
             | ')' -> failwith "unreachable"
 
+            | '\\' ->
+                if str.Length = 1 then
+                    failwith "incomplete escape sequence"
+
+                let prev = Array.append prev [| (Normal str[1]) |]
+
+                parseRegex str[2..] prev
+
             | c ->
                 let prev = Array.append prev [| (Normal c) |]
 
@@ -80,23 +90,15 @@ let internal parseRegex (str: string) =
 
     parseRegex str [||] |> arr_to_unit
 
-type internal NFAUnit = { next: Map<char, int>; maybe: int[] }
+type internal NFAUnit = { next: Option<char>; maybe: int[] }
 
 let internal regexToNFA regex =
-    let empty = { next = Map [||]; maybe = [||] }
+    let empty = { next = None; maybe = [||] }
 
     let rec regexToNFA cnt regex =
         match regex with
-        | Empty ->
-            [| { next = Map [||]
-                 maybe = [| cnt + 1 |] }
-               empty |],
-            cnt + 2
-        | Normal c ->
-            [| { next = Map [| c, cnt + 1 |]
-                 maybe = [||] }
-               empty |],
-            cnt + 2
+        | Empty -> [| { next = None; maybe = [| cnt + 1 |] }; empty |], cnt + 2
+        | Normal c -> [| { next = Some c; maybe = [||] }; empty |], cnt + 2
 
         | Concat r ->
             let folder (arr: NFAUnit[], cnt) r =
@@ -120,16 +122,14 @@ let internal regexToNFA regex =
             for cnt in len do
                 idx <- idx + cnt
 
-                let new_end =
-                    { next = Map.empty
-                      maybe = [| new_cnt |] }
+                let new_end = { next = None; maybe = [| new_cnt |] }
 
                 Array.set middle (idx - 1) new_end
 
             let first_id = Array.scan (+) (cnt + 1) len
 
             let first =
-                { next = Map.empty
+                { next = None
                   maybe = first_id[0 .. first_id.Length - 2] }
 
             Array.concat [ [| first |]; middle; [| empty |] ], new_cnt + 1
@@ -140,11 +140,11 @@ let internal regexToNFA regex =
             Array.set
                 middle
                 (middle.Length - 1)
-                { next = Map.empty
+                { next = None
                   maybe = [| cnt + 1; new_cnt |] }
 
             let first =
-                { next = Map.empty
+                { next = None
                   maybe = [| cnt + 1; new_cnt |] }
 
             Array.concat [ [| first |]; middle; [| empty |] ], new_cnt + 1
@@ -169,7 +169,13 @@ let internal nfaToDFA (nfa: NFAUnit[]) =
 
             Map.change key add state
 
-        let set_reachable state i = Map.fold reachable state nfa[i].next
+        let set_reachable state i =
+            let init =
+                match nfa[i].next with
+                | Some c -> Map [ c, i + 1 ]
+                | None -> Map.empty
+
+            Map.fold reachable state init
 
         let set_eclosure _ s =
             s |> Set.toArray |> Array.map eclosure |> Set.unionMany
@@ -288,8 +294,7 @@ let internal minifyDFA (dfa: DFAUnit[]) =
             arr
             ([||], ctx)
 
-    let new_dfa = [| nt; t |]
-    let new_dfa, _ = split Map.empty new_dfa
+    let new_dfa, _ = split Map.empty [| nt; t |]
 
     if new_dfa.Length = dfa.Length then
         dfa

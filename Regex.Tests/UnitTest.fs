@@ -40,7 +40,7 @@ let Complex () =
     let reg = Regex("a|ab*")
     Assert.True(reg.match_str "abbb")
     Assert.False(reg.match_str "aa")
-    
+
     let reg = Regex("a(b|c)*")
     Assert.True(reg.match_str "abcbbc")
     Assert.False(reg.match_str "aa")

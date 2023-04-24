@@ -4,7 +4,6 @@ on: [push]
 
 jobs:
   build:
-
     runs-on: ubuntu-latest
 
     steps:
@@ -13,9 +12,15 @@ jobs:
         uses: actions/setup-dotnet@v3
         with:
           dotnet-version: '7.0.x'
+
       - name: Install dependencies
-        run: dotnet restore
+        run: dotnet restore && dotnet tool restore
+
+      - name: Format
+        run: dotnet fantomas -r --check .
+
       - name: Build
         run: dotnet build --configuration Release --no-restore
+
       - name: Test
-        run: dotnet test --no-restore --verbosity normal
+        run: dotnet test --no-restore

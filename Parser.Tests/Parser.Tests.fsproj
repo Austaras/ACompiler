@@ -2,7 +2,6 @@
 
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
-    <RootNamespace>lexer_tests</RootNamespace>
 
     <IsPackable>false</IsPackable>
     <GenerateProgramFile>false</GenerateProgramFile>
@@ -22,8 +21,8 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\Parser\Parser.fsproj" />
     <ProjectReference Include="..\AST\AST.fsproj" />
-    <ProjectReference Include="..\Lexer\Lexer.fsproj" />
   </ItemGroup>
 
 </Project>
