@@ -1,9 +1,8 @@
 ### Design Decision
 
 1. ML syntax with Rust characteristics
-   - That means, {} for block, => for pattern match, fn for function, () for function call
+   - That means, {} for block, => for pattern match, fn for function, () for function call, = for assign, == for equal, != for not equal
    - not whitespace sensitive, but without mandatory semicolons
-   - = for assign, == for equal, allows arbitary infix operator with an alphabet of `<=>&|+-*/%!` except `->` and `=>`
    - variant has their own namespace
    - also break/continue/return
 2. suffix is .adf which stands for Advanced Dominance Fighter
@@ -12,13 +11,16 @@
 
 <> means optional, [] means array
 
+```
 Boolean:: true | false
 
-String:: "[\*]" | '[\*]'
+String:: "[\*]"
+
+Char:: '[\*]'
 
 Literal:: Boolean | Int | Float | String
 
-Expr:: BinExpr | CallExpr | BlockExpr | Identifier | IfExpr | Litreal
+Expr:: AssignExpr | BinExpr | BlockExpr | CallExpr | Identifier | IfExpr | Litreal | MemberExpr | RangeExpr | UnaryExpr
 
 Identifier:: starts with \_ or a-zA-Z, and contains only number or alphabet
 
@@ -26,11 +28,26 @@ BlockExpr:: { [Expr (\n|;)] }
 
 IfExpr:: if Expr then BlockExpr \<else BlockExpr\>
 
-BinOp:: + - \* / < > | & or their combination
+ArithmeticOp:: + - * / % ** & | ^ && ||
 
-BinExpr:: Expr BinOp Expr
+AssignOp:: ArithmeticOrLogicalOp= | =
 
-CallExpr:: Expr( [Expr, ] )
+BinaryOp:: ArithmeticOrLogicalOp | == != > < >= <= |>
+
+AssignExpr:: Expr AssignOp Expr
+
+BinExpr:: Expr BinaryOp Expr
+
+CallExpr:: Expr<::<[Expr, ]+>>( [Expr, ] )
+
+MemberExpr:: Expr .Identifier | .Int | [Expr]
+
+RangeExpr:: Expr ..|..= Expr
+
+UnaryExpr:: Op Expr
+
+Stmt:: ExprStmt | LetStmt | UseStmt | FnStmt
+```
 
 ### Semantic
 

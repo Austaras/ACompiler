@@ -11,6 +11,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AST\AST.fsproj" />
+    <ProjectReference Include="..\Lexer\Lexer.fsproj" />
   </ItemGroup>
 
 </Project>
