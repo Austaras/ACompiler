@@ -1,11 +1,18 @@
 ### Design Decision
 
 1. ML syntax with Rust characteristics
-   - That means, {} for block, => for pattern match, fn for function, () for function call, = for assign, == for equal, != for not equal
+   - That means, {} for block, => for pattern match, fn for function, () for function call, = for assign, == for equal, != for not equal, |a, b| a + b for closure
    - not whitespace sensitive, but without mandatory semicolons
    - variant has their own namespace
    - also break/continue/return
-2. suffix is .adf which stands for Advanced Dominance Fighter
+   - struct/enum keyword
+2. ML semantic with Rust characteristics
+   - static type with type inference
+   - all functions are mutually recursive
+   - internal mutable
+   - reference type with auto ref and auto deref which is GC tracked
+   - trait
+3. suffix is .adf which stands for Advanced Dominance Fighter
 
 ### Syntax Construct
 
@@ -34,6 +41,8 @@ AssignOp:: ArithmeticOrLogicalOp= | =
 
 BinaryOp:: ArithmeticOrLogicalOp | == != > < >= <= |>
 
+UnaryOp:: ! - & *
+
 AssignExpr:: Expr AssignOp Expr
 
 BinExpr:: Expr BinaryOp Expr
@@ -44,7 +53,7 @@ MemberExpr:: Expr .Identifier | .Int | [Expr]
 
 RangeExpr:: Expr ..|..= Expr
 
-UnaryExpr:: Op Expr
+UnaryExpr:: UnaryOp Expr
 
 Stmt:: ExprStmt | LetStmt | UseStmt | FnStmt
 ```

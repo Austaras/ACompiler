@@ -23,7 +23,7 @@ type Reserved =
     | CONTINUE
     | BREAK
     | RETURN
-    | FN
+    | FUNCTION
     | LET
     | MUT
     | CONST
@@ -31,9 +31,14 @@ type Reserved =
     | TRAIT
     | IMPL
     | USE
-    | PUB
-    | DYN
+    | PUBLIC
+    | INTERNAL
     | WITH
+    | STRUCT
+    | ENUM
+    | SELF
+    | LOWSELF
+    | PACKAGE
 
 type CommentKind =
     | SingleLine
@@ -56,8 +61,9 @@ type TokenData =
     | Lit of AST.Lit
     | Not
     | Eq
-    | Binary of AST.BinaryOp
-    | Assign of AST.ArithmeticOp
+    | Question
+    | Operator of AST.BinaryOp
+    | AssignOp of AST.ArithmeticOp
     | Identifier of string
     | Reserved of Reserved
     | Comment of CommentKind * string
@@ -66,7 +72,19 @@ type Token =
     { data: TokenData
       span: AST.Span }
 
-    static member make data span = { data = data; span = span }
+    static member Make data span = { data = data; span = span }
+
+type Error =
+    | IncompleteExp of AST.Span
+    | IncompleteEscapeSeq of AST.Span
+    | IncompleteMultilineComment of AST.Span
+    | UnrecognizablePattern of AST.Span * char
+    | Unmatched of AST.Span * char
+    | MissingIntContent of AST.Span
+    | MissingExpContent of AST.Span
+    | CharEmpty of AST.Span
+    | CharTooMany of AST.Span
+    | UnknownNumberPrefix of AST.Span * char
 
 let internal parseIdentifier input =
     match input with
@@ -76,10 +94,10 @@ let internal parseIdentifier input =
     | "for" -> Reserved FOR
     | "in" -> Reserved IN
     | "while" -> Reserved WHILE
-    | "continue" -> Reserved CONTINUE
+    | "cnt" -> Reserved CONTINUE
     | "break" -> Reserved BREAK
-    | "fn" -> Reserved FN
-    | "return" -> Reserved RETURN
+    | "fn" -> Reserved FUNCTION
+    | "ret" -> Reserved RETURN
     | "let" -> Reserved LET
     | "mut" -> Reserved MUT
     | "const" -> Reserved CONST
@@ -87,11 +105,17 @@ let internal parseIdentifier input =
     | "trait" -> Reserved TRAIT
     | "impl" -> Reserved IMPL
     | "use" -> Reserved USE
-    | "pub" -> Reserved PUB
-    | "dyn" -> Reserved DYN
+    | "pub" -> Reserved PUBLIC
+    | "intl" -> Reserved INTERNAL
     | "with" -> Reserved WITH
+    | "Self" -> Reserved SELF
+    | "self" -> Reserved LOWSELF
+    | "pack" -> Reserved PACKAGE
+    | "as" -> Operator AST.As
     | "true" -> Lit(AST.Bool true)
     | "false" -> Lit(AST.Bool false)
+    | "NaN" -> Lit(AST.Float nan)
+    | "Infinity" -> Lit(AST.Float infinity)
     | str -> Identifier str
 
 let internal unescapeStr = System.Text.RegularExpressions.Regex.Unescape
@@ -106,10 +130,10 @@ let internal letter c =
     | UnicodeCategory.LetterNumber -> true
     | _ -> false
 
-let internal is_id_start c = c = '_' || letter c
+let internal isIdStart c = c = '_' || letter c
 
-let internal is_id_continue c =
-    is_id_start c
+let internal isIdContinue c =
+    isIdStart c
     || match System.Char.GetUnicodeCategory c with
        | UnicodeCategory.DecimalDigitNumber
        | UnicodeCategory.ConnectorPunctuation
@@ -121,7 +145,7 @@ let internal is_id_continue c =
 type internal State =
     { i: int
       data: Token[]
-      error: (AST.Span * string)[] }
+      error: Error[] }
 
 let lex (input: string) =
     let len = input.Length
@@ -129,73 +153,73 @@ let lex (input: string) =
     let rec lex state =
         let i = state.i
 
-        let with_new_token token j =
-            let span = AST.Span.make i (j - 1)
+        let withNewToken token j =
+            let span = AST.Span.Make i (j - 1)
 
             let new_state =
                 { state with
                     i = j
-                    data = Array.append state.data [| Token.make token span |] }
+                    data = Array.append state.data [| Token.Make token span |] }
 
             lex new_state
 
-        let with_new_error error j =
-            let span = AST.Span.make i (j - 1)
+        let withNewError error j =
+            let span = AST.Span.Make i (j - 1)
 
             let new_state =
                 { state with
                     i = j
-                    error = Array.append state.error [| span, error |] }
+                    error = Array.append state.error [| error span |] }
 
             lex new_state
 
-        let punc p = with_new_token p (i + 1)
+        let punc p = withNewToken p (i + 1)
 
-        let delimiter kind = with_new_token (Delimiter kind) (i + 1)
+        let delimiter kind = withNewToken (Delimiter kind) (i + 1)
 
-        let maybe_assign op =
+        let maybeAssign op =
             let token, j =
                 if i + 1 < len && input[i + 1] = '=' then
-                    Assign op, i + 2
+                    AssignOp op, i + 2
                 else
-                    Binary(AST.Arithmetic op), i + 1
+                    Operator(AST.Arithmetic op), i + 1
 
-            with_new_token token j
+            withNewToken token j
 
-        let maybe_assign_or_double char op double =
+        let maybeAssignOrDouble char op double =
             let token, j =
                 if i + 2 < len && input[i + 1] = char && input[i + 2] = '=' then
-                    Assign double, i + 3
+                    AssignOp double, i + 3
                 else if i + 1 < len && input[i + 1] = char then
-                    Binary(AST.Arithmetic double), i + 2
+                    Operator(AST.Arithmetic double), i + 2
                 else if i + 1 < len && input[i + 1] = '=' then
-                    Assign op, i + 2
+                    AssignOp op, i + 2
                 else
-                    Binary(AST.Arithmetic op), i + 1
+                    Operator(AST.Arithmetic op), i + 1
 
-            with_new_token token j
+            withNewToken token j
 
-        let rec parse_int alphabet i =
-            let rec skip_when i =
+        let rec parseInt alphabet i =
+            let rec takeWhen i =
                 if i = len then
                     i
                 else if Array.contains input[i] alphabet || input[i] = '_' then
-                    skip_when (i + 1)
+                    takeWhen (i + 1)
                 else
                     i
 
-            let j = skip_when i
+            let j = takeWhen i
 
             if alphabet.Length <> 10 || j = len then
                 Ok j
             else if input[j] = '.' then
-                parse_dec (j + 1)
+                parseDec (j + 1)
             else if input[j] = 'e' || input[j] = 'E' then
-                parse_exp (j + 1)
+                parseExp (j + 1)
             else
                 Ok j
 
-        and parse_dec i =
+        and parseDec i =
             let rec skip_when j =
                 if j = len then
                     j
@@ -211,28 +235,28 @@ let lex (input: string) =
             if j = len || (input[j] <> 'e' && input[j] <> 'E') then
                 Ok j
             else
-                parse_exp (j + 1)
+                parseExp (j + 1)
 
-        and parse_exp i =
+        and parseExp i =
             if i = len then
-                Error(i, "missing exponent")
+                Error(MissingExpContent, i)
             else
                 let i = if input[i] = '+' || input[i] = '-' then i + 1 else i
 
-                let rec skip_when j =
+                let rec takeWhen j =
                     if j = len then
                         j
                     else if System.Char.IsAsciiDigit input[j] then
-                        skip_when (j + 1)
+                        takeWhen (j + 1)
                     else if j <> i && input[j] = '_' then
-                        skip_when (j + 1)
+                        takeWhen (j + 1)
                     else
                         j
 
                 if i = len then
-                    Error(i, "missing exponent")
+                    Error(MissingExpContent, i)
                 else
-                    Ok(skip_when i)
+                    Ok(takeWhen i)
 
         if i = input.Length then
             if state.error.Length = 0 then
@@ -250,6 +274,7 @@ let lex (input: string) =
             | '}' -> punc (Curly Close)
             | '~' -> punc Tilde
             | ',' -> punc Comma
+            | '?' -> punc Question
             | ';' -> delimiter Semi
             | '\n' -> delimiter CR
             | '\r' -> delimiter LF
@@ -260,7 +285,7 @@ let lex (input: string) =
                     else
                         Colon, i + 1
 
-                with_new_token token j
+                withNewToken token j
 
             | '.' ->
                 let token, j =
@@ -270,159 +295,159 @@ let lex (input: string) =
                         else
                             Ok DotDot, i + 2
                     else if i + 1 < len && System.Char.IsAsciiDigit input[i + 1] then
-                        let j = parse_dec (i + 1)
+                        let j = parseDec (i + 1)
 
                         match j with
                         | Ok j ->
                             let str = input[i .. (j - 1)]
 
                             Ok(Lit(AST.Float(float str))), j
-                        | Error(j, msg) -> Error msg, j
+                        | Error(e, j) -> Error e, j
                     else
                         Ok Dot, i + 1
 
                 match token with
-                | Ok token -> with_new_token token j
-                | Error msg -> with_new_error msg j
+                | Ok token -> withNewToken token j
+                | Error msg -> withNewError msg j
 
             | ' '
             | '\t' ->
-                let rec skip_when i =
+                let rec skipWhen i =
                     if i = len then
                         i
                     else if input[i] = ' ' || input[i] = '\t' then
-                        skip_when (i + 1)
+                        skipWhen (i + 1)
                     else
                         i
 
-                lex { state with i = skip_when (i + 1) }
+                lex { state with i = skipWhen (i + 1) }
 
             | '=' ->
                 let token, j =
                     if i + 1 < len then
                         match input[i + 1] with
                         | '>' -> FatArrow, i + 2
-                        | '=' -> Binary(AST.EqEq), i + 2
+                        | '=' -> Operator(AST.EqEq), i + 2
                         | _ -> Eq, i + 1
                     else
                         Eq, i + 1
 
-                with_new_token token j
+                withNewToken token j
 
             | '!' ->
                 let token, j =
                     if i + 1 < len && input[i + 1] = '=' then
-                        Binary(AST.NotEq), i + 2
+                        Operator(AST.NotEq), i + 2
                     else
                         Not, i + 1
 
-                with_new_token token j
+                withNewToken token j
 
-            | '+' -> maybe_assign AST.Add
-            | '%' -> maybe_assign AST.Mod
-            | '^' -> maybe_assign AST.BitXor
+            | '+' -> maybeAssign AST.Add
+            | '%' -> maybeAssign AST.Mod
+            | '^' -> maybeAssign AST.BitXor
 
-            | '*' -> maybe_assign_or_double '*' AST.Mul AST.Pow
+            | '*' -> maybeAssign AST.Mul
 
             | '-' ->
                 if i + 1 < len && input[i + 1] = '>' then
-                    with_new_token Arrow (i + 2)
+                    withNewToken Arrow (i + 2)
                 else
-                    maybe_assign AST.Sub
+                    maybeAssign AST.Sub
 
-            | '&' -> maybe_assign_or_double '&' AST.BitAnd AST.LogicalAnd
+            | '&' -> maybeAssignOrDouble '&' AST.BitAnd AST.LogicalAnd
 
             | '|' ->
                 if i + 1 < len && input[i + 1] = '>' then
-                    with_new_token (Binary AST.Pipe) (i + 2)
+                    withNewToken (Operator AST.Pipe) (i + 2)
                 else
-                    maybe_assign_or_double '|' AST.BitOr AST.LogicalOr
+                    maybeAssignOrDouble '|' AST.BitOr AST.LogicalOr
 
             | '>' ->
                 let token, j =
                     if i + 2 < len && input[i + 1] = '>' && input[i + 2] = '=' then
-                        Assign AST.Shr, i + 3
+                        AssignOp AST.Shr, i + 3
                     else if i + 1 < len && input[i + 1] = '>' then
-                        Binary(AST.Arithmetic AST.Shr), i + 2
+                        Operator(AST.Arithmetic AST.Shr), i + 2
                     else if i + 1 < len && input[i + 1] = '=' then
-                        Binary(AST.GtEq), i + 2
+                        Operator(AST.GtEq), i + 2
                     else
-                        Binary(AST.Gt), i + 1
+                        Operator(AST.Gt), i + 1
 
-                with_new_token token j
+                withNewToken token j
 
             | '<' ->
                 let token, j =
                     if i + 2 < len && input[i + 1] = '<' && input[i + 2] = '=' then
-                        Assign AST.Shl, i + 3
+                        AssignOp AST.Shl, i + 3
                     else if i + 1 < len && input[i + 1] = '<' then
-                        Binary(AST.Arithmetic AST.Shl), i + 1
+                        Operator(AST.Arithmetic AST.Shl), i + 1
                     else if i + 1 < len && input[i + 1] = '=' then
-                        Binary(AST.LtEq), i + 2
+                        Operator(AST.LtEq), i + 2
                     else
-                        Binary(AST.Lt), i + 1
+                        Operator(AST.Lt), i + 1
 
-                with_new_token token j
+                withNewToken token j
 
             | '/' ->
                 let data, j =
                     if i + 1 < len then
                         match input[i + 1] with
                         | '/' ->
-                            let rec take_when i =
+                            let rec takeWhen i =
                                 if i = len || input[i] = '\n' || input[i] = '\r' then
                                     i
                                 else
-                                    take_when (i + 1)
+                                    takeWhen (i + 1)
 
-                            let j = take_when (i + 1)
+                            let j = takeWhen (i + 1)
                             let token = Comment(SingleLine, input[(i + 2) .. (j - 1)])
 
                             Ok token, j
                         | '*' ->
-                            let rec take_when j =
+                            let rec takeWhen j =
                                 if j = len then
-                                    Error "incomplete mulitline comment at the end of file", j
+                                    Error IncompleteMultilineComment, j
                                 else if j + 1 < len && input[j] = '*' && input[j + 1] = '/' then
                                     let token = Comment(MultiLine, input[(i + 2) .. (j - 1)])
                                     Ok token, j + 2
                                 else
-                                    take_when (j + 1)
+                                    takeWhen (j + 1)
 
-                            take_when (i + 1)
-                        | '=' -> Ok(Assign(AST.Div)), i + 2
-                        | _ -> Ok(Binary(AST.Arithmetic AST.Div)), i + 1
+                            takeWhen (i + 1)
+                        | '=' -> Ok(AssignOp(AST.Div)), i + 2
+                        | _ -> Ok(Operator(AST.Arithmetic AST.Div)), i + 1
                     else
-                        Ok(Binary(AST.Arithmetic AST.Div)), i + 1
+                        Ok(Operator(AST.Arithmetic AST.Div)), i + 1
 
                 match data with
-                | Ok token -> with_new_token token j
-                | Error msg -> with_new_error msg j
+                | Ok token -> withNewToken token j
+                | Error msg -> withNewError msg j
 
             | '"' ->
-                let rec take_when i =
-                    if i = len then
-                        Error(i, "unmatched double quote")
-                    else if input[i] = '\\' then
-                        if i = len - 1 then
-                            Error(i, "incomplete escape sequence at the end of file")
+                let rec takeWhen j =
+                    if j = len then
+                        Error(Unmatched(AST.Span.Make i (j - 1), '"'))
+                    else if input[j] = '\\' then
+                        if j = len - 1 then
+                            Error(IncompleteEscapeSeq(AST.Span.Make i j))
                         else
-                            take_when (i + 2)
-                    else if input[i] = '"' then
-                        Ok(i + 1)
+                            takeWhen (j + 2)
+                    else if input[j] = '"' then
+                        Ok(j + 1)
                     else
-                        take_when (i + 1)
+                        takeWhen (j + 1)
 
-                let j = take_when (i + 1)
+                let res = takeWhen (i + 1)
 
-                match j with
-                | Error(j, msg) ->
-                    let error = Array.append state.error [| AST.Span.make j j, msg |]
+                match res with
+                | Error e ->
+                    let error = Array.append state.error [| e |]
 
                     Error error
                 | Ok j ->
                     let token = unescapeStr input[(i + 1) .. (j - 2)] |> AST.String |> Lit
-                    with_new_token token j
+                    withNewToken token j
             | ''' ->
                 let rec take_when i =
                     if i = len then
@@ -438,33 +463,30 @@ let lex (input: string) =
 
                 match j with
                 | Error j ->
-                    let error =
-                        Array.append
-                            state.error
-                            [| AST.Span.make j j, "incomplete escape sequence at the end of file" |]
+                    let error = Array.append state.error [| IncompleteEscapeSeq(AST.Span.Make j j) |]
 
                     Error error
                 | Ok j ->
                     let str = unescapeStr input[(i + 1) .. (j - 2)]
 
                     match str.Length with
-                    | 0 -> with_new_error "char can not be empty" j
+                    | 0 -> withNewError CharEmpty j
                     | 1 ->
                         let token = Lit(AST.Char str[0])
 
-                        with_new_token token j
+                        withNewToken token j
 
-                    | _ -> with_new_error "char can only contain one character" j
+                    | _ -> withNewError CharTooMany j
 
-            | c when is_id_start c ->
-                let rec take_when i =
+            | c when isIdStart c ->
+                let rec takeWhen i =
                     if i = len then i
-                    else if is_id_continue input[i] then take_when (i + 1)
+                    else if isIdContinue input[i] then takeWhen (i + 1)
                     else i
 
-                let j = take_when (i + 1)
+                let j = takeWhen (i + 1)
                 let token = parseIdentifier input[i .. (j - 1)]
-                with_new_token token j
+                withNewToken token j
 
             | c when System.Char.IsAsciiDigit c ->
                 let alphabet, new_i =
@@ -490,18 +512,18 @@ let lex (input: string) =
                     let j =
                         if new_i = len then
                             if alphabet.Length <> 10 then
-                                Error(new_i, "missing number content")
+                                Error(MissingIntContent, new_i)
                             else
                                 Ok new_i
                         else
-                            parse_int alphabet new_i
+                            parseInt alphabet new_i
 
                     match j with
                     | Ok j ->
                         let str = input[i .. (j - 1)]
 
                         let token, j =
-                            if str.EndsWith '.' && j < len && (is_id_start input[j] || input[j] = '.') then
+                            if str.EndsWith '.' && j < len && (isIdStart input[j] || input[j] = '.') then
                                 let token = Lit(AST.Int(uint str[.. (str.Length - 2)]))
 
                                 token, j - 1
@@ -517,14 +539,14 @@ let lex (input: string) =
 
                                 token, j
 
-                        with_new_token token j
-                    | Error(j, msg) -> with_new_error msg j
+                        withNewToken token j
+                    | Error(msg, j) -> withNewError msg j
 
-                | Error c -> with_new_error $"unknown number literal prefix {c}" (i + 2)
+                | Error c -> withNewError (fun span -> UnknownNumberPrefix(span, c)) (i + 2)
 
-            | _ ->
+            | c ->
                 let error =
-                    Array.append state.error [| AST.Span.make i i, "unrecognizable pattern" |]
+                    Array.append state.error [| UnrecognizablePattern(AST.Span.Make i i, c) |]
 
                 Error error
 

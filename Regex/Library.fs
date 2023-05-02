@@ -163,8 +163,8 @@ let internal nfaToDFA (nfa: NFAUnit[]) =
             let add prev =
                 Some(
                     match prev with
-                    | Some p -> Set.add i p
-                    | None -> Set [| i |]
+                    | Some p -> if Set.contains i p then p else Set.union (eclosure i) p
+                    | None -> eclosure i
                 )
 
             Map.change key add state
@@ -177,10 +177,7 @@ let internal nfaToDFA (nfa: NFAUnit[]) =
 
             Map.fold reachable state init
 
-        let set_eclosure _ s =
-            s |> Set.toArray |> Array.map eclosure |> Set.unionMany
-
-        Set.fold set_reachable Map.empty e |> Map.map set_eclosure
+        Set.fold set_reachable Map.empty e
 
     let rec transform curr map =
         let reachable = closure_next curr
