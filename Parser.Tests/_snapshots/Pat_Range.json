@@ -1,0 +1,70 @@
+{
+  "CatchAll": {
+    "Case": "RestPat",
+    "Fields": [
+      {
+        "first": 0,
+        "last": 1
+      }
+    ]
+  },
+  "Left": {
+    "Case": "RangePat",
+    "Fields": [
+      {
+        "from": {
+          "Case": "Some",
+          "Fields": [
+            {
+              "Case": "IdPat",
+              "Fields": [
+                {
+                  "sym": "A",
+                  "span": {
+                    "first": 0,
+                    "last": 0
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "to_": null,
+        "span": {
+          "first": 0,
+          "last": 2
+        }
+      }
+    ]
+  },
+  "Right": {
+    "Case": "RangePat",
+    "Fields": [
+      {
+        "from": null,
+        "to_": {
+          "Case": "Some",
+          "Fields": [
+            {
+              "Case": "LitPat",
+              "Fields": [
+                {
+                  "Case": "Int",
+                  "Fields": [10]
+                },
+                {
+                  "first": 2,
+                  "last": 3
+                }
+              ]
+            }
+          ]
+        },
+        "span": {
+          "first": 0,
+          "last": 3
+        }
+      }
+    ]
+  }
+}

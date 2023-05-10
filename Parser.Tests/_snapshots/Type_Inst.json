@@ -1,0 +1,200 @@
+{
+  "Shr": {
+    "Case": "TypeInst",
+    "Fields": [
+      {
+        "ty": {
+          "Case": "PathType",
+          "Fields": [
+            {
+              "prefix": null,
+              "seg": [
+                {
+                  "sym": "std",
+                  "span": {
+                    "first": 0,
+                    "last": 2
+                  }
+                },
+                {
+                  "sym": "collections",
+                  "span": {
+                    "first": 5,
+                    "last": 15
+                  }
+                },
+                {
+                  "sym": "HashMap",
+                  "span": {
+                    "first": 18,
+                    "last": 24
+                  }
+                }
+              ],
+              "span": {
+                "first": 0,
+                "last": 24
+              }
+            }
+          ]
+        },
+        "arg": [
+          {
+            "Case": "TypeId",
+            "Fields": [
+              {
+                "sym": "i32",
+                "span": {
+                  "first": 26,
+                  "last": 28
+                }
+              }
+            ]
+          },
+          {
+            "Case": "TypeInst",
+            "Fields": [
+              {
+                "ty": {
+                  "Case": "TypeId",
+                  "Fields": [
+                    {
+                      "sym": "Vec",
+                      "span": {
+                        "first": 31,
+                        "last": 33
+                      }
+                    }
+                  ]
+                },
+                "arg": [
+                  {
+                    "Case": "TypeId",
+                    "Fields": [
+                      {
+                        "sym": "i32",
+                        "span": {
+                          "first": 35,
+                          "last": 37
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "span": {
+                  "first": 31,
+                  "last": 39
+                }
+              }
+            ]
+          }
+        ],
+        "span": {
+          "first": 0,
+          "last": 40
+        }
+      }
+    ]
+  },
+  "Shl": {
+    "Case": "TypeInst",
+    "Fields": [
+      {
+        "ty": {
+          "Case": "PathType",
+          "Fields": [
+            {
+              "prefix": {
+                "Case": "Some",
+                "Fields": [
+                  {
+                    "Case": "Package"
+                  }
+                ]
+              },
+              "seg": [
+                {
+                  "sym": "vec",
+                  "span": {
+                    "first": 5,
+                    "last": 7
+                  }
+                },
+                {
+                  "sym": "Vec",
+                  "span": {
+                    "first": 10,
+                    "last": 12
+                  }
+                }
+              ],
+              "span": {
+                "first": 0,
+                "last": 12
+              }
+            }
+          ]
+        },
+        "arg": [
+          {
+            "Case": "FnType",
+            "Fields": [
+              {
+                "param": [
+                  {
+                    "Case": "TypeId",
+                    "Fields": [
+                      {
+                        "sym": "T",
+                        "span": {
+                          "first": 18,
+                          "last": 18
+                        }
+                      }
+                    ]
+                  }
+                ],
+                "typeParam": [
+                  {
+                    "id": {
+                      "sym": "T",
+                      "span": {
+                        "first": 15,
+                        "last": 15
+                      }
+                    },
+                    "bound": null,
+                    "span": {
+                      "first": 15,
+                      "last": 15
+                    }
+                  }
+                ],
+                "ret": {
+                  "Case": "TypeId",
+                  "Fields": [
+                    {
+                      "sym": "i32",
+                      "span": {
+                        "first": 22,
+                        "last": 24
+                      }
+                    }
+                  ]
+                },
+                "span": {
+                  "first": 17,
+                  "last": 24
+                }
+              }
+            ]
+          }
+        ],
+        "span": {
+          "first": 0,
+          "last": 26
+        }
+      }
+    ]
+  }
+}

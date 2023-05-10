@@ -170,44 +170,13 @@
     "Fields": [
       {
         "left": {
-          "Case": "Binary",
+          "Case": "Id",
           "Fields": [
             {
-              "left": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "a",
-                    "span": {
-                      "first": 0,
-                      "last": 0
-                    }
-                  }
-                ]
-              },
-              "op": {
-                "Case": "Arithmetic",
-                "Fields": [
-                  {
-                    "Case": "Add"
-                  }
-                ]
-              },
-              "right": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "b",
-                    "span": {
-                      "first": 4,
-                      "last": 4
-                    }
-                  }
-                ]
-              },
+              "sym": "a",
               "span": {
                 "first": 0,
-                "last": 4
+                "last": 0
               }
             }
           ]
@@ -225,8 +194,109 @@
                   {
                     "sym": "c",
                     "span": {
+                      "first": 5,
+                      "last": 5
+                    }
+                  }
+                ]
+              },
+              "op": {
+                "Case": "Arithmetic",
+                "Fields": [
+                  {
+                    "Case": "Add"
+                  }
+                ]
+              },
+              "right": {
+                "Case": "Binary",
+                "Fields": [
+                  {
+                    "left": {
+                      "Case": "Id",
+                      "Fields": [
+                        {
+                          "sym": "d",
+                          "span": {
+                            "first": 9,
+                            "last": 9
+                          }
+                        }
+                      ]
+                    },
+                    "op": {
+                      "Case": "Arithmetic",
+                      "Fields": [
+                        {
+                          "Case": "Mul"
+                        }
+                      ]
+                    },
+                    "right": {
+                      "Case": "Lit",
+                      "Fields": [
+                        {
+                          "Case": "Int",
+                          "Fields": [
+                            3
+                          ]
+                        },
+                        {
+                          "first": 13,
+                          "last": 13
+                        }
+                      ]
+                    },
+                    "span": {
                       "first": 9,
-                      "last": 9
+                      "last": 13
+                    }
+                  }
+                ]
+              },
+              "span": {
+                "first": 5,
+                "last": 13
+              }
+            }
+          ]
+        },
+        "span": {
+          "first": 0,
+          "last": 13
+        }
+      }
+    ]
+  },
+  "Assign": {
+    "Case": "Assign",
+    "Fields": [
+      {
+        "assignee": {
+          "Case": "Id",
+          "Fields": [
+            {
+              "sym": "a",
+              "span": {
+                "first": 0,
+                "last": 0
+              }
+            }
+          ]
+        },
+        "op": null,
+        "value": {
+          "Case": "Binary",
+          "Fields": [
+            {
+              "left": {
+                "Case": "Id",
+                "Fields": [
+                  {
+                    "sym": "b",
+                    "span": {
+                      "first": 4,
+                      "last": 4
                     }
                   }
                 ]
@@ -243,24 +313,24 @@
                 "Case": "Id",
                 "Fields": [
                   {
-                    "sym": "d",
+                    "sym": "c",
                     "span": {
-                      "first": 13,
-                      "last": 13
+                      "first": 8,
+                      "last": 8
                     }
                   }
                 ]
               },
               "span": {
-                "first": 9,
-                "last": 13
+                "first": 4,
+                "last": 8
               }
             }
           ]
         },
         "span": {
           "first": 0,
-          "last": 13
+          "last": 8
         }
       }
     ]
@@ -321,6 +391,80 @@
         "span": {
           "first": 0,
           "last": 8
+        }
+      }
+    ]
+  },
+  "AssignOp": {
+    "Case": "Assign",
+    "Fields": [
+      {
+        "assignee": {
+          "Case": "Id",
+          "Fields": [
+            {
+              "sym": "a",
+              "span": {
+                "first": 0,
+                "last": 0
+              }
+            }
+          ]
+        },
+        "op": {
+          "Case": "Some",
+          "Fields": [
+            {
+              "Case": "Mul"
+            }
+          ]
+        },
+        "value": {
+          "Case": "Binary",
+          "Fields": [
+            {
+              "left": {
+                "Case": "Id",
+                "Fields": [
+                  {
+                    "sym": "b",
+                    "span": {
+                      "first": 5,
+                      "last": 5
+                    }
+                  }
+                ]
+              },
+              "op": {
+                "Case": "Arithmetic",
+                "Fields": [
+                  {
+                    "Case": "Add"
+                  }
+                ]
+              },
+              "right": {
+                "Case": "Id",
+                "Fields": [
+                  {
+                    "sym": "c",
+                    "span": {
+                      "first": 9,
+                      "last": 9
+                    }
+                  }
+                ]
+              },
+              "span": {
+                "first": 5,
+                "last": 9
+              }
+            }
+          ]
+        },
+        "span": {
+          "first": 0,
+          "last": 9
         }
       }
     ]
@@ -402,7 +546,7 @@
           ]
         },
         "span": {
-          "first": 0,
+          "first": 1,
           "last": 10
         }
       }
@@ -485,7 +629,7 @@
           ]
         },
         "span": {
-          "first": 1,
+          "first": 4,
           "last": 16
         }
       }

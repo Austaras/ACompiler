@@ -25,7 +25,7 @@ type Reserved =
     | RETURN
     | FUNCTION
     | LET
-    | MUT
+    | MUTABLE
     | CONST
     | TYPE
     | TRAIT
@@ -56,7 +56,7 @@ type TokenData =
     | FatArrow
     | Dot
     | DotDot
-    | DotDotEq
+    | DotDotCaret
     | Delimiter of Delimiter
     | Lit of AST.Lit
     | Not
@@ -99,7 +99,7 @@ let internal parseIdentifier input =
     | "fn" -> Reserved FUNCTION
     | "ret" -> Reserved RETURN
     | "let" -> Reserved LET
-    | "mut" -> Reserved MUT
+    | "mut" -> Reserved MUTABLE
     | "const" -> Reserved CONST
     | "type" -> Reserved TYPE
     | "trait" -> Reserved TRAIT
@@ -110,7 +110,7 @@ let internal parseIdentifier input =
     | "with" -> Reserved WITH
     | "Self" -> Reserved SELF
     | "self" -> Reserved LOWSELF
-    | "pack" -> Reserved PACKAGE
+    | "pak" -> Reserved PACKAGE
     | "as" -> Operator AST.As
     | "true" -> Lit(AST.Bool true)
     | "false" -> Lit(AST.Bool false)
@@ -156,22 +156,22 @@ let lex (input: string) =
         let withNewToken token j =
             let span = AST.Span.Make i (j - 1)
 
-            let new_state =
+            let newState =
                 { state with
                     i = j
                     data = Array.append state.data [| Token.Make token span |] }
 
-            lex new_state
+            lex newState
 
         let withNewError error j =
             let span = AST.Span.Make i (j - 1)
 
-            let new_state =
+            let newState =
                 { state with
                     i = j
                     error = Array.append state.error [| error span |] }
 
-            lex new_state
+            lex newState
 
         let punc p = withNewToken p (i + 1)
 
@@ -220,17 +220,17 @@ let lex (input: string) =
                 Ok j
 
         and parseDec i =
-            let rec skip_when j =
+            let rec takeWhen j =
                 if j = len then
                     j
                 else if System.Char.IsAsciiDigit input[j] then
-                    skip_when (j + 1)
+                    takeWhen (j + 1)
                 else if j <> i && input[j] = '_' then
-                    skip_when (j + 1)
+                    takeWhen (j + 1)
                 else
                     j
 
-            let j = skip_when i
+            let j = takeWhen i
 
             if j = len || (input[j] <> 'e' && input[j] <> 'E') then
                 Ok j
@@ -290,8 +290,8 @@ let lex (input: string) =
             | '.' ->
                 let token, j =
                     if i + 1 < len && input[i + 1] = '.' then
-                        if i + 2 < len && input[i + 2] = '=' then
-                            Ok DotDotEq, i + 3
+                        if i + 2 < len && input[i + 2] = '^' then
+                            Ok DotDotCaret, i + 3
                         else
                             Ok DotDot, i + 2
                     else if i + 1 < len && System.Char.IsAsciiDigit input[i + 1] then
@@ -381,7 +381,7 @@ let lex (input: string) =
                     if i + 2 < len && input[i + 1] = '<' && input[i + 2] = '=' then
                         AssignOp AST.Shl, i + 3
                     else if i + 1 < len && input[i + 1] = '<' then
-                        Operator(AST.Arithmetic AST.Shl), i + 1
+                        Operator(AST.Arithmetic AST.Shl), i + 2
                     else if i + 1 < len && input[i + 1] = '=' then
                         Operator(AST.LtEq), i + 2
                     else
@@ -449,17 +449,17 @@ let lex (input: string) =
                     let token = unescapeStr input[(i + 1) .. (j - 2)] |> AST.String |> Lit
                     withNewToken token j
             | ''' ->
-                let rec take_when i =
+                let rec takeWhen i =
                     if i = len then
                         Error i
                     else if input[i] = '\\' then
-                        if i = len - 1 then Error i else take_when (i + 2)
+                        if i = len - 1 then Error i else takeWhen (i + 2)
                     else if input[i] = ''' then
                         Ok(i + 1)
                     else
-                        take_when (i + 1)
+                        takeWhen (i + 1)
 
-                let j = take_when (i + 1)
+                let j = takeWhen (i + 1)
 
                 match j with
                 | Error j ->
@@ -489,7 +489,7 @@ let lex (input: string) =
                 withNewToken token j
 
             | c when System.Char.IsAsciiDigit c ->
-                let alphabet, new_i =
+                let alphabet, newI =
                     if c = '0' && i + 1 < len then
                         match input[i + 1] with
                         | 'b'
@@ -498,9 +498,7 @@ let lex (input: string) =
                         | 'O' -> Ok(seq { '0' .. '8' }), i + 2
                         | 'x'
                         | 'X' -> Ok(Seq.concat [ seq { '0' .. '9' }; seq { 'a' .. 'f' }; seq { 'A' .. 'F' } ]), i + 2
-                        | c when System.Char.IsAsciiDigit c || c = '_' || c = '.' || c = 'e' || c = 'E' ->
-                            Ok(seq { '0' .. '9' }), i + 1
-                        | c -> Error c, i + 2
+                        | _ -> Ok(seq { '0' .. '9' }), i + 1
 
                     else
                         Ok(seq { '0' .. '9' }), i + 1
@@ -510,13 +508,13 @@ let lex (input: string) =
                     let alphabet = Seq.toArray a
 
                     let j =
-                        if new_i = len then
+                        if newI = len then
                             if alphabet.Length <> 10 then
-                                Error(MissingIntContent, new_i)
+                                Error(MissingIntContent, newI)
                             else
-                                Ok new_i
+                                Ok newI
                         else
-                            parseInt alphabet new_i
+                            parseInt alphabet newI
 
                     match j with
                     | Ok j ->

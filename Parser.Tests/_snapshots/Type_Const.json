@@ -1,0 +1,42 @@
+{
+  "Neg": {
+    "Case": "TypeInst",
+    "Fields": [
+      {
+        "ty": {
+          "Case": "TypeId",
+          "Fields": [
+            {
+              "sym": "Container",
+              "span": {
+                "first": 0,
+                "last": 8
+              }
+            }
+          ]
+        },
+        "arg": [
+          {
+            "Case": "LitType",
+            "Fields": [
+              {
+                "Case": "NegInt",
+                "Fields": [
+                  1
+                ]
+              },
+              {
+                "first": 10,
+                "last": 11
+              }
+            ]
+          }
+        ],
+        "span": {
+          "first": 0,
+          "last": 13
+        }
+      }
+    ]
+  }
+}

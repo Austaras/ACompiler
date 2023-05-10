@@ -6,57 +6,19 @@
    - variant has their own namespace
    - also break/continue/return
    - struct/enum keyword
+   - .\_0 for tuple access
 2. ML semantic with Rust characteristics
    - static type with type inference
    - all functions are mutually recursive
    - internal mutable
-   - reference type with auto ref and auto deref which is GC tracked
-   - trait
+   - reference type with auto ref/deref which is GC tracked
+   - trait with static and dynamic dispatch
+   - maybe HKT?
 3. suffix is .adf which stands for Advanced Dominance Fighter
 
 ### Syntax Construct
 
-<> means optional, [] means array
-
-```
-Boolean:: true | false
-
-String:: "[\*]"
-
-Char:: '[\*]'
-
-Literal:: Boolean | Int | Float | String
-
-Expr:: AssignExpr | BinExpr | BlockExpr | CallExpr | Identifier | IfExpr | Litreal | MemberExpr | RangeExpr | UnaryExpr
-
-Identifier:: starts with \_ or a-zA-Z, and contains only number or alphabet
-
-BlockExpr:: { [Expr (\n|;)] }
-
-IfExpr:: if Expr then BlockExpr \<else BlockExpr\>
-
-ArithmeticOp:: + - * / % ** & | ^ && ||
-
-AssignOp:: ArithmeticOrLogicalOp= | =
-
-BinaryOp:: ArithmeticOrLogicalOp | == != > < >= <= |>
-
-UnaryOp:: ! - & *
-
-AssignExpr:: Expr AssignOp Expr
-
-BinExpr:: Expr BinaryOp Expr
-
-CallExpr:: Expr<::<[Expr, ]+>>( [Expr, ] )
-
-MemberExpr:: Expr .Identifier | .Int | [Expr]
-
-RangeExpr:: Expr ..|..= Expr
-
-UnaryExpr:: UnaryOp Expr
-
-Stmt:: ExprStmt | LetStmt | UseStmt | FnStmt
-```
+See AST and parser
 
 ### Semantic
 

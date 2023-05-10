@@ -1,0 +1,362 @@
+{
+  "Enum": {
+    "Case": "EnumPat",
+    "Fields": [
+      {
+        "name": {
+          "Case": "PathPat",
+          "Fields": [
+            {
+              "prefix": null,
+              "seg": [
+                {
+                  "sym": "core",
+                  "span": {
+                    "first": 0,
+                    "last": 3
+                  }
+                },
+                {
+                  "sym": "Option",
+                  "span": {
+                    "first": 6,
+                    "last": 11
+                  }
+                },
+                {
+                  "sym": "Some",
+                  "span": {
+                    "first": 14,
+                    "last": 17
+                  }
+                }
+              ],
+              "span": {
+                "first": 0,
+                "last": 17
+              }
+            }
+          ]
+        },
+        "content": [
+          {
+            "Case": "LitPat",
+            "Fields": [
+              {
+                "Case": "Int",
+                "Fields": [
+                  1
+                ]
+              },
+              {
+                "first": 19,
+                "last": 19
+              }
+            ]
+          }
+        ],
+        "span": {
+          "first": 0,
+          "last": 20
+        }
+      }
+    ]
+  },
+  "Struct": {
+    "Case": "StructPat",
+    "Fields": [
+      {
+        "name": {
+          "prefix": {
+            "Case": "Some",
+            "Fields": [
+              {
+                "Case": "Package"
+              }
+            ]
+          },
+          "seg": [
+            {
+              "sym": "Foo",
+              "span": {
+                "first": 5,
+                "last": 7
+              }
+            }
+          ],
+          "span": {
+            "first": 0,
+            "last": 7
+          }
+        },
+        "field": [
+          {
+            "Case": "ShorthandPat",
+            "Fields": [
+              {
+                "sym": "v",
+                "span": {
+                  "first": 11,
+                  "last": 11
+                }
+              }
+            ]
+          },
+          {
+            "Case": "KeyValuePat",
+            "Fields": [
+              {
+                "id": {
+                  "sym": "x",
+                  "span": {
+                    "first": 14,
+                    "last": 14
+                  }
+                },
+                "pat": {
+                  "Case": "LitPat",
+                  "Fields": [
+                    {
+                      "Case": "Int",
+                      "Fields": [
+                        10
+                      ]
+                    },
+                    {
+                      "first": 17,
+                      "last": 18
+                    }
+                  ]
+                },
+                "span": {
+                  "first": 14,
+                  "last": 18
+                }
+              }
+            ]
+          },
+          {
+            "Case": "RestFieldPat",
+            "Fields": [
+              {
+                "first": 21,
+                "last": 22
+              }
+            ]
+          }
+        ],
+        "span": {
+          "first": 0,
+          "last": 23
+        }
+      }
+    ]
+  },
+  "Compound": {
+    "Case": "StructPat",
+    "Fields": [
+      {
+        "name": {
+          "prefix": null,
+          "seg": [
+            {
+              "sym": "Person",
+              "span": {
+                "first": 0,
+                "last": 5
+              }
+            }
+          ],
+          "span": {
+            "first": 0,
+            "last": 5
+          }
+        },
+        "field": [
+          {
+            "Case": "KeyValuePat",
+            "Fields": [
+              {
+                "id": {
+                  "sym": "car",
+                  "span": {
+                    "first": 17,
+                    "last": 19
+                  }
+                },
+                "pat": {
+                  "Case": "EnumPat",
+                  "Fields": [
+                    {
+                      "name": {
+                        "Case": "IdPat",
+                        "Fields": [
+                          {
+                            "sym": "Some",
+                            "span": {
+                              "first": 22,
+                              "last": 25
+                            }
+                          }
+                        ]
+                      },
+                      "content": [
+                        {
+                          "Case": "CatchAllPat",
+                          "Fields": [
+                            {
+                              "first": 27,
+                              "last": 27
+                            }
+                          ]
+                        }
+                      ],
+                      "span": {
+                        "first": 22,
+                        "last": 28
+                      }
+                    }
+                  ]
+                },
+                "span": {
+                  "first": 17,
+                  "last": 28
+                }
+              }
+            ]
+          },
+          {
+            "Case": "KeyValuePat",
+            "Fields": [
+              {
+                "id": {
+                  "sym": "age",
+                  "span": {
+                    "first": 39,
+                    "last": 41
+                  }
+                },
+                "pat": {
+                  "Case": "AsPat",
+                  "Fields": [
+                    {
+                      "pat": {
+                        "Case": "RangePat",
+                        "Fields": [
+                          {
+                            "from": {
+                              "Case": "Some",
+                              "Fields": [
+                                {
+                                  "Case": "LitPat",
+                                  "Fields": [
+                                    {
+                                      "Case": "Int",
+                                      "Fields": [
+                                        13
+                                      ]
+                                    },
+                                    {
+                                      "first": 44,
+                                      "last": 45
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            "to_": {
+                              "Case": "Some",
+                              "Fields": [
+                                {
+                                  "Case": "LitPat",
+                                  "Fields": [
+                                    {
+                                      "Case": "Int",
+                                      "Fields": [
+                                        19
+                                      ]
+                                    },
+                                    {
+                                      "first": 48,
+                                      "last": 49
+                                    }
+                                  ]
+                                }
+                              ]
+                            },
+                            "span": {
+                              "first": 44,
+                              "last": 49
+                            }
+                          }
+                        ]
+                      },
+                      "id": {
+                        "sym": "person",
+                        "span": {
+                          "first": 54,
+                          "last": 59
+                        }
+                      },
+                      "span": {
+                        "first": 44,
+                        "last": 59
+                      }
+                    }
+                  ]
+                },
+                "span": {
+                  "first": 39,
+                  "last": 59
+                }
+              }
+            ]
+          },
+          {
+            "Case": "KeyValuePat",
+            "Fields": [
+              {
+                "id": {
+                  "sym": "name",
+                  "span": {
+                    "first": 70,
+                    "last": 73
+                  }
+                },
+                "pat": {
+                  "Case": "IdPat",
+                  "Fields": [
+                    {
+                      "sym": "person_name",
+                      "span": {
+                        "first": 76,
+                        "last": 86
+                      }
+                    }
+                  ]
+                },
+                "span": {
+                  "first": 70,
+                  "last": 86
+                }
+              }
+            ]
+          },
+          {
+            "Case": "RestFieldPat",
+            "Fields": [
+              {
+                "first": 97,
+                "last": 98
+              }
+            ]
+          }
+        ],
+        "span": {
+          "first": 0,
+          "last": 104
+        }
+      }
+    ]
+  }
+}

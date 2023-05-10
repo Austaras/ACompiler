@@ -1,0 +1,551 @@
+{
+  "If": {
+    "Case": "If",
+    "Fields": [
+      {
+        "cond": {
+          "Case": "LetCond",
+          "Fields": [
+            {
+              "pat": {
+                "Case": "OrPat",
+                "Fields": [
+                  {
+                    "pat": [
+                      {
+                        "Case": "EnumPat",
+                        "Fields": [
+                          {
+                            "name": {
+                              "Case": "IdPat",
+                              "Fields": [
+                                {
+                                  "sym": "L",
+                                  "span": {
+                                    "first": 7,
+                                    "last": 7
+                                  }
+                                }
+                              ]
+                            },
+                            "content": [
+                              {
+                                "Case": "CatchAllPat",
+                                "Fields": [
+                                  {
+                                    "first": 9,
+                                    "last": 9
+                                  }
+                                ]
+                              }
+                            ],
+                            "span": {
+                              "first": 7,
+                              "last": 10
+                            }
+                          }
+                        ]
+                      },
+                      {
+                        "Case": "EnumPat",
+                        "Fields": [
+                          {
+                            "name": {
+                              "Case": "IdPat",
+                              "Fields": [
+                                {
+                                  "sym": "R",
+                                  "span": {
+                                    "first": 14,
+                                    "last": 14
+                                  }
+                                }
+                              ]
+                            },
+                            "content": [
+                              {
+                                "Case": "CatchAllPat",
+                                "Fields": [
+                                  {
+                                    "first": 16,
+                                    "last": 16
+                                  }
+                                ]
+                              }
+                            ],
+                            "span": {
+                              "first": 14,
+                              "last": 17
+                            }
+                          }
+                        ]
+                      }
+                    ],
+                    "span": {
+                      "first": 7,
+                      "last": 17
+                    }
+                  }
+                ]
+              },
+              "value": {
+                "Case": "Id",
+                "Fields": [
+                  {
+                    "sym": "a",
+                    "span": {
+                      "first": 21,
+                      "last": 21
+                    }
+                  }
+                ]
+              },
+              "span": {
+                "first": 3,
+                "last": 21
+              }
+            }
+          ]
+        },
+        "then_": {
+          "stmt": [
+            {
+              "Case": "ExprStmt",
+              "Fields": [
+                {
+                  "Case": "Lit",
+                  "Fields": [
+                    {
+                      "Case": "Int",
+                      "Fields": [
+                        1
+                      ]
+                    },
+                    {
+                      "first": 25,
+                      "last": 25
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "span": {
+            "first": 23,
+            "last": 27
+          }
+        },
+        "elseif": [
+          {
+            "cond": {
+              "Case": "BoolCond",
+              "Fields": [
+                {
+                  "Case": "Binary",
+                  "Fields": [
+                    {
+                      "left": {
+                        "Case": "Id",
+                        "Fields": [
+                          {
+                            "sym": "a",
+                            "span": {
+                              "first": 37,
+                              "last": 37
+                            }
+                          }
+                        ]
+                      },
+                      "op": {
+                        "Case": "LtEq"
+                      },
+                      "right": {
+                        "Case": "Lit",
+                        "Fields": [
+                          {
+                            "Case": "Int",
+                            "Fields": [
+                              3
+                            ]
+                          },
+                          {
+                            "first": 42,
+                            "last": 42
+                          }
+                        ]
+                      },
+                      "span": {
+                        "first": 37,
+                        "last": 42
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            "value": {
+              "stmt": [
+                {
+                  "Case": "ExprStmt",
+                  "Fields": [
+                    {
+                      "Case": "Lit",
+                      "Fields": [
+                        {
+                          "Case": "Int",
+                          "Fields": [
+                            2
+                          ]
+                        },
+                        {
+                          "first": 46,
+                          "last": 46
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "span": {
+                "first": 44,
+                "last": 48
+              }
+            },
+            "span": {
+              "first": 29,
+              "last": 48
+            }
+          }
+        ],
+        "else_": {
+          "Case": "Some",
+          "Fields": [
+            {
+              "stmt": [
+                {
+                  "Case": "ExprStmt",
+                  "Fields": [
+                    {
+                      "Case": "Lit",
+                      "Fields": [
+                        {
+                          "Case": "Int",
+                          "Fields": [
+                            3
+                          ]
+                        },
+                        {
+                          "first": 57,
+                          "last": 57
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "span": {
+                "first": 55,
+                "last": 59
+              }
+            }
+          ]
+        },
+        "span": {
+          "first": 0,
+          "last": 27
+        }
+      }
+    ]
+  },
+  "For": {
+    "Case": "For",
+    "Fields": [
+      {
+        "var": {
+          "Case": "IdPat",
+          "Fields": [
+            {
+              "sym": "i",
+              "span": {
+                "first": 4,
+                "last": 4
+              }
+            }
+          ]
+        },
+        "iter": {
+          "Case": "Range",
+          "Fields": [
+            {
+              "from": {
+                "Case": "Some",
+                "Fields": [
+                  {
+                    "Case": "Lit",
+                    "Fields": [
+                      {
+                        "Case": "Int",
+                        "Fields": [
+                          0
+                        ]
+                      },
+                      {
+                        "first": 9,
+                        "last": 9
+                      }
+                    ]
+                  }
+                ]
+              },
+              "to_": {
+                "Case": "Some",
+                "Fields": [
+                  {
+                    "Case": "Lit",
+                    "Fields": [
+                      {
+                        "Case": "Int",
+                        "Fields": [
+                          9
+                        ]
+                      },
+                      {
+                        "first": 12,
+                        "last": 12
+                      }
+                    ]
+                  }
+                ]
+              },
+              "exclusive": false,
+              "span": {
+                "first": 9,
+                "last": 12
+              }
+            }
+          ]
+        },
+        "body": {
+          "stmt": [
+            {
+              "Case": "ExprStmt",
+              "Fields": [
+                {
+                  "Case": "Call",
+                  "Fields": [
+                    {
+                      "callee": {
+                        "Case": "Id",
+                        "Fields": [
+                          {
+                            "sym": "print",
+                            "span": {
+                              "first": 16,
+                              "last": 20
+                            }
+                          }
+                        ]
+                      },
+                      "arg": [
+                        {
+                          "Case": "Id",
+                          "Fields": [
+                            {
+                              "sym": "i",
+                              "span": {
+                                "first": 22,
+                                "last": 22
+                              }
+                            }
+                          ]
+                        }
+                      ],
+                      "span": {
+                        "first": 21,
+                        "last": 23
+                      },
+                      "isMethodCall": false
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "span": {
+            "first": 14,
+            "last": 25
+          }
+        },
+        "span": {
+          "first": 0,
+          "last": 25
+        }
+      }
+    ]
+  },
+  "Match": {
+    "Case": "Match",
+    "Fields": [
+      {
+        "value": {
+          "Case": "Id",
+          "Fields": [
+            {
+              "sym": "a",
+              "span": {
+                "first": 6,
+                "last": 6
+              }
+            }
+          ]
+        },
+        "branch": [
+          {
+            "pat": {
+              "Case": "EnumPat",
+              "Fields": [
+                {
+                  "name": {
+                    "Case": "IdPat",
+                    "Fields": [
+                      {
+                        "sym": "Some",
+                        "span": {
+                          "first": 10,
+                          "last": 13
+                        }
+                      }
+                    ]
+                  },
+                  "content": [
+                    {
+                      "Case": "IdPat",
+                      "Fields": [
+                        {
+                          "sym": "a",
+                          "span": {
+                            "first": 15,
+                            "last": 15
+                          }
+                        }
+                      ]
+                    }
+                  ],
+                  "span": {
+                    "first": 10,
+                    "last": 16
+                  }
+                }
+              ]
+            },
+            "guard": null,
+            "result": {
+              "Case": "Id",
+              "Fields": [
+                {
+                  "sym": "a",
+                  "span": {
+                    "first": 21,
+                    "last": 21
+                  }
+                }
+              ]
+            },
+            "span": {
+              "first": 10,
+              "last": 21
+            }
+          },
+          {
+            "pat": {
+              "Case": "IdPat",
+              "Fields": [
+                {
+                  "sym": "None",
+                  "span": {
+                    "first": 24,
+                    "last": 27
+                  }
+                }
+              ]
+            },
+            "guard": null,
+            "result": {
+              "Case": "Lit",
+              "Fields": [
+                {
+                  "Case": "Int",
+                  "Fields": [
+                    1
+                  ]
+                },
+                {
+                  "first": 32,
+                  "last": 32
+                }
+              ]
+            },
+            "span": {
+              "first": 24,
+              "last": 32
+            }
+          },
+          {
+            "pat": {
+              "Case": "CatchAllPat",
+              "Fields": [
+                {
+                  "first": 35,
+                  "last": 35
+                }
+              ]
+            },
+            "guard": {
+              "Case": "Some",
+              "Fields": [
+                {
+                  "Case": "Lit",
+                  "Fields": [
+                    {
+                      "Case": "Bool",
+                      "Fields": [
+                        true
+                      ]
+                    },
+                    {
+                      "first": 40,
+                      "last": 43
+                    }
+                  ]
+                }
+              ]
+            },
+            "result": {
+              "Case": "Lit",
+              "Fields": [
+                {
+                  "Case": "Int",
+                  "Fields": [
+                    3
+                  ]
+                },
+                {
+                  "first": 48,
+                  "last": 48
+                }
+              ]
+            },
+            "span": {
+              "first": 35,
+              "last": 48
+            }
+          }
+        ],
+        "span": {
+          "first": 0,
+          "last": 50
+        }
+      }
+    ]
+  }
+}

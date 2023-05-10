@@ -1,0 +1,304 @@
+{
+  "GenericShr": {
+    "Case": "Binary",
+    "Fields": [
+      {
+        "left": {
+          "Case": "Path",
+          "Fields": [
+            {
+              "prefix": null,
+              "seg": [
+                {
+                  "Item1": {
+                    "sym": "Vec",
+                    "span": {
+                      "first": 0,
+                      "last": 2
+                    }
+                  },
+                  "Item2": [
+                    {
+                      "Case": "TypeId",
+                      "Fields": [
+                        {
+                          "sym": "i32",
+                          "span": {
+                            "first": 6,
+                            "last": 8
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "span": {
+                "first": 0,
+                "last": 10
+              }
+            }
+          ]
+        },
+        "op": {
+          "Case": "Arithmetic",
+          "Fields": [
+            {
+              "Case": "Shr"
+            }
+          ]
+        },
+        "right": {
+          "Case": "Lit",
+          "Fields": [
+            {
+              "Case": "Int",
+              "Fields": [
+                1
+              ]
+            },
+            {
+              "first": 12,
+              "last": 12
+            }
+          ]
+        },
+        "span": {
+          "first": 0,
+          "last": 12
+        }
+      }
+    ]
+  },
+  "DoubleGeneric": {
+    "Case": "Binary",
+    "Fields": [
+      {
+        "left": {
+          "Case": "Path",
+          "Fields": [
+            {
+              "prefix": null,
+              "seg": [
+                {
+                  "Item1": {
+                    "sym": "Vec",
+                    "span": {
+                      "first": 0,
+                      "last": 2
+                    }
+                  },
+                  "Item2": [
+                    {
+                      "Case": "TypeInst",
+                      "Fields": [
+                        {
+                          "ty": {
+                            "Case": "TypeId",
+                            "Fields": [
+                              {
+                                "sym": "Vec",
+                                "span": {
+                                  "first": 6,
+                                  "last": 8
+                                }
+                              }
+                            ]
+                          },
+                          "arg": [
+                            {
+                              "Case": "TypeId",
+                              "Fields": [
+                                {
+                                  "sym": "i32",
+                                  "span": {
+                                    "first": 10,
+                                    "last": 12
+                                  }
+                                }
+                              ]
+                            }
+                          ],
+                          "span": {
+                            "first": 6,
+                            "last": 14
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "span": {
+                "first": 0,
+                "last": 15
+              }
+            }
+          ]
+        },
+        "op": {
+          "Case": "Gt"
+        },
+        "right": {
+          "Case": "Lit",
+          "Fields": [
+            {
+              "Case": "Int",
+              "Fields": [
+                1
+              ]
+            },
+            {
+              "first": 16,
+              "last": 16
+            }
+          ]
+        },
+        "span": {
+          "first": 0,
+          "last": 16
+        }
+      }
+    ]
+  },
+  "Struct": {
+    "Case": "StructLit",
+    "Fields": [
+      {
+        "ty": {
+          "prefix": null,
+          "seg": [
+            {
+              "Item1": {
+                "sym": "Foo",
+                "span": {
+                  "first": 0,
+                  "last": 2
+                }
+              },
+              "Item2": []
+            },
+            {
+              "Item1": {
+                "sym": "Bar",
+                "span": {
+                  "first": 5,
+                  "last": 7
+                }
+              },
+              "Item2": [
+                {
+                  "Case": "TypeInst",
+                  "Fields": [
+                    {
+                      "ty": {
+                        "Case": "TypeId",
+                        "Fields": [
+                          {
+                            "sym": "Vec",
+                            "span": {
+                              "first": 11,
+                              "last": 13
+                            }
+                          }
+                        ]
+                      },
+                      "arg": [
+                        {
+                          "Case": "TypeId",
+                          "Fields": [
+                            {
+                              "sym": "i32",
+                              "span": {
+                                "first": 15,
+                                "last": 17
+                              }
+                            }
+                          ]
+                        }
+                      ],
+                      "span": {
+                        "first": 11,
+                        "last": 19
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "span": {
+            "first": 0,
+            "last": 20
+          }
+        },
+        "field": [
+          {
+            "Case": "ShorthandField",
+            "Fields": [
+              {
+                "sym": "a",
+                "span": {
+                  "first": 23,
+                  "last": 23
+                }
+              }
+            ]
+          },
+          {
+            "Case": "KeyValueField",
+            "Fields": [
+              {
+                "name": "b",
+                "value": {
+                  "Case": "Lit",
+                  "Fields": [
+                    {
+                      "Case": "Int",
+                      "Fields": [
+                        10
+                      ]
+                    },
+                    {
+                      "first": 29,
+                      "last": 30
+                    }
+                  ]
+                },
+                "span": {
+                  "first": 26,
+                  "last": 30
+                }
+              }
+            ]
+          },
+          {
+            "Case": "RestField",
+            "Fields": [
+              {
+                "first": 33,
+                "last": 35
+              },
+              {
+                "Case": "Id",
+                "Fields": [
+                  {
+                    "sym": "d",
+                    "span": {
+                      "first": 35,
+                      "last": 35
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ],
+        "span": {
+          "first": 0,
+          "last": 37
+        }
+      }
+    ]
+  }
+}

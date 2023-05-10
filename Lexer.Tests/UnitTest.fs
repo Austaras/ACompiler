@@ -32,10 +32,10 @@ let Literal () =
     Assert.AreEqual([| Lit(Int 123u) |], lex_strip_span "123")
     Assert.AreEqual([| Lit(Int 0u) |], lex_strip_span "0000")
     Assert.AreEqual([| Lit(Int 0u) |], lex_strip_span "0_0_0")
+    Assert.AreEqual([| Lit(Int 0u) |], lex_strip_span "0 ")
     Assert.AreEqual([| Lit(Int 256u) |], lex_strip_span "0x100")
     Assert.AreEqual([| Lit(Float 123) |], lex_strip_span "123.")
-    Assert.AreEqual([| Lit(Float 0.123) |], lex_strip_span ".123")
-    Assert.AreEqual([| Lit(Float 1.23e9) |], lex_strip_span ".123e10")
+    Assert.AreEqual([| Lit(Float 1.23e9) |], lex_strip_span ".123e1_0")
     Assert.AreEqual([| Lit(Float 1e-16) |], lex_strip_span "1E-16")
     Assert.AreEqual([| Lit(Float 1e16) |], lex_strip_span "01E+1_6")
     Assert.AreEqual([| Lit(Float 0) |], lex_strip_span "0e999")
@@ -69,7 +69,7 @@ let NumDot () =
 
 [<Test>]
 let Op () =
-    Assert.AreEqual([| Operator(Arithmetic Shr) |], lex_strip_span ">>")
+    Assert.AreEqual([| Operator(Arithmetic Shl) |], lex_strip_span "<<")
     Assert.AreEqual([| Arrow; FatArrow |], lex_strip_span "-> =>")
 
     Assert.AreEqual(
@@ -132,9 +132,6 @@ let Error () =
 
     let e = Assert.Throws<CustomError>(test "0.e+")
     Assert.AreEqual(MissingExpContent(Span.Make 0 3), e.Data0[0])
-
-    let e = Assert.Throws<CustomError>(test "0d")
-    Assert.AreEqual(UnknownNumberPrefix(Span.Make 0 1, 'd'), e.Data0[0])
 
     let e = Assert.Throws<CustomError>(test "0x")
     Assert.AreEqual(MissingIntContent(Span.Make 0 1), e.Data0[0])

@@ -1,0 +1,197 @@
+{
+  "function": {
+    "Case": "FnDecl",
+    "Fields": [
+      {
+        "name": {
+          "sym": "add",
+          "span": {
+            "first": 12,
+            "last": 14
+          }
+        },
+        "typeParam": [
+          {
+            "id": {
+              "sym": "T",
+              "span": {
+                "first": 16,
+                "last": 16
+              }
+            },
+            "bound": {
+              "Case": "Some",
+              "Fields": [
+                {
+                  "Case": "TypeId",
+                  "Fields": [
+                    {
+                      "sym": "Add",
+                      "span": {
+                        "first": 19,
+                        "last": 21
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            "span": {
+              "first": 16,
+              "last": 21
+            }
+          }
+        ],
+        "param": [
+          {
+            "pat": {
+              "Case": "IdPat",
+              "Fields": [
+                {
+                  "sym": "x",
+                  "span": {
+                    "first": 24,
+                    "last": 24
+                  }
+                }
+              ]
+            },
+            "ty": {
+              "Case": "Some",
+              "Fields": [
+                {
+                  "Case": "TypeId",
+                  "Fields": [
+                    {
+                      "sym": "T",
+                      "span": {
+                        "first": 27,
+                        "last": 27
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            "span": {
+              "first": 24,
+              "last": 27
+            }
+          },
+          {
+            "pat": {
+              "Case": "IdPat",
+              "Fields": [
+                {
+                  "sym": "y",
+                  "span": {
+                    "first": 30,
+                    "last": 30
+                  }
+                }
+              ]
+            },
+            "ty": {
+              "Case": "Some",
+              "Fields": [
+                {
+                  "Case": "TypeId",
+                  "Fields": [
+                    {
+                      "sym": "T",
+                      "span": {
+                        "first": 33,
+                        "last": 33
+                      }
+                    }
+                  ]
+                }
+              ]
+            },
+            "span": {
+              "first": 30,
+              "last": 33
+            }
+          }
+        ],
+        "retTy": {
+          "Case": "Some",
+          "Fields": [
+            {
+              "Case": "TypeId",
+              "Fields": [
+                {
+                  "sym": "T",
+                  "span": {
+                    "first": 39,
+                    "last": 39
+                  }
+                }
+              ]
+            }
+          ]
+        },
+        "body": {
+          "stmt": [
+            {
+              "Case": "ExprStmt",
+              "Fields": [
+                {
+                  "Case": "Binary",
+                  "Fields": [
+                    {
+                      "left": {
+                        "Case": "Id",
+                        "Fields": [
+                          {
+                            "sym": "x",
+                            "span": {
+                              "first": 55,
+                              "last": 55
+                            }
+                          }
+                        ]
+                      },
+                      "op": {
+                        "Case": "Arithmetic",
+                        "Fields": [
+                          {
+                            "Case": "Add"
+                          }
+                        ]
+                      },
+                      "right": {
+                        "Case": "Id",
+                        "Fields": [
+                          {
+                            "sym": "y",
+                            "span": {
+                              "first": 59,
+                              "last": 59
+                            }
+                          }
+                        ]
+                      },
+                      "span": {
+                        "first": 55,
+                        "last": 59
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "span": {
+            "first": 41,
+            "last": 69
+          }
+        },
+        "span": {
+          "first": 9,
+          "last": 10
+        }
+      }
+    ]
+  }
+}

@@ -1,0 +1,88 @@
+{
+  "Assoc": {
+    "Case": "FnType",
+    "Fields": [
+      {
+        "param": [
+          {
+            "Case": "TypeId",
+            "Fields": [
+              {
+                "sym": "i32",
+                "span": {
+                  "first": 1,
+                  "last": 3
+                }
+              }
+            ]
+          }
+        ],
+        "typeParam": [],
+        "ret": {
+          "Case": "FnType",
+          "Fields": [
+            {
+              "param": [
+                {
+                  "Case": "TypeId",
+                  "Fields": [
+                    {
+                      "sym": "i32",
+                      "span": {
+                        "first": 10,
+                        "last": 12
+                      }
+                    }
+                  ]
+                }
+              ],
+              "typeParam": [],
+              "ret": {
+                "Case": "TypeId",
+                "Fields": [
+                  {
+                    "sym": "i32",
+                    "span": {
+                      "first": 18,
+                      "last": 20
+                    }
+                  }
+                ]
+              },
+              "span": {
+                "first": 9,
+                "last": 20
+              }
+            }
+          ]
+        },
+        "span": {
+          "first": 0,
+          "last": 20
+        }
+      }
+    ]
+  },
+  "Empty": {
+    "Case": "FnType",
+    "Fields": [
+      {
+        "param": [],
+        "typeParam": [],
+        "ret": {
+          "Case": "NeverType",
+          "Fields": [
+            {
+              "first": 6,
+              "last": 6
+            }
+          ]
+        },
+        "span": {
+          "first": 0,
+          "last": 6
+        }
+      }
+    ]
+  }
+}
