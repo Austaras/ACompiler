@@ -2,14 +2,13 @@
 
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
-    <RootNamespace>lexer_tests</RootNamespace>
 
     <IsPackable>false</IsPackable>
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="UnitTest.fs" />
+    <Compile Include="UnitTest1.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
@@ -22,8 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AST\AST.fsproj" />
-    <ProjectReference Include="..\Lexer\Lexer.fsproj" />
+    <ProjectReference Include="..\..\src\TypeChecker\TypeChecker.fsproj" />
   </ItemGroup>
 
 </Project>

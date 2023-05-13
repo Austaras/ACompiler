@@ -5,7 +5,10 @@
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="RangeMap.fs" />
+    <Compile Include="Stmt.fs" />
+    <Compile Include="Expr.fs" />
+    <Compile Include="Pat.fs" />
+    <Compile Include="Type.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>
@@ -14,8 +17,11 @@
     <PackageReference Include="NUnit3TestAdapter" Version="4.2.1" />
     <PackageReference Include="NUnit.Analyzers" Version="3.3.0" />
     <PackageReference Include="coverlet.collector" Version="3.1.2" />
+    <PackageReference Include="Snapper.Nunit" Version="2.4.0" />
   </ItemGroup>
   <ItemGroup>
-    <ProjectReference Include="..\Util\Util.fsproj" />
+    <ProjectReference Include="..\..\src\Parser\Parser.fsproj" />
+    <ProjectReference Include="..\..\src\AST\AST.fsproj" />
+    <ProjectReference Include="..\..\src\Lexer\Lexer.fsproj" />
   </ItemGroup>
 </Project>

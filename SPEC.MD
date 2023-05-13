@@ -13,8 +13,13 @@
    - internal mutable
    - reference type with auto ref/deref which is GC tracked
    - trait with static and dynamic dispatch
-   - maybe HKT?
 3. suffix is .adf which stands for Advanced Dominance Fighter
+4. Major TODO
+   - [ ] module system
+   - [ ] trait and dynamic dispatch, orphan rule, specification
+   - [ ] GC
+   - [ ] macro
+   - [ ] HKT
 
 ### Syntax Construct
 
@@ -23,9 +28,3 @@ See AST and parser
 ### Semantic
 
 As one would normally imagine
-
-### Major TODO
-
-- [ ] module system
-- [ ] trait and dynamic dispatch, orphan rule, specification
-- [ ] GC

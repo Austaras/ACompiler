@@ -8,7 +8,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="UnitTest1.fs" />
+    <Compile Include="UnitTest.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\TypeChecker\TypeChecker.fsproj" />
+    <ProjectReference Include="..\..\src\Regex\Regex.fsproj" />
   </ItemGroup>
 
 </Project>
