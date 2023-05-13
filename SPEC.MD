@@ -23,3 +23,9 @@ See AST and parser
 ### Semantic
 
 As one would normally imagine
+
+### Major TODO
+
+- [ ] module system
+- [ ] trait and dynamic dispatch, orphan rule, specification
+- [ ] GC

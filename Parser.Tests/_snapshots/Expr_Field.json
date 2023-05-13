@@ -49,7 +49,7 @@
                   {
                     "element": [
                       {
-                        "Case": "Lit",
+                        "Case": "LitExpr",
                         "Fields": [
                           {
                             "Case": "Int",
@@ -64,7 +64,7 @@
                         ]
                       },
                       {
-                        "Case": "Lit",
+                        "Case": "LitExpr",
                         "Fields": [
                           {
                             "Case": "Int",
@@ -103,7 +103,7 @@
           ]
         },
         "right": {
-          "Case": "Lit",
+          "Case": "LitExpr",
           "Fields": [
             {
               "Case": "Int",
@@ -134,7 +134,7 @@
             {
               "element": [
                 {
-                  "Case": "Lit",
+                  "Case": "LitExpr",
                   "Fields": [
                     {
                       "Case": "Int",
@@ -149,7 +149,7 @@
                   ]
                 },
                 {
-                  "Case": "Lit",
+                  "Case": "LitExpr",
                   "Fields": [
                     {
                       "Case": "Int",
@@ -164,7 +164,7 @@
                   ]
                 },
                 {
-                  "Case": "Lit",
+                  "Case": "LitExpr",
                   "Fields": [
                     {
                       "Case": "Int",
@@ -187,7 +187,7 @@
           ]
         },
         "index": {
-          "Case": "Lit",
+          "Case": "LitExpr",
           "Fields": [
             {
               "Case": "Int",
@@ -229,7 +229,7 @@
                 ]
               },
               "index": {
-                "Case": "Lit",
+                "Case": "LitExpr",
                 "Fields": [
                   {
                     "Case": "Int",
@@ -321,7 +321,7 @@
                 ]
               },
               "index": {
-                "Case": "Lit",
+                "Case": "LitExpr",
                 "Fields": [
                   {
                     "Case": "Int",
@@ -379,7 +379,7 @@
           ]
         },
         "index": {
-          "Case": "Lit",
+          "Case": "LitExpr",
           "Fields": [
             {
               "Case": "Int",

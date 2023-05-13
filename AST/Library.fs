@@ -339,7 +339,8 @@ and Match =
 
 and Expr =
     | Id of Id
-    | Lit of Lit * Span
+    | SelfExpr of Span
+    | LitExpr of Lit * Span
     | If of If
     | Block of Block
     | Call of Call
@@ -365,7 +366,8 @@ and Expr =
     member this.span =
         match this with
         | Id i -> i.span
-        | Lit(_, s) -> s
+        | LitExpr(_, s) -> s
+        | SelfExpr s -> s
         | If i -> i.span
         | Block b -> b.span
         | Call c -> c.span
@@ -420,7 +422,7 @@ and TypeDecl = { id: Id; ty: Type; span: Span }
 and StructDecl =
     { name: Id
       typeParam: TypeParam[]
-      field: TypeDecl[]
+      field: (Visibility * TypeDecl)[]
       span: Span }
 
 and EnumDecl =

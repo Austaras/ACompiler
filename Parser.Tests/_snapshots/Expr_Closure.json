@@ -55,7 +55,7 @@
                       ]
                     },
                     "right": {
-                      "Case": "Lit",
+                      "Case": "LitExpr",
                       "Fields": [
                         {
                           "Case": "Int",

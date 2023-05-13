@@ -1,4 +1,4 @@
-module Parser.Tests.Decl
+module Parser.Tests.Stmt
 
 open Lexer
 open Parser.Parser
@@ -26,4 +26,16 @@ let Decl () =
         }
     ",
         Matches.ChildSnapshot("function")
+    )
+
+    Assert.That(
+        parseTest
+            "
+        let _ = {
+            let a = 10;
+            print(a);
+            a
+        }
+    ",
+        Matches.ChildSnapshot("Let")
     )

@@ -6,6 +6,7 @@ open Lexer
 type Error =
     | LexError of Lexer.Error
     | UnexpectedToken of Lexer.Token * string
+    | UnexpectedManyToken of AST.Span * string
     | Incomplete of AST.Span * string
     | IncompleteAtEnd of string
     | IncompletePair of Lexer.Token
@@ -100,16 +101,46 @@ let peekInline (input: Token[]) =
 
     peek 0
 
-let assertAndBump input token error =
+let peekWith input token =
+    match peek input with
+    | Some({ data = data; span = span }, i) when data = token -> Some(span, i)
+    | _ -> None
+
+let consume input token error =
     match peek input with
     | Some({ data = data; span = span }, i) when data = token -> Ok(span, i)
     | Some(token, _) -> Error(UnexpectedToken(token, error))
     | None -> Error(IncompleteAtEnd(error))
 
-let tryBump input token =
-    match peek input with
-    | Some({ data = data; span = span }, i) when data = token -> Some(span, i)
-    | _ -> None
+let internal tryRecover canStart parser msg (input: Token[]) =
+    let rec tryRecover i unexpected =
+        match peek input[i..] with
+        | Some({ data = Delimiter Semi }, i) -> Error(i - 1)
+        | Some({ data = data } as token, j) ->
+            let i = i + j
+            let unexpected = Array.append unexpected [| token |]
+
+            if canStart data then
+                match parser input[i - 1 ..] with
+                | Ok o ->
+                    let error =
+                        if unexpected.Length = 1 then
+                            UnexpectedToken(unexpected[0], msg)
+                        else
+                            UnexpectedManyToken(
+                                Span.Make unexpected[0].span.first (Array.last unexpected).span.last,
+                                msg
+                            )
+
+                    Ok
+                        { o with
+                            error = Array.append [| error |] o.error }
+                | Error _ -> tryRecover i unexpected
+            else
+                tryRecover i unexpected
+        | None -> Error(input.Length - 1)
+
+    tryRecover 0 [||]
 
 let internal parseCommaSeq (input: Lexer.Token[]) parser limiter error =
     let limiter =
@@ -345,7 +376,7 @@ let internal parsePath (state: State<PathType>) mapper error =
                   error = Array.append state.error id.error
                   rest = id.rest }
 
-            match tryBump id.rest ColonColon with
+            match peekWith id.rest ColonColon with
             | Some(_, i) ->
                 parsePath
                     { newState with
@@ -446,7 +477,7 @@ let rec internal parseType ctx input =
                   error = [||]
                   rest = input[i..] }
 
-            match assertAndBump path.rest ColonColon "path type" with
+            match consume path.rest ColonColon "path type" with
             | Error _ ->
                 let error =
                     if isSelf then
@@ -707,7 +738,7 @@ and internal parsePat (ctx: Context) input =
         | Some({ data = Identifier sym; span = span }, i) ->
             let id = { sym = sym; span = span }
 
-            match tryBump input[i..] Colon with
+            match peekWith input[i..] Colon with
             | Some(_, j) ->
                 match parsePat childCtx input[i + j ..] with
                 | Error e -> Error e
@@ -836,7 +867,7 @@ and internal parsePat (ctx: Context) input =
                   error = [||]
                   rest = input[i..] }
 
-            match assertAndBump path.rest ColonColon "path pattern" with
+            match consume path.rest ColonColon "path pattern" with
             | Ok(_, i) -> parsePath { path with rest = path.rest[i..] } mapPath "path pattern"
             | Error _ ->
                 let error =
@@ -1189,7 +1220,7 @@ let rec internal parseExpr (ctx: Context) input =
         | Some({ data = Identifier sym; span = span }, i) ->
             let id = { sym = sym; span = span }
 
-            match tryBump input[i..] Colon with
+            match peekWith input[i..] Colon with
             | Some(_, j) ->
                 match parseExpr ctx input[i + j ..] with
                 | Error e -> Error e
@@ -1231,7 +1262,7 @@ let rec internal parseExpr (ctx: Context) input =
         if ctx.inCond then
             Ok ret
         else
-            match tryBump state.rest (Curly Open) with
+            match peekWith state.rest (Curly Open) with
             | None -> Ok ret
             | Some(_, i) ->
                 let field =
@@ -1436,12 +1467,12 @@ let rec internal parseExpr (ctx: Context) input =
         | Error e -> Error e
 
     and parseCond (ctx: Context) input =
-        match tryBump input (Reserved LET) with
+        match peekWith input (Reserved LET) with
         | Some(span, i) ->
             match parsePat ctx.NotInDecl input[i..] with
             | Error e -> Error e
             | Ok pat ->
-                match assertAndBump pat.rest Eq "if let condition" with
+                match consume pat.rest Eq "if let condition" with
                 | Error e -> pat.FatalError e
                 | Ok(_, i) ->
                     match parseExpr ctx.InCond pat.rest[i..] with
@@ -1476,7 +1507,7 @@ let rec internal parseExpr (ctx: Context) input =
             | Error e -> Error e
             | Ok pat ->
                 let guard, pat =
-                    match tryBump pat.rest (Reserved IF) with
+                    match peekWith pat.rest (Reserved IF) with
                     | None -> None, Ok pat
                     | Some(_, i) ->
                         match parseExpr ctx pat.rest[i..] with
@@ -1491,7 +1522,7 @@ let rec internal parseExpr (ctx: Context) input =
                 match pat with
                 | Error e -> Error e
                 | Ok pat ->
-                    match assertAndBump pat.rest FatArrow "match branch" with
+                    match consume pat.rest FatArrow "match branch" with
                     | Error e -> pat.FatalError e
                     | Ok(_, i) ->
                         match parseExpr ctx pat.rest[i..] with
@@ -1511,7 +1542,7 @@ let rec internal parseExpr (ctx: Context) input =
                             match res.data with
                             | Block _ ->
                                 let i =
-                                    match tryBump newState.rest Comma with
+                                    match peekWith newState.rest Comma with
                                     | Some(_, i) -> i
                                     | None -> 0
 
@@ -1533,16 +1564,34 @@ let rec internal parseExpr (ctx: Context) input =
         match peek input with
         | Some({ data = Lit l; span = span }, i) ->
             Ok
-                { data = AST.Lit(l, span)
+                { data = LitExpr(l, span)
                   error = [||]
                   rest = input[i..] }
-        | Some({ data = Reserved(PACKAGE | SELF as kw)
+        | Some({ data = Reserved SELF; span = span }, i) ->
+            let path =
+                { prefix = Some Self
+                  seg = [||]
+                  span = span }
+
+            let path =
+                { data = path
+                  error = [||]
+                  rest = input[i..] }
+
+            match parseStruct path with
+            | Error e -> Error e
+            | Ok({ data = Path _ } as o) ->
+                Ok
+                    { o with
+                        error = Array.append o.error [| IncompletePath span |] }
+            | Ok o -> Ok o
+        | Some({ data = Reserved(PACKAGE | LOWSELF as kw)
                  span = span },
                i) ->
             let prefix, isSelf =
                 match kw with
                 | PACKAGE -> Package, false
-                | SELF -> Self, true
+                | LOWSELF -> Self, true
                 | _ -> failwith "unreachable"
 
             let path =
@@ -1555,9 +1604,9 @@ let rec internal parseExpr (ctx: Context) input =
                   error = [||]
                   rest = input[i..] }
 
-            match assertAndBump path.rest ColonColon "path pattern" with
-            | Ok(_, i) -> parsePath { path with rest = path.rest[i..] }
-            | Error _ ->
+            match peekWith path.rest ColonColon with
+            | Some(_, i) -> parsePath { path with rest = path.rest[i..] }
+            | None ->
                 let error =
                     if isSelf then
                         if ctx.inMethod then [||] else [| OutofMethod span |]
@@ -1565,18 +1614,10 @@ let rec internal parseExpr (ctx: Context) input =
                         [| IncompletePath span |]
 
                 if isSelf then
-                    let res =
-                        parseStruct
-                            { data = path.data
-                              error = error
-                              rest = path.rest }
-
-                    match res with
-                    | Ok({ data = Path _ } as res) ->
-                        Ok
-                            { res with
-                                error = Array.append error [| IncompletePath span |] }
-                    | _ -> res
+                    Ok
+                        { data = SelfExpr span
+                          error = Array.append error [| IncompletePath span |]
+                          rest = input[i..] }
                 else
                     Ok
                         { data = Path path.data
@@ -1682,6 +1723,15 @@ let rec internal parseExpr (ctx: Context) input =
                     | Some(token, _) -> firstEle.FatalError(UnexpectedToken(token, "array expression"))
                     | None -> firstEle.FatalError(IncompletePair token)
 
+        | Some({ data = Curly Open }, _) ->
+            match parseBlock ctx input with
+            | Error e -> Error e
+            | Ok(b: State<Block>) ->
+                Ok
+                    { data = Block b.data
+                      error = b.error
+                      rest = b.rest }
+
         | Some({ data = Operator(Lt | Arithmetic Shr) }, i) ->
             let typeParam =
                 parseLtGt input[i - 1 ..] (parseTypeParam ctx) "closure type parameter"
@@ -1730,9 +1780,9 @@ let rec internal parseExpr (ctx: Context) input =
 
         | Some({ data = Reserved IF; span = span }, i) ->
             let rec parseElse (state: State<If>) =
-                match tryBump state.rest (Reserved ELSE) with
+                match peekWith state.rest (Reserved ELSE) with
                 | Some(span, i) ->
-                    match tryBump state.rest[i..] (Reserved IF) with
+                    match peekWith state.rest[i..] (Reserved IF) with
                     | Some(_, j) ->
                         match parseCond ctx state.rest[i + j ..] with
                         | Error e -> Error e
@@ -1789,7 +1839,7 @@ let rec internal parseExpr (ctx: Context) input =
             match parsePat ctx.NotInDecl input[i..] with
             | Error e -> Error e
             | Ok pat ->
-                match assertAndBump pat.rest (Reserved IN) "for loop in" with
+                match consume pat.rest (Reserved IN) "for loop in" with
                 | Error e -> pat.FatalError e
                 | Ok(_, i) ->
                     match parseExpr ctx.InCond pat.rest[i..] with
@@ -1858,7 +1908,7 @@ let rec internal parseExpr (ctx: Context) input =
             match parseExpr ctx.InCond input[i..] with
             | Error e -> Error e
             | Ok value ->
-                match assertAndBump value.rest (Curly Open) "match expression" with
+                match consume value.rest (Curly Open) "match expression" with
                 | Error e -> value.FatalError e
                 | Ok(_, i) ->
                     let state =
@@ -1879,7 +1929,10 @@ let rec internal parseExpr (ctx: Context) input =
                               error = Array.append value.error branch.error
                               rest = branch.rest }
 
-        | Some(_, i) -> Error [| UnexpectedToken(input[i], "expression") |]
+        | Some(token, _) ->
+            match tryRecover canStartExpr (parsePrefix ctx) "expression" input with
+            | Ok expr -> Ok expr
+            | Error i -> Error [| UnexpectedManyToken(token.span.WithLast input[i].span.last, "expression") |]
         | None -> Error [| IncompleteAtEnd "expression" |]
 
     and parseFollow ctx prec (state: State<Expr>) =
@@ -2001,7 +2054,7 @@ let rec internal parseExpr (ctx: Context) input =
                 match parseExpr ctx state.rest[i..] with
                 | Error e -> Error e
                 | Ok idx ->
-                    match assertAndBump idx.rest (Bracket Close) "index expression" with
+                    match consume idx.rest (Bracket Close) "index expression" with
                     | Ok(span, i) ->
                         let expr =
                             { container = state.data
@@ -2057,7 +2110,7 @@ and internal parseDecl (ctx: Context) input =
             match typeParam with
             | Error e -> Error e
             | Ok typeParam ->
-                match assertAndBump typeParam.rest (Paren Open) "function parameter" with
+                match consume typeParam.rest (Paren Open) "function parameter" with
                 | Error e -> Error [| e |]
                 | Ok(_, i) ->
                     match parseCommaSeq typeParam.rest[i..] (parseParam ctx) (Paren Close) "function parameter" with
@@ -2067,7 +2120,7 @@ and internal parseDecl (ctx: Context) input =
                         let typeParam, _ = typeParam.data
 
                         let retTy =
-                            match tryBump param.rest Arrow with
+                            match peekWith param.rest Arrow with
                             | Some(_, i) ->
                                 match parseType ctx param.rest[i..] with
                                 | Error e -> Error(Array.append error e)
@@ -2110,7 +2163,7 @@ and internal parseDecl (ctx: Context) input =
         match parseParam ctx.InDecl input[i..] with
         | Error e -> Error e
         | Ok param ->
-            match assertAndBump param.rest Eq "let declaration" with
+            match consume param.rest Eq "let declaration" with
             | Ok(_, i) ->
                 match parseExpr ctx param.rest[i..] with
                 | Error e -> Error e
@@ -2132,7 +2185,7 @@ and internal parseDecl (ctx: Context) input =
         match parseParam ctx.InDecl input[i..] with
         | Error e -> Error e
         | Ok param ->
-            match assertAndBump param.rest Eq "const declaration" with
+            match consume param.rest Eq "const declaration" with
             | Ok(_, i) ->
                 match parseExpr ctx param.rest[i..] with
                 | Error e -> Error e
@@ -2161,7 +2214,7 @@ and internal parseDecl (ctx: Context) input =
         match parseId input[i..] "type alias name" with
         | Error e -> Error [| e |]
         | Ok id ->
-            match assertAndBump id.rest Eq "type alias" with
+            match consume id.rest Eq "type alias" with
             | Ok(_, i) ->
                 match parseType ctx id.rest[i..] with
                 | Error e -> Error e
@@ -2198,7 +2251,7 @@ and internal parseDecl (ctx: Context) input =
         | Error e -> Error [| e |]
         | Ok id -> failwith "123"
 
-    | Some(_, i) -> Error [| UnexpectedToken(input[i], "declaration") |]
+    | Some(token, _) -> Error [| UnexpectedToken(token, "declaration") |]
     | None -> Error [| IncompleteAtEnd("declaration") |]
 
 and internal parseStmt ctx (input: Token[]) =
@@ -2224,7 +2277,7 @@ and internal parseStmt ctx (input: Token[]) =
 and internal parseBlock ctx input =
     let ctx = ctx.NotInCond
 
-    match assertAndBump input (Curly Open) "block expression" with
+    match consume input (Curly Open) "block expression" with
     | Ok(span, i) ->
         let item = parseManyItem input[i..] (parseStmt ctx) ((=) (Curly Close))
 
@@ -2292,5 +2345,5 @@ let parse (input: Lexer.Token[]) =
         if state.error.Length = 0 then
             Ok state.data
         else
-            Error state.error
-    | Error e -> Error e
+            Error(state.error, Some state.data)
+    | Error e -> Error(e, None)

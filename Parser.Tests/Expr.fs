@@ -36,6 +36,8 @@ let Bin () =
         Matches.ChildSnapshot("Comment")
     )
 
+    Assert.That(parseTest "1 + 2 * let 3", Matches.ChildSnapshot("Malformed"))
+
 [<Test>]
 let Tuple () =
     Assert.That(parseTest "()", Matches.ChildSnapshot("Zero"))

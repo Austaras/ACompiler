@@ -5,7 +5,7 @@
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Decl.fs" />
+    <Compile Include="Stmt.fs" />
     <Compile Include="Expr.fs" />
     <Compile Include="Pat.fs" />
     <Compile Include="Type.fs" />

@@ -193,5 +193,145 @@
         }
       }
     ]
+  },
+  "Let": {
+    "Case": "Let",
+    "Fields": [
+      {
+        "pat": {
+          "Case": "CatchAllPat",
+          "Fields": [
+            {
+              "first": 13,
+              "last": 13
+            }
+          ]
+        },
+        "mut": false,
+        "ty": null,
+        "value": {
+          "Case": "Block",
+          "Fields": [
+            {
+              "stmt": [
+                {
+                  "Case": "DeclStmt",
+                  "Fields": [
+                    {
+                      "Case": "Let",
+                      "Fields": [
+                        {
+                          "pat": {
+                            "Case": "IdPat",
+                            "Fields": [
+                              {
+                                "sym": "a",
+                                "span": {
+                                  "first": 35,
+                                  "last": 35
+                                }
+                              }
+                            ]
+                          },
+                          "mut": false,
+                          "ty": null,
+                          "value": {
+                            "Case": "LitExpr",
+                            "Fields": [
+                              {
+                                "Case": "Int",
+                                "Fields": [
+                                  10
+                                ]
+                              },
+                              {
+                                "first": 39,
+                                "last": 40
+                              }
+                            ]
+                          },
+                          "span": {
+                            "first": 31,
+                            "last": 40
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "Case": "ExprStmt",
+                  "Fields": [
+                    {
+                      "Case": "Call",
+                      "Fields": [
+                        {
+                          "callee": {
+                            "Case": "Id",
+                            "Fields": [
+                              {
+                                "sym": "print",
+                                "span": {
+                                  "first": 55,
+                                  "last": 59
+                                }
+                              }
+                            ]
+                          },
+                          "arg": [
+                            {
+                              "Case": "Id",
+                              "Fields": [
+                                {
+                                  "sym": "a",
+                                  "span": {
+                                    "first": 61,
+                                    "last": 61
+                                  }
+                                }
+                              ]
+                            }
+                          ],
+                          "span": {
+                            "first": 60,
+                            "last": 62
+                          },
+                          "isMethodCall": false
+                        }
+                      ]
+                    }
+                  ]
+                },
+                {
+                  "Case": "ExprStmt",
+                  "Fields": [
+                    {
+                      "Case": "Id",
+                      "Fields": [
+                        {
+                          "sym": "a",
+                          "span": {
+                            "first": 77,
+                            "last": 77
+                          }
+                        }
+                      ]
+                    }
+                  ]
+                }
+              ],
+              "span": {
+                "first": 17,
+                "last": 87
+              }
+            }
+          ]
+        },
+        "span": {
+          "first": 9,
+          "last": 87
+        }
+      }
+    ]
   }
 }

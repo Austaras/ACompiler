@@ -4,7 +4,7 @@
     "Fields": [
       {
         "left": {
-          "Case": "Lit",
+          "Case": "LitExpr",
           "Fields": [
             {
               "Case": "Int",
@@ -31,7 +31,7 @@
           "Fields": [
             {
               "left": {
-                "Case": "Lit",
+                "Case": "LitExpr",
                 "Fields": [
                   {
                     "Case": "Int",
@@ -54,7 +54,7 @@
                 ]
               },
               "right": {
-                "Case": "Lit",
+                "Case": "LitExpr",
                 "Fields": [
                   {
                     "Case": "Int",
@@ -91,7 +91,7 @@
           "Fields": [
             {
               "left": {
-                "Case": "Lit",
+                "Case": "LitExpr",
                 "Fields": [
                   {
                     "Case": "Int",
@@ -114,7 +114,7 @@
                 ]
               },
               "right": {
-                "Case": "Lit",
+                "Case": "LitExpr",
                 "Fields": [
                   {
                     "Case": "Int",
@@ -144,7 +144,7 @@
           ]
         },
         "right": {
-          "Case": "Lit",
+          "Case": "LitExpr",
           "Fields": [
             {
               "Case": "Int",
@@ -233,7 +233,7 @@
                       ]
                     },
                     "right": {
-                      "Case": "Lit",
+                      "Case": "LitExpr",
                       "Fields": [
                         {
                           "Case": "Int",
@@ -478,7 +478,7 @@
           "Fields": [
             {
               "left": {
-                "Case": "Lit",
+                "Case": "LitExpr",
                 "Fields": [
                   {
                     "Case": "Int",
@@ -501,7 +501,7 @@
                 ]
               },
               "right": {
-                "Case": "Lit",
+                "Case": "LitExpr",
                 "Fields": [
                   {
                     "Case": "Int",
@@ -531,7 +531,7 @@
           ]
         },
         "right": {
-          "Case": "Lit",
+          "Case": "LitExpr",
           "Fields": [
             {
               "Case": "Int",
@@ -561,7 +561,7 @@
           "Fields": [
             {
               "left": {
-                "Case": "Lit",
+                "Case": "LitExpr",
                 "Fields": [
                   {
                     "Case": "Int",
@@ -584,7 +584,7 @@
                 ]
               },
               "right": {
-                "Case": "Lit",
+                "Case": "LitExpr",
                 "Fields": [
                   {
                     "Case": "Int",
@@ -614,7 +614,7 @@
           ]
         },
         "right": {
-          "Case": "Lit",
+          "Case": "LitExpr",
           "Fields": [
             {
               "Case": "Int",
@@ -640,7 +640,7 @@
     "Fields": [
       {
         "left": {
-          "Case": "Lit",
+          "Case": "LitExpr",
           "Fields": [
             {
               "Case": "Int",
@@ -663,7 +663,7 @@
           ]
         },
         "right": {
-          "Case": "Lit",
+          "Case": "LitExpr",
           "Fields": [
             {
               "Case": "Int",
@@ -680,6 +680,89 @@
         "span": {
           "first": 0,
           "last": 19
+        }
+      }
+    ]
+  },
+  "Malformed": {
+    "Case": "Binary",
+    "Fields": [
+      {
+        "left": {
+          "Case": "LitExpr",
+          "Fields": [
+            {
+              "Case": "Int",
+              "Fields": [
+                1
+              ]
+            },
+            {
+              "first": 0,
+              "last": 0
+            }
+          ]
+        },
+        "op": {
+          "Case": "Arithmetic",
+          "Fields": [
+            {
+              "Case": "Add"
+            }
+          ]
+        },
+        "right": {
+          "Case": "Binary",
+          "Fields": [
+            {
+              "left": {
+                "Case": "LitExpr",
+                "Fields": [
+                  {
+                    "Case": "Int",
+                    "Fields": [
+                      2
+                    ]
+                  },
+                  {
+                    "first": 4,
+                    "last": 4
+                  }
+                ]
+              },
+              "op": {
+                "Case": "Arithmetic",
+                "Fields": [
+                  {
+                    "Case": "Mul"
+                  }
+                ]
+              },
+              "right": {
+                "Case": "LitExpr",
+                "Fields": [
+                  {
+                    "Case": "Int",
+                    "Fields": [
+                      3
+                    ]
+                  },
+                  {
+                    "first": 12,
+                    "last": 12
+                  }
+                ]
+              },
+              "span": {
+                "first": 4,
+                "last": 12
+              }
+            }
+          ]
+        },
+        "span": {
+          "first": 0,
+          "last": 12
         }
       }
     ]

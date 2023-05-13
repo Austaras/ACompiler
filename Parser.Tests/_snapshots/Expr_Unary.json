@@ -11,7 +11,7 @@
                 "Case": "Neg"
               },
               "expr": {
-                "Case": "Lit",
+                "Case": "LitExpr",
                 "Fields": [
                   {
                     "Case": "Int",
@@ -48,7 +48,7 @@
                 "Case": "Neg"
               },
               "expr": {
-                "Case": "Lit",
+                "Case": "LitExpr",
                 "Fields": [
                   {
                     "Case": "Int",
@@ -101,7 +101,7 @@
           ]
         },
         "right": {
-          "Case": "Lit",
+          "Case": "LitExpr",
           "Fields": [
             {
               "Case": "Int",

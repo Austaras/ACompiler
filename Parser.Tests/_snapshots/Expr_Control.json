@@ -113,7 +113,7 @@
               "Case": "ExprStmt",
               "Fields": [
                 {
-                  "Case": "Lit",
+                  "Case": "LitExpr",
                   "Fields": [
                     {
                       "Case": "Int",
@@ -160,7 +160,7 @@
                         "Case": "LtEq"
                       },
                       "right": {
-                        "Case": "Lit",
+                        "Case": "LitExpr",
                         "Fields": [
                           {
                             "Case": "Int",
@@ -189,7 +189,7 @@
                   "Case": "ExprStmt",
                   "Fields": [
                     {
-                      "Case": "Lit",
+                      "Case": "LitExpr",
                       "Fields": [
                         {
                           "Case": "Int",
@@ -226,7 +226,7 @@
                   "Case": "ExprStmt",
                   "Fields": [
                     {
-                      "Case": "Lit",
+                      "Case": "LitExpr",
                       "Fields": [
                         {
                           "Case": "Int",
@@ -281,7 +281,7 @@
                 "Case": "Some",
                 "Fields": [
                   {
-                    "Case": "Lit",
+                    "Case": "LitExpr",
                     "Fields": [
                       {
                         "Case": "Int",
@@ -301,7 +301,7 @@
                 "Case": "Some",
                 "Fields": [
                   {
-                    "Case": "Lit",
+                    "Case": "LitExpr",
                     "Fields": [
                       {
                         "Case": "Int",
@@ -471,7 +471,7 @@
             },
             "guard": null,
             "result": {
-              "Case": "Lit",
+              "Case": "LitExpr",
               "Fields": [
                 {
                   "Case": "Int",
@@ -504,7 +504,7 @@
               "Case": "Some",
               "Fields": [
                 {
-                  "Case": "Lit",
+                  "Case": "LitExpr",
                   "Fields": [
                     {
                       "Case": "Bool",
@@ -521,7 +521,7 @@
               ]
             },
             "result": {
-              "Case": "Lit",
+              "Case": "LitExpr",
               "Fields": [
                 {
                   "Case": "Int",

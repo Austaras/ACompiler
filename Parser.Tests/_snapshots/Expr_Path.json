@@ -49,7 +49,7 @@
           ]
         },
         "right": {
-          "Case": "Lit",
+          "Case": "LitExpr",
           "Fields": [
             {
               "Case": "Int",
@@ -140,7 +140,7 @@
           "Case": "Gt"
         },
         "right": {
-          "Case": "Lit",
+          "Case": "LitExpr",
           "Fields": [
             {
               "Case": "Int",
@@ -251,7 +251,7 @@
               {
                 "name": "b",
                 "value": {
-                  "Case": "Lit",
+                  "Case": "LitExpr",
                   "Fields": [
                     {
                       "Case": "Int",
