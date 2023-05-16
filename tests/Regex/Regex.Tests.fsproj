@@ -21,7 +21,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\..\src\Regex\Regex.fsproj" />
+    <ProjectReference Include="..\..\ext\Regex\Regex.fsproj" />
   </ItemGroup>
 
 </Project>

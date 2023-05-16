@@ -12,14 +12,15 @@
    - all functions are mutually recursive
    - internal mutable
    - reference type with auto ref/deref which is GC tracked
-   - trait with static and dynamic dispatch
 3. suffix is .adf which stands for Advanced Dominance Fighter
 4. Major TODO
    - [ ] module system
+   - [ ] effect system
    - [ ] trait and dynamic dispatch, orphan rule, specification
    - [ ] GC
    - [ ] macro
    - [ ] HKT
+   - [ ] IR. How many? What kind?
 
 ### Syntax Construct
 
