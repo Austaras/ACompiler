@@ -72,6 +72,8 @@ let Unary () =
         Matches.ChildSnapshot("Delimiter")
     )
 
+    Assert.That(parseTest "&&a", Matches.ChildSnapshot("LogicalAnd"))
+
 [<Test>]
 let Range () =
     Assert.That(parseTest "a.b = 1+1 .. 2*3", Matches.ChildSnapshot("Full"))

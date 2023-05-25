@@ -361,7 +361,7 @@
                         }
                       ],
                       "span": {
-                        "first": 21,
+                        "first": 16,
                         "last": 23
                       },
                       "isMethodCall": false

@@ -22,7 +22,7 @@ type Error =
     | InvalidRangePat of Lexer.Token
     | InclusiveNoEnd of AST.Span
     | RestAtStructEnd of AST.Span
-    | RedudantVisibility of Lexer.Token
+    | VisibilityNotAllowed of Lexer.Token
     | TopLevelExpr of AST.Span
     | NeedDelimiter of AST.Span
     | ConstPat of AST.Span
@@ -703,10 +703,10 @@ and internal parsePat (ctx: Context) input =
 
         match peek from.rest with
         | Some({ data = data }, _) when canStartPat data ->
-            let to_ = parseWithPrec 0 from.rest
+            let to_ = parseRangeRec from.rest
 
             match to_ with
-            | Error e -> Error e
+            | Error e -> from.MergeFatalError e
             | Ok(to_: State<Pat>) ->
                 Ok
                     { data =
@@ -1004,6 +1004,11 @@ and internal parsePat (ctx: Context) input =
             res
         | _ -> Ok state
 
+    and parseRangeRec input =
+        match parsePrefix input with
+        | Error e -> Error e
+        | Ok s -> parseRange s
+
     and parseAs state =
         match peek state.rest with
         | Some({ data = Operator As }, i) ->
@@ -1021,16 +1026,16 @@ and internal parsePat (ctx: Context) input =
                       rest = state.rest[i + j ..] }
 
                 parseAs newState
-            | Some(token, _) -> Error [| UnexpectedToken(token, "as pattern") |]
-            | None -> Error [| IncompleteAtEnd "as pattern" |]
+            | Some(token, _) -> state.FatalError(UnexpectedToken(token, "as pattern"))
+            | None -> state.FatalError(IncompleteAtEnd "as pattern")
         | _ -> Ok state
 
     and parseOr (state: State<Pat>) =
         let rec parseOr (state: State<Pat[]>) =
             match peek state.rest with
             | Some({ data = Operator(Arithmetic BitOr) }, i) ->
-                match parseWithPrec 2 state.rest[i..] with
-                | Ok newState ->
+                match parseRecursive state.rest[i..] with
+                | Ok(newState: State<_>) ->
                     Ok
                         { data = Array.append state.data [| newState.data |]
                           error = Array.append state.error newState.error
@@ -1045,7 +1050,7 @@ and internal parsePat (ctx: Context) input =
                   rest = state.rest }
 
         match res with
-        | Error e -> Error e
+        | Error e -> state.MergeFatalError e
         | Ok s ->
             let pat = s.data
 
@@ -1063,26 +1068,15 @@ and internal parsePat (ctx: Context) input =
                   error = s.error
                   rest = s.rest }
 
-    and parseRecursive prec state =
-        if prec >= 0 then
-            match parseRange state with
-            | Error e -> Error e
-            | Ok s ->
-                if prec >= 1 then
-                    match parseAs s with
-                    | Error e -> Error e
-                    | Ok s -> if prec >= 2 && not ctx.inDecl then parseOr s else Ok s
-                else
-                    Ok s
-        else
-            Ok state
-
-    and parseWithPrec prec input =
-        match parsePrefix input with
+    and parseRecursive input =
+        match parseRangeRec input with
         | Error e -> Error e
-        | Ok s -> parseRecursive prec s
+        | Ok o ->
+            match parseAs o with
+            | Error e -> Error e
+            | Ok o -> if ctx.inDecl then Ok o else parseOr o
 
-    parseWithPrec 2 input
+    parseRecursive input
 
 and internal parseParam (ctx: Context) input =
     match parsePat ctx.InDecl input with
@@ -1115,31 +1109,67 @@ and internal parseParam (ctx: Context) input =
                   rest = p.rest }
 
 and internal parseTypeParam ctx input =
-    match parseId input "type parameter" with
-    | Ok id ->
-        match peek id.rest with
-        | Some({ data = Colon }, i) ->
-            match parseType { ctx with inTypeInst = false } id.rest[i..] with
+    match peek input with
+    | Some({ data = Reserved CONST; span = span }, i) ->
+        let input = input[i..]
+
+        match parseId input "type parameter" with
+        | Ok id ->
+            match peek id.rest with
+            | Some({ data = Colon }, i) ->
+                match parseType { ctx with inTypeInst = false } id.rest[i..] with
+                | Ok ty ->
+                    let param =
+                        { id = id.data
+                          const_ = true
+                          bound = Some ty.data
+                          span = ty.data.span.WithFirst span.first }
+
+                    Ok
+                        { data = param
+                          error = Array.append id.error ty.error
+                          rest = ty.rest }
+                | Error e -> Error e
+            | _ ->
+                Ok
+                    { data =
+                        { id = id.data
+                          const_ = true
+                          bound = None
+                          span = id.data.span.WithFirst span.first }
+                      error = id.error
+                      rest = id.rest }
+        | Error e -> Error [| e |]
+    | Some({ data = Identifier sym; span = span }, i) ->
+        let id = { sym = sym; span = span }
+
+        match peek input[i..] with
+        | Some({ data = Colon }, j) ->
+            match parseType { ctx with inTypeInst = false } input[i + j ..] with
             | Ok ty ->
                 let param =
-                    { id = id.data
+                    { id = id
+                      const_ = false
                       bound = Some ty.data
-                      span = ty.data.span.WithFirst id.data.span.first }
+                      span = ty.data.span.WithFirst span.first }
 
                 Ok
                     { data = param
-                      error = Array.append id.error ty.error
+                      error = ty.error
                       rest = ty.rest }
             | Error e -> Error e
         | _ ->
             Ok
                 { data =
-                    { id = id.data
+                    { id = id
+                      const_ = false
                       bound = None
-                      span = id.data.span }
-                  error = id.error
-                  rest = id.rest }
-    | Error e -> Error [| e |]
+                      span = id.span }
+                  error = [||]
+                  rest = input[i..] }
+
+    | Some(token, _) -> Error [| UnexpectedToken(token, "type parameter") |]
+    | None -> Error [| IncompleteAtEnd "type parameter" |]
 
 let internal isValidLValue expr =
     match expr with
@@ -1751,7 +1781,9 @@ let rec internal parseExpr (ctx: Context) input =
 
         | Some({ data = Operator(Arithmetic(BitOr | LogicalOr)) }, i) -> parseClosure [||] input[i - 1 ..]
 
-        | Some({ data = Operator(Arithmetic Sub | Arithmetic Mul | Arithmetic BitAnd as op) }, i) ->
+        | Some({ data = Operator(Arithmetic Sub | Arithmetic Mul | Arithmetic BitAnd as op)
+                 span = span },
+               i) ->
             let op =
                 match op with
                 | Arithmetic Sub -> Neg
@@ -1765,7 +1797,36 @@ let rec internal parseExpr (ctx: Context) input =
                 let expr =
                     { op = op
                       expr = state.data
-                      span = Span.Make input[i].span.first state.data.span.last }
+                      span = Span.Make span.first state.data.span.last }
+
+                Ok { state with data = Unary expr }
+
+        | Some({ data = Not; span = span }, i) ->
+            match parseWithPrec ctx 1000 input[i..] with
+            | Error e -> Error e
+            | Ok(state: State<Expr>) ->
+                let expr =
+                    { op = AST.Not
+                      expr = state.data
+                      span = Span.Make span.first state.data.span.last }
+
+                Ok { state with data = Unary expr }
+
+        | Some({ data = Operator(Arithmetic LogicalAnd)
+                 span = span },
+               i) ->
+            match parseWithPrec ctx 1000 input[i..] with
+            | Error e -> Error e
+            | Ok(state: State<Expr>) ->
+                let expr =
+                    { op = Deref
+                      expr = state.data
+                      span = Span.Make (span.first + 1) state.data.span.last }
+
+                let expr =
+                    { op = Deref
+                      expr = Unary expr
+                      span = expr.span.WithFirst span.first }
 
                 Ok { state with data = Unary expr }
 
@@ -2031,7 +2092,7 @@ let rec internal parseExpr (ctx: Context) input =
                 match parseCommaSeq state.rest[i..] (parseExpr ctx) (Paren Close) "call arguments" with
                 | Error e -> Error e
                 | Ok(param, paren) ->
-                    let span = paren.span.WithFirst span.first
+                    let span = paren.span.WithFirst state.data.span.first
 
                     let expr =
                         { arg = param.data
@@ -2220,7 +2281,7 @@ and internal parseDecl (ctx: Context) input =
                 | Error e -> Error e
                 | Ok ty ->
                     let decl =
-                        { id = id.data
+                        { name = id.data
                           ty = ty.data
                           span = span.WithLast ty.data.span.last }
 
@@ -2231,15 +2292,187 @@ and internal parseDecl (ctx: Context) input =
 
             | Error e -> id.FatalError e
 
-    | Some({ data = Reserved STRUCT }, i) ->
+    | Some({ data = Reserved STRUCT; span = span }, i) ->
+        let parseStructField input =
+            let vis, visSpan, i =
+                match peek input with
+                | Some({ data = Reserved PUBLIC } as token, i) -> Public, Some token, i
+                | Some({ data = Reserved INTERNAL } as token, i) -> Internal, Some token, i
+                | _ -> Private, None, 0
+
+            match parseId input[i..] "struct field name" with
+            | Error e -> Error [| e |]
+            | Ok id ->
+                match consume id.rest Colon "struct field delimiter" with
+                | Error e -> id.FatalError e
+                | Ok(_, i) ->
+                    match parseType ctx id.rest[i..] with
+                    | Error e -> id.MergeFatalError e
+                    | Ok ty ->
+                        let data =
+                            { vis = vis
+                              name = id.data
+                              ty = ty.data
+                              span = id.data.span }
+
+                        let error = Array.append id.error ty.error
+
+                        let error =
+                            match visSpan with
+                            | Some token when not ctx.mayHaveVis -> Array.append error [| VisibilityNotAllowed token |]
+                            | _ -> error
+
+                        Ok
+                            { data = data
+                              error = error
+                              rest = ty.rest }
+
         match parseId input[i..] "struct name" with
         | Error e -> Error [| e |]
-        | Ok id -> failwith "123"
+        | Ok id ->
+            match peek id.rest with
+            | None -> id.FatalError(IncompleteAtEnd "struct")
+            | Some({ data = Operator(Lt | Arithmetic Shl) }, i) ->
+                let tyParam =
+                    parseLtGt id.rest[i - 1 ..] (parseTypeParam ctx) "struct type parameter"
 
-    | Some({ data = Reserved ENUM }, i) ->
+                match tyParam with
+                | Error e -> Error e
+                | Ok ty ->
+                    match consume ty.rest (Curly Open) "struct fields" with
+                    | Error e -> Error(Array.concat [ id.error; ty.error; [| e |] ])
+                    | Ok(_, i) ->
+                        match parseCommaSeq ty.rest[i..] parseStructField (Curly Close) "struct fields" with
+                        | Error e -> ty.MergeFatalError e
+                        | Ok(fields, curly) ->
+                            let span = span.WithLast curly.span.last
+
+                            let data =
+                                { name = id.data
+                                  tyParam = fst ty.data
+                                  field = fields.data
+                                  span = span }
+
+                            let error = Array.concat [ id.error; ty.error; fields.error ]
+
+                            Ok
+                                { data = StructDecl data
+                                  error = error
+                                  rest = fields.rest }
+            | Some({ data = Curly Open }, i) ->
+                match parseCommaSeq id.rest[i..] parseStructField (Curly Close) "struct fields" with
+                | Error e -> id.MergeFatalError e
+                | Ok(fields, curly) ->
+                    let span = span.WithLast curly.span.last
+
+                    let data =
+                        { name = id.data
+                          tyParam = [||]
+                          field = fields.data
+                          span = span }
+
+                    let error = Array.append id.error fields.error
+
+                    Ok
+                        { data = StructDecl data
+                          error = error
+                          rest = fields.rest }
+            | Some(token, _) -> id.FatalError(UnexpectedToken(token, "struct definition"))
+
+    | Some({ data = Reserved ENUM; span = span }, i) ->
+        let parseEnumVariant input =
+            match parseId input "enum variant name" with
+            | Error e -> Error [| e |]
+            | Ok id ->
+                match peek id.rest with
+                | Some({ data = Paren Open; span = parenSpan }, i) ->
+                    match parseCommaSeq id.rest[i..] (parseType ctx) (Paren Close) "enum variant payload" with
+                    | Error e -> id.MergeFatalError e
+                    | Ok(ty, _) ->
+                        let data =
+                            { name = id.data
+                              payload = ty.data
+                              span = id.data.span }
+
+                        let error = Array.append id.error ty.error
+
+                        Ok
+                            { data = data
+                              error = error
+                              rest = ty.rest }
+                | _ ->
+                    let data =
+                        { name = id.data
+                          payload = [||]
+                          span = id.data.span }
+
+                    Ok
+                        { data = data
+                          error = id.error
+                          rest = id.rest }
+
         match parseId input[i..] "enum name" with
         | Error e -> Error [| e |]
-        | Ok id -> failwith "123"
+        | Ok id ->
+            match peek id.rest with
+            | None -> id.FatalError(IncompleteAtEnd "enum")
+            | Some({ data = Operator(Lt | Arithmetic Shl) }, i) ->
+                let tyParam = parseLtGt id.rest[i - 1 ..] (parseTypeParam ctx) "enum type parameter"
+
+                match tyParam with
+                | Error e -> Error e
+                | Ok ty ->
+                    match consume ty.rest (Curly Open) "enum variants" with
+                    | Error e -> Error(Array.concat [ id.error; ty.error; [| e |] ])
+                    | Ok(_, i) ->
+                        match parseCommaSeq ty.rest[i..] parseEnumVariant (Curly Close) "enum variants" with
+                        | Error e -> ty.MergeFatalError e
+                        | Ok(variants, curly) ->
+                            let span = span.WithLast curly.span.last
+
+                            let data =
+                                { name = id.data
+                                  tyParam = fst ty.data
+                                  variant = variants.data
+                                  span = span }
+
+                            let error = Array.concat [ id.error; ty.error; variants.error ]
+
+                            let error =
+                                if variants.data.Length = 0 then
+                                    Array.append error [| EmptyEnum span |]
+                                else
+                                    error
+
+                            Ok
+                                { data = EnumDecl data
+                                  error = error
+                                  rest = variants.rest }
+            | Some({ data = Curly Open }, i) ->
+                match parseCommaSeq id.rest[i..] parseEnumVariant (Curly Close) "enum variants" with
+                | Error e -> id.MergeFatalError e
+                | Ok(variants, curly) ->
+                    let span = span.WithLast curly.span.last
+
+                    let data =
+                        { name = id.data
+                          tyParam = [||]
+                          variant = variants.data
+                          span = span }
+
+                    let error = Array.append id.error variants.error
+
+                    let error =
+                        if variants.data.Length = 0 then
+                            Array.append error [| EmptyEnum span |]
+                        else
+                            error
+
+                    Ok
+                        { data = EnumDecl data
+                          error = error
+                          rest = variants.rest }
+            | Some(token, _) -> id.FatalError(UnexpectedToken(token, "struct definition"))
 
     | Some({ data = Reserved IMPL }, i) ->
         match parseId input[i..] "implementation name" with
@@ -2305,11 +2538,15 @@ let rec internal parseModuleItem (input: Lexer.Token[]) =
                i) -> Internal, Some span, i
         | _ -> Private, None, 0
 
-    let stmt = parseStmt Context.Normal input[i..]
+    let ctx =
+        { Context.Normal with
+            mayHaveVis = vis <> Private }
+
+    let stmt = parseStmt ctx input[i..]
 
     match stmt with
     | Error e -> Error e
-    | Ok(s: State<Stmt>) ->
+    | Ok s ->
         match s.data with
         | DeclStmt d ->
             let first =

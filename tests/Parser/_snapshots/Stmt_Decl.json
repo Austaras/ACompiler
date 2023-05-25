@@ -19,6 +19,7 @@
                 "last": 16
               }
             },
+            "const_": false,
             "bound": {
               "Case": "Some",
               "Fields": [
@@ -293,7 +294,7 @@
                             }
                           ],
                           "span": {
-                            "first": 60,
+                            "first": 55,
                             "last": 62
                           },
                           "isMethodCall": false
@@ -330,6 +331,84 @@
         "span": {
           "first": 9,
           "last": 87
+        }
+      }
+    ]
+  },
+  "Enum": {
+    "Case": "EnumDecl",
+    "Fields": [
+      {
+        "name": {
+          "sym": "Option",
+          "span": {
+            "first": 14,
+            "last": 19
+          }
+        },
+        "tyParam": [
+          {
+            "id": {
+              "sym": "T",
+              "span": {
+                "first": 21,
+                "last": 21
+              }
+            },
+            "const_": false,
+            "bound": null,
+            "span": {
+              "first": 21,
+              "last": 21
+            }
+          }
+        ],
+        "variant": [
+          {
+            "name": {
+              "sym": "Some",
+              "span": {
+                "first": 38,
+                "last": 41
+              }
+            },
+            "payload": [
+              {
+                "Case": "TypeId",
+                "Fields": [
+                  {
+                    "sym": "T",
+                    "span": {
+                      "first": 43,
+                      "last": 43
+                    }
+                  }
+                ]
+              }
+            ],
+            "span": {
+              "first": 38,
+              "last": 41
+            }
+          },
+          {
+            "name": {
+              "sym": "None",
+              "span": {
+                "first": 59,
+                "last": 62
+              }
+            },
+            "payload": [],
+            "span": {
+              "first": 59,
+              "last": 62
+            }
+          }
+        ],
+        "span": {
+          "first": 9,
+          "last": 72
         }
       }
     ]

@@ -122,6 +122,7 @@ and InstType = { ty: Type; arg: Type[]; span: Span }
 
 and TypeParam =
     { id: Id
+      const_: bool
       bound: Option<Type>
       span: Span }
 
@@ -417,18 +418,29 @@ and Use =
       seg: Id[]
       item: UseItem }
 
-and TypeDecl = { id: Id; ty: Type; span: Span }
+and TypeDecl = { name: Id; ty: Type; span: Span }
+
+and StructFieldDef =
+    { vis: Visibility
+      name: Id
+      ty: Type
+      span: Span }
 
 and StructDecl =
     { name: Id
-      typeParam: TypeParam[]
-      field: (Visibility * TypeDecl)[]
+      tyParam: TypeParam[]
+      field: StructFieldDef[]
+      span: Span }
+
+and EnumVariantDef =
+    { name: Id
+      payload: Type[]
       span: Span }
 
 and EnumDecl =
     { name: Id
-      typeParam: TypeParam[]
-      variant: TypeDecl[]
+      tyParam: TypeParam[]
+      variant: EnumVariantDef[]
       span: Span }
 
 and TraitMethod =

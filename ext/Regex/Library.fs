@@ -1,5 +1,4 @@
-﻿// This is not used in anywhere of this project, it's simply for demostration
-module Regex.Regex
+﻿module Regex.Regex
 
 type internal RegexUnit =
     | Empty

@@ -104,6 +104,7 @@
                       "last": 16
                     }
                   },
+                  "const_": false,
                   "bound": null,
                   "span": {
                     "first": 16,
@@ -221,7 +222,7 @@
                       }
                     ],
                     "span": {
-                      "first": 42,
+                      "first": 38,
                       "last": 44
                     },
                     "isMethodCall": false

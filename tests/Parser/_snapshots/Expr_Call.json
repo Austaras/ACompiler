@@ -21,7 +21,7 @@
               },
               "arg": [],
               "span": {
-                "first": 1,
+                "first": 0,
                 "last": 2
               },
               "isMethodCall": false
@@ -30,7 +30,7 @@
         },
         "arg": [],
         "span": {
-          "first": 3,
+          "first": 0,
           "last": 4
         },
         "isMethodCall": false
@@ -74,7 +74,7 @@
               },
               "arg": [],
               "span": {
-                "first": 4,
+                "first": 1,
                 "last": 5
               },
               "isMethodCall": true
@@ -82,7 +82,7 @@
           ]
         },
         "span": {
-          "first": 1,
+          "first": 0,
           "last": 5
         }
       }
@@ -110,7 +110,7 @@
               },
               "arg": [],
               "span": {
-                "first": 1,
+                "first": 0,
                 "last": 2
               },
               "isMethodCall": false
@@ -156,7 +156,7 @@
                 }
               ],
               "span": {
-                "first": 7,
+                "first": 6,
                 "last": 9
               },
               "isMethodCall": false
@@ -164,7 +164,7 @@
           ]
         },
         "span": {
-          "first": 1,
+          "first": 0,
           "last": 9
         }
       }

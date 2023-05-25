@@ -102,6 +102,8 @@ let internal parseIdentifier input =
     | "mut" -> Reserved MUTABLE
     | "const" -> Reserved CONST
     | "type" -> Reserved TYPE
+    | "struct" -> Reserved STRUCT
+    | "enum" -> Reserved ENUM
     | "trait" -> Reserved TRAIT
     | "impl" -> Reserved IMPL
     | "use" -> Reserved USE

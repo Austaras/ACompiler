@@ -39,3 +39,14 @@ let Decl () =
     ",
         Matches.ChildSnapshot("Let")
     )
+
+    Assert.That(
+        parseTest
+            "
+        enum Option<T> {
+            Some(T),
+            None
+        }
+    ",
+        Matches.ChildSnapshot("Enum")
+    )
