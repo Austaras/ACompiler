@@ -2081,9 +2081,9 @@ let rec internal parseExpr (ctx: Context) input =
                     { state with
                         data = Field expr
                         rest = state.rest[i + j ..] }
-            | _ -> Ok state
+            | Some(token, _) -> state.FatalError(UnexpectedToken(token, "field access"))
 
-        | Some({ data = Paren Open; span = span } as token, i) ->
+        | Some({ data = Paren Open; span = span }, i) ->
             let ctx = ctx.NotInCond
 
             match peek state.rest with

@@ -3,8 +3,8 @@ module Parser.Tests.Pat
 open Lexer
 open Parser.Parser
 
-open NUnit.Framework
-open Snapper.Nunit
+open Xunit
+open Snapper
 
 exception CustomError of Error[]
 
@@ -16,28 +16,27 @@ let parseTest input =
         | Error e -> raise (CustomError e)
     | Error e -> raise (CustomError(Array.map LexError e))
 
-[<Test>]
+[<Fact>]
 let StructEnum () =
-    Assert.That(parseTest "core::Option::Some(1)", Matches.ChildSnapshot("Enum"))
-    Assert.That(parseTest "pak::Foo { v, x: 10, ..}", Matches.ChildSnapshot("Struct"))
+    (parseTest "core::Option::Some(1)").ShouldMatchChildSnapshot("Enum")
+    (parseTest "pak::Foo { v, x: 10, ..}").ShouldMatchChildSnapshot("Struct")
 
-    Assert.That(
-        parseTest
-            "Person {
+    (parseTest
+        "Person {
         car: Some(_),
         age: 13..19 as person,
         name: person_name,
         ..
-    }",
-        Matches.ChildSnapshot("Compound")
-    )
+    }")
+        .ShouldMatchChildSnapshot("Compound")
 
-[<Test>]
+
+[<Fact>]
 let Range () =
-    Assert.That(parseTest "..", Matches.ChildSnapshot("CatchAll"))
-    Assert.That(parseTest "A..", Matches.ChildSnapshot("Left"))
-    Assert.That(parseTest "..10", Matches.ChildSnapshot("Right"))
+    (parseTest "..").ShouldMatchChildSnapshot("CatchAll")
+    (parseTest "A..").ShouldMatchChildSnapshot("Left")
+    (parseTest "..10").ShouldMatchChildSnapshot("Right")
 
-[<Test>]
+[<Fact>]
 let Assoc () =
-    Assert.That(parseTest "1 as a as b | d", Matches.ChildSnapshot("AsOr"))
+    (parseTest "1 as a as b | d").ShouldMatchChildSnapshot("AsOr")

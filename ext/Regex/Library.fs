@@ -11,25 +11,25 @@ type internal RegexUnit =
     | Or of RegexUnit[]
 
 let internal parseRegex (str: string) =
-    let arr_to_unit r =
+    let arrToUnit r =
         match Array.length r with
         | 0 -> Empty
         | 1 -> r[0]
         | _ -> Concat r
 
-    let find_other (str: string) =
-        let rec find_other i cnt =
+    let findOther (str: string) =
+        let rec findOther i cnt =
             if cnt = 0 then
                 i - 1
             else if i = str.Length then
                 failwith "cannot find correspond bracket"
             else
                 match str[i] with
-                | '(' -> find_other (i + 1) (cnt + 1)
-                | ')' -> find_other (i + 1) (cnt - 1)
-                | _ -> find_other (i + 1) cnt
+                | '(' -> findOther (i + 1) (cnt + 1)
+                | ')' -> findOther (i + 1) (cnt - 1)
+                | _ -> findOther (i + 1) cnt
 
-        find_other 0 1
+        findOther 0 1
 
     let rec parseRegex (str: string) prev =
         if str.Length = 0 then
@@ -57,7 +57,7 @@ let internal parseRegex (str: string) =
                 let other = parseRegex str[1..] [||]
 
                 let r =
-                    match arr_to_unit prev, arr_to_unit other with
+                    match arrToUnit prev, arrToUnit other with
                     | Or l, Or r -> Or(Array.append l r)
                     | Or l, r -> Or(Array.append l [| r |])
                     | l, Or r -> Or(Array.append [| l |] r)
@@ -66,11 +66,11 @@ let internal parseRegex (str: string) =
                 [| r |]
 
             | '(' ->
-                let end_id = find_other str[1..]
-                let child = parseRegex str[1..end_id] [||] |> arr_to_unit
+                let endId = findOther str[1..]
+                let child = parseRegex str[1..endId] [||] |> arrToUnit
                 let prev = Array.append prev [| child |]
 
-                parseRegex str[(end_id + 2) ..] prev
+                parseRegex str[(endId + 2) ..] prev
 
             | ')' -> failwith "unreachable"
 
@@ -87,7 +87,7 @@ let internal parseRegex (str: string) =
 
                 parseRegex str[1..] prev
 
-    parseRegex str [||] |> arr_to_unit
+    parseRegex str [||] |> arrToUnit
 
 type internal NFAUnit = { next: Option<char>; maybe: int[] }
 
@@ -109,44 +109,44 @@ let internal regexToNFA regex =
             nfa, cnt + 1
 
         | Or r ->
-            let calc_middle (arr, len, cnt) r =
-                let nu, new_cnt = regexToNFA cnt r
+            let calcMiddle (arr, len, cnt) r =
+                let nu, newCnt = regexToNFA cnt r
 
-                Array.append arr nu, Array.append len [| new_cnt - cnt |], new_cnt
+                Array.append arr nu, Array.append len [| newCnt - cnt |], newCnt
 
-            let middle, len, new_cnt = Array.fold calc_middle ([||], [||], cnt + 1) r
+            let middle, len, newCnt = Array.fold calcMiddle ([||], [||], cnt + 1) r
 
             let mutable idx = 0
 
             for cnt in len do
                 idx <- idx + cnt
 
-                let new_end = { next = None; maybe = [| new_cnt |] }
+                let newEnd = { next = None; maybe = [| newCnt |] }
 
-                Array.set middle (idx - 1) new_end
+                Array.set middle (idx - 1) newEnd
 
-            let first_id = Array.scan (+) (cnt + 1) len
+            let firstId = Array.scan (+) (cnt + 1) len
 
             let first =
                 { next = None
-                  maybe = first_id[0 .. first_id.Length - 2] }
+                  maybe = firstId[0 .. firstId.Length - 2] }
 
-            Array.concat [ [| first |]; middle; [| empty |] ], new_cnt + 1
+            Array.concat [ [| first |]; middle; [| empty |] ], newCnt + 1
 
         | Star r ->
-            let middle, new_cnt = regexToNFA (cnt + 1) r
+            let middle, newCnt = regexToNFA (cnt + 1) r
 
             Array.set
                 middle
                 (middle.Length - 1)
                 { next = None
-                  maybe = [| cnt + 1; new_cnt |] }
+                  maybe = [| cnt + 1; newCnt |] }
 
             let first =
                 { next = None
-                  maybe = [| cnt + 1; new_cnt |] }
+                  maybe = [| cnt + 1; newCnt |] }
 
-            Array.concat [ [| first |]; middle; [| empty |] ], new_cnt + 1
+            Array.concat [ [| first |]; middle; [| empty |] ], newCnt + 1
 
     regexToNFA 0 regex |> fst
 
@@ -157,7 +157,7 @@ let internal nfaToDFA (nfa: NFAUnit[]) =
     let rec eclosure i : Set<int> =
         Array.map eclosure nfa[i].maybe |> Set.unionMany |> Set.add i
 
-    let closure_next e =
+    let closureNext e =
         let reachable state key i =
             let add prev =
                 Some(
@@ -168,7 +168,7 @@ let internal nfaToDFA (nfa: NFAUnit[]) =
 
             Map.change key add state
 
-        let set_reachable state i =
+        let setReachable state i =
             let init =
                 match nfa[i].next with
                 | Some c -> Map [ c, i + 1 ]
@@ -176,17 +176,17 @@ let internal nfaToDFA (nfa: NFAUnit[]) =
 
             Map.fold reachable state init
 
-        Set.fold set_reachable Map.empty e
+        Set.fold setReachable Map.empty e
 
     let rec transform curr map =
-        let reachable = closure_next curr
+        let reachable = closureNext curr
 
-        let get_todo (map, todo) _ set =
+        let getTodo (map, todo) _ set =
             match Map.tryFind set map with
             | Some _ -> map, todo
             | None -> Map.add set (Map.count map) map, Array.append todo [| set |]
 
-        let map, todo = Map.fold get_todo (map, [||]) reachable
+        let map, todo = Map.fold getTodo (map, [||]) reachable
 
         let idx = map[curr]
 
@@ -194,14 +194,14 @@ let internal nfaToDFA (nfa: NFAUnit[]) =
             { next = Map.map (fun _ v -> map[v]) reachable
               terminal = Set.contains (nfa.Length - 1) curr }
 
-        let calc_todo (state, map) todo =
+        let calcTodo (state, map) todo =
             let rest, map = transform todo map
 
             let state = Map.fold (fun map k v -> Map.add k v map) state rest
 
             state, map
 
-        Array.fold calc_todo (Map [| idx, curr |], map) todo
+        Array.fold calcTodo (Map [| idx, curr |], map) todo
 
     let init = eclosure 0
 
@@ -210,25 +210,25 @@ let internal nfaToDFA (nfa: NFAUnit[]) =
     dfa |> Map.values |> Seq.toArray
 
 let internal minifyDFA (dfa: DFAUnit[]) =
-    let dfa_id = seq { 0 .. (dfa.Length - 1) }
+    let dfaId = seq { 0 .. (dfa.Length - 1) }
 
-    let part_terminal (t, nt) i =
+    let partTerminal (t, nt) i =
         if dfa[i].terminal then Set.add i t, nt else t, Set.add i nt
 
-    let t, nt = Seq.fold part_terminal (Set.empty, Set.empty) dfa_id
+    let t, nt = Seq.fold partTerminal (Set.empty, Set.empty) dfaId
 
-    let try_split (ctx: Map<int, int>) s =
-        let map_to_seq m = m |> Map.keys |> Set.ofSeq
+    let trySplit (ctx: Map<int, int>) s =
+        let mapToSeq m = m |> Map.keys |> Set.ofSeq
 
-        let union_of_next state i =
+        let unionOfNext state i =
             let node = dfa[i]
 
-            Set.union state (map_to_seq node.next)
+            Set.union state (mapToSeq node.next)
 
-        let possible_next = Set.fold union_of_next Set.empty s
+        let possibleNext = Set.fold unionOfNext Set.empty s
 
-        let next_of_set s next =
-            let next_of_unit i =
+        let nextOfSet s next =
+            let nextOfUnit i =
                 let node = dfa[i]
 
                 let next =
@@ -238,37 +238,37 @@ let internal minifyDFA (dfa: DFAUnit[]) =
 
                 i, next
 
-            s |> Set.toArray |> Array.map next_of_unit
+            s |> Set.toArray |> Array.map nextOfUnit
 
-        let find_split next =
-            let next_map = next_of_set s next
-            let next_group = Array.groupBy (fun (_, next) -> next) next_map
+        let findSplit next =
+            let nextMap = nextOfSet s next
+            let nextGroup = Array.groupBy (fun (_, next) -> next) nextMap
 
-            if next_group.Length = 1 then
+            if nextGroup.Length = 1 then
                 None
             else
-                let get_node_set (_, node_to_next) =
-                    Array.map (fun (node, _) -> node) node_to_next |> Set.ofArray
+                let getNodeSet (_, nodeToNext) =
+                    Array.map (fun (node, _) -> node) nodeToNext |> Set.ofArray
 
-                Some(Array.map get_node_set next_group)
+                Some(Array.map getNodeSet nextGroup)
 
-        Seq.tryPick find_split possible_next
+        Seq.tryPick findSplit possibleNext
 
     let rec split ctx arr =
-        let update_ctx value state i = Map.add i value state
+        let updateCtx value state i = Map.add i value state
         let last = Map.count ctx
 
-        let update_ctx_multi state (idx, set) =
-            Set.fold (update_ctx (last + idx)) state set
+        let updateCtxMulti state (idx, set) =
+            Set.fold (updateCtx (last + idx)) state set
 
-        let ctx = Array.fold update_ctx_multi ctx (Array.indexed arr)
+        let ctx = Array.fold updateCtxMulti ctx (Array.indexed arr)
 
-        let split_set ctx set =
+        let splitSet ctx set =
             match Set.count set with
             | 0 -> [||], ctx
             | 1 -> [| set |], ctx
             | _ ->
-                match try_split ctx set with
+                match trySplit ctx set with
                 | Some child ->
                     let union = Set.unionMany child
                     let rest = Set.difference set union
@@ -284,58 +284,58 @@ let internal minifyDFA (dfa: DFAUnit[]) =
 
         Array.foldBack
             (fun set (state, ctx) ->
-                let child, ctx = split_set ctx set
+                let child, ctx = splitSet ctx set
 
                 Array.append state child, ctx)
             arr
             ([||], ctx)
 
-    let new_dfa, _ = split Map.empty [| nt; t |]
+    let newDfa, _ = split Map.empty [| nt; t |]
 
-    if new_dfa.Length = dfa.Length then
+    if newDfa.Length = dfa.Length then
         dfa
     else
-        let new_dfa = Array.sortBy Set.minElement new_dfa
+        let newDfa = Array.sortBy Set.minElement newDfa
 
-        let map_to_new_id state (new_id, set) =
-            Set.fold (fun state id -> Map.add id new_id state) state set
+        let mapToNewId state (newId, set) =
+            Set.fold (fun state id -> Map.add id newId state) state set
 
-        let id_map = Array.fold map_to_new_id Map.empty (Array.indexed new_dfa)
+        let idMap = Array.fold mapToNewId Map.empty (Array.indexed newDfa)
 
-        let map_to_new_dfa (state, seen) idx =
+        let mapToNewDfa (state, seen) idx =
             if Set.contains idx seen then
                 state, seen
             else
-                let merge = new_dfa[Array.length state]
+                let merge = newDfa[Array.length state]
                 let seen = Set.union seen merge
 
-                let merge_next prev curr =
-                    Map.fold (fun prev key value -> Map.add key id_map[value] prev) prev curr
+                let mergeNext prev curr =
+                    Map.fold (fun prev key value -> Map.add key idMap[value] prev) prev curr
 
-                let calc_new_dfa state id =
+                let calcNewDfa state id =
                     let dfa = dfa[id]
 
-                    { next = merge_next state.next dfa.next
+                    { next = mergeNext state.next dfa.next
                       terminal = state.terminal || dfa.terminal }
 
-                let new_dfa = Set.fold calc_new_dfa { next = Map []; terminal = false } merge
+                let newDfa = Set.fold calcNewDfa { next = Map []; terminal = false } merge
 
-                Array.append state [| new_dfa |], seen
+                Array.append state [| newDfa |], seen
 
-        Array.fold map_to_new_dfa ([||], Set.empty) (Array.ofSeq dfa_id) |> fst
+        Array.fold mapToNewDfa ([||], Set.empty) (Array.ofSeq dfaId) |> fst
 
 type Regex(text) =
     let regex = text |> parseRegex |> regexToNFA |> nfaToDFA |> minifyDFA
 
-    member this.match_str str =
-        let rec match_str i (str: string) =
+    member this.MatchStr str =
+        let rec matchStr i (str: string) =
             if str.Length = 0 then
                 regex[i].terminal
             else
                 let next = regex[i].next
 
                 match Map.tryFind str[0] next with
-                | Some next -> match_str next str[1..]
+                | Some next -> matchStr next str[1..]
                 | None -> false
 
-        match_str 0 str
+        matchStr 0 str

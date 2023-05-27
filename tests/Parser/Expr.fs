@@ -3,8 +3,8 @@ module Parser.Tests.Expr
 open Lexer
 open Parser.Parser
 
-open NUnit.Framework
-open Snapper.Nunit
+open Xunit
+open Snapper
 
 exception CustomError of Error[]
 
@@ -16,91 +16,94 @@ let parseTest input =
         | Error e -> raise (CustomError e)
     | Error e -> raise (CustomError(Array.map LexError e))
 
-[<Test>]
+[<Fact>]
 let Bin () =
-    Assert.That(parseTest "1 + 2 * 3", Matches.ChildSnapshot("Binary"))
-    Assert.That(parseTest "3 - 2 - 1", Matches.ChildSnapshot("Assoc"))
-    Assert.That(parseTest "a == c + d * 3", Matches.ChildSnapshot("Compare"))
+    (parseTest "1 + 2 * 3").ShouldMatchChildSnapshot("Binary")
+    (parseTest "3 - 2 - 1").ShouldMatchChildSnapshot("Assoc")
+    (parseTest "a == c + d * 3").ShouldMatchChildSnapshot("Compare")
 
-    Assert.That(parseTest "a = b + c", Matches.ChildSnapshot("Assign"))
-    Assert.That(parseTest "a = b = c", Matches.ChildSnapshot("RightAssoc"))
-    Assert.That(parseTest "a *= b + c", Matches.ChildSnapshot("AssignOp"))
+    (parseTest "a = b + c").ShouldMatchChildSnapshot("Assign")
+    (parseTest "a = b = c").ShouldMatchChildSnapshot("RightAssoc")
+    (parseTest "a *= b + c").ShouldMatchChildSnapshot("AssignOp")
 
-    Assert.That(parseTest "(1 + 2) * 3", Matches.ChildSnapshot("Paren"))
-    Assert.That(parseTest "((((1 + 2))) * (3))", Matches.ChildSnapshot("ManyParen"))
+    (parseTest "(1 + 2) * 3").ShouldMatchChildSnapshot("Paren")
+    (parseTest "((((1 + 2))) * (3))").ShouldMatchChildSnapshot("ManyParen")
 
-    Assert.That(
-        parseTest
-            "1 + // comment
-    2",
-        Matches.ChildSnapshot("Comment")
-    )
+    (parseTest
+        "1 + // comment
+    2")
+        .ShouldMatchChildSnapshot("Comment")
 
-    Assert.That(parseTest "1 + 2 * let 3", Matches.ChildSnapshot("Malformed"))
 
-[<Test>]
+    (parseTest "1 + 2 * let 3").ShouldMatchChildSnapshot("Malformed")
+
+[<Fact>]
 let Tuple () =
-    Assert.That(parseTest "()", Matches.ChildSnapshot("Zero"))
-    Assert.That(parseTest "(1 + 2) * (4 - 5)", Matches.ChildSnapshot("One"))
-    Assert.That(parseTest "(2, (1, 2), a = b)", Matches.ChildSnapshot("Many"))
+    (parseTest "()").ShouldMatchChildSnapshot("Zero")
+    (parseTest "(1 + 2) * (4 - 5)").ShouldMatchChildSnapshot("One")
+    (parseTest "(2, (1, 2), a = b)").ShouldMatchChildSnapshot("Many")
 
-[<Test>]
+[<Fact>]
 let Array () =
-    Assert.That(parseTest "[1, 2 + 3, 4,]", Matches.ChildSnapshot("Nomral"))
-    Assert.That(parseTest "[a; 10]", Matches.ChildSnapshot("Repeat"))
-    Assert.That(parseTest "[1 + 2] + [3 * 4]", Matches.ChildSnapshot("Binary"))
+    (parseTest "[1, 2 + 3, 4,]").ShouldMatchChildSnapshot("Nomral")
+    (parseTest "[a; 10]").ShouldMatchChildSnapshot("Repeat")
+    (parseTest "[1 + 2] + [3 * 4]").ShouldMatchChildSnapshot("Binary")
 
-[<Test>]
+[<Fact>]
 let Field () =
-    Assert.That(parseTest "a.b.c", Matches.ChildSnapshot("Assoc"))
-    Assert.That(parseTest "(0, 1)._0 + 1", Matches.ChildSnapshot("Tuple"))
-    Assert.That(parseTest "[1,2,3][2]", Matches.ChildSnapshot("Array"))
-    Assert.That(parseTest "a[1][c + d]", Matches.ChildSnapshot("Multi"))
-    Assert.That(parseTest "a[1].x", Matches.ChildSnapshot("Mix"))
-    Assert.That(parseTest "a.x[1]", Matches.ChildSnapshot("Mix2"))
-    Assert.That(parseTest "a.b = c.d", Matches.ChildSnapshot("Assign"))
-    Assert.That(parseTest "a.b + c.0 * d.e", Matches.ChildSnapshot("Bin"))
+    (parseTest "a.b.c").ShouldMatchChildSnapshot("Assoc")
+    (parseTest "(0, 1)._0 + 1").ShouldMatchChildSnapshot("Tuple")
+    (parseTest "[1,2,3][2]").ShouldMatchChildSnapshot("Array")
+    (parseTest "a[1][c + d]").ShouldMatchChildSnapshot("Multi")
+    (parseTest "a[1].x").ShouldMatchChildSnapshot("Mix")
+    (parseTest "a.x[1]").ShouldMatchChildSnapshot("Mix2")
+    (parseTest "a.b = c.d").ShouldMatchChildSnapshot("Assign")
+    (parseTest "a.b + c.0 * d.e").ShouldMatchChildSnapshot("Bin")
 
-[<Test>]
+[<Fact>]
 let Unary () =
-    Assert.That(parseTest "-1+-2", Matches.ChildSnapshot("Binary"))
+    (parseTest "-1+-2").ShouldMatchChildSnapshot("Binary")
 
-    Assert.That(
-        parseTest
-            "[] -
-        1",
-        Matches.ChildSnapshot("Delimiter")
-    )
+    (parseTest
+        "[] -
+        1")
+        .ShouldMatchChildSnapshot("Delimiter")
 
-    Assert.That(parseTest "&&a", Matches.ChildSnapshot("LogicalAnd"))
+    (parseTest "&&a").ShouldMatchChildSnapshot("LogicalAnd")
 
-[<Test>]
+[<Fact>]
 let Range () =
-    Assert.That(parseTest "a.b = 1+1 .. 2*3", Matches.ChildSnapshot("Full"))
-    Assert.That(parseTest "-5..-3", Matches.ChildSnapshot("Unary"))
-    Assert.That(parseTest "..1 + 1..", Matches.ChildSnapshot("Half"))
+    (parseTest "a.b = 1+1 .. 2*3").ShouldMatchChildSnapshot("Full")
+    (parseTest "-5..-3").ShouldMatchChildSnapshot("Unary")
+    (parseTest "..1 + 1..").ShouldMatchChildSnapshot("Half")
 
-[<Test>]
+[<Fact>]
 let Call () =
-    Assert.That(parseTest "a()()", Matches.ChildSnapshot("Many"))
-    Assert.That(parseTest "-a.b()", Matches.ChildSnapshot("Unary"))
-    Assert.That(parseTest "a() + c(d)", Matches.ChildSnapshot("Bin"))
+    (parseTest "a()()").ShouldMatchChildSnapshot("Many")
+    (parseTest "-a.b()").ShouldMatchChildSnapshot("Unary")
+    (parseTest "a() + c(d)").ShouldMatchChildSnapshot("Bin")
 
-[<Test>]
+[<Fact>]
 let Path () =
-    Assert.That(parseTest "Vec::<i32>>>1", Matches.ChildSnapshot("GenericShr"))
-    Assert.That(parseTest "Vec::<Vec<i32>>>1", Matches.ChildSnapshot("DoubleGeneric"))
-    Assert.That(parseTest "Foo::Bar::<Vec<i32>> { a, b: 10, ..d }", Matches.ChildSnapshot("Struct"))
+    (parseTest "Vec::<i32>>>1").ShouldMatchChildSnapshot("GenericShr")
+    (parseTest "Vec::<Vec<i32>>>1").ShouldMatchChildSnapshot("DoubleGeneric")
 
-[<Test>]
+    (parseTest "Foo::Bar::<Vec<i32>> { a, b: 10, ..d }")
+        .ShouldMatchChildSnapshot("Struct")
+
+[<Fact>]
 let Closure () =
-    Assert.That(parseTest "(|x| x * 2) >> <T>|x: T| -> Option<T> Some(x)", Matches.ChildSnapshot("Compose"))
-    Assert.That(parseTest "|x| |y| x + y", Matches.ChildSnapshot("Curry"))
+    (parseTest "(|x| x * 2) >> <T>|x: T| -> Option<T> Some(x)")
+        .ShouldMatchChildSnapshot("Compose")
 
-[<Test>]
+    (parseTest "|x| |y| x + y").ShouldMatchChildSnapshot("Curry")
+
+[<Fact>]
 let Control () =
-    Assert.That(parseTest "if let L(_) | R(_) = a { 1 } else if a <= 3 { 2 } else { 3 }", Matches.ChildSnapshot("If"))
+    (parseTest "if let L(_) | R(_) = a { 1 } else if a <= 3 { 2 } else { 3 }")
+        .ShouldMatchChildSnapshot("If")
 
-    Assert.That(parseTest "for i in 0..9 { print(i) }", Matches.ChildSnapshot("For"))
+    (parseTest "for i in 0..9 { print(i) }").ShouldMatchChildSnapshot("For")
 
-    Assert.That(parseTest "match a { Some(a) => a, None => 1, _ if true => 3 }", Matches.ChildSnapshot("Match"))
+    (parseTest "match a { Some(a) => a, None => 1, _ if true => 3 }")
+        .ShouldMatchChildSnapshot("Match")

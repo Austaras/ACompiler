@@ -1,51 +1,51 @@
 module Regex.Tests
 
-open NUnit.Framework
+open Xunit
 open Regex
 
-[<Test>]
+[<Fact>]
 let Concat () =
     let reg = Regex("123")
-    Assert.True(reg.match_str "123")
-    Assert.False(reg.match_str "234")
-    Assert.False(reg.match_str "1234")
+    Assert.True(reg.MatchStr "123")
+    Assert.False(reg.MatchStr "234")
+    Assert.False(reg.MatchStr "1234")
 
-[<Test>]
+[<Fact>]
 let Or () =
     let reg = Regex("aac|abc")
-    Assert.True(reg.match_str "aac")
-    Assert.True(reg.match_str "abc")
-    Assert.False(reg.match_str "acc")
+    Assert.True(reg.MatchStr "aac")
+    Assert.True(reg.MatchStr "abc")
+    Assert.False(reg.MatchStr "acc")
 
     let reg = Regex("|c")
-    Assert.True(reg.match_str "c")
-    Assert.False(reg.match_str "ab")
+    Assert.True(reg.MatchStr "c")
+    Assert.False(reg.MatchStr "ab")
 
-[<Test>]
+[<Fact>]
 let Many () =
     let reg = Regex("a*a")
-    Assert.True(reg.match_str "aaa")
-    Assert.False(reg.match_str "aaab")
+    Assert.True(reg.MatchStr "aaa")
+    Assert.False(reg.MatchStr "aaab")
 
     let reg = Regex("a+")
-    Assert.True(reg.match_str "aa")
-    Assert.False(reg.match_str "")
+    Assert.True(reg.MatchStr "aa")
+    Assert.False(reg.MatchStr "")
 
     let reg = Regex("a*b*")
-    Assert.True(reg.match_str "aabb")
-    Assert.False(reg.match_str "abab")
+    Assert.True(reg.MatchStr "aabb")
+    Assert.False(reg.MatchStr "abab")
 
-[<Test>]
+[<Fact>]
 let Complex () =
     let reg = Regex("a|ab*")
-    Assert.True(reg.match_str "abbb")
-    Assert.False(reg.match_str "aa")
+    Assert.True(reg.MatchStr "abbb")
+    Assert.False(reg.MatchStr "aa")
 
     let reg = Regex("a(b|c)*")
-    Assert.True(reg.match_str "abcbbc")
-    Assert.False(reg.match_str "aa")
+    Assert.True(reg.MatchStr "abcbbc")
+    Assert.False(reg.MatchStr "aa")
 
     // even number of a
     let reg = Regex("((b|c)*a(b|c)*a)*(b|c)*")
-    Assert.True(reg.match_str "abcbbcabcc")
-    Assert.False(reg.match_str "abaca")
+    Assert.True(reg.MatchStr "abcbbcabcc")
+    Assert.False(reg.MatchStr "abaca")

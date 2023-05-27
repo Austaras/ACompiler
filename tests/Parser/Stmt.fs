@@ -3,8 +3,8 @@ module Parser.Tests.Stmt
 open Lexer
 open Parser.Parser
 
-open NUnit.Framework
-open Snapper.Nunit
+open Xunit
+open Snapper
 
 exception CustomError of Error[]
 
@@ -16,37 +16,31 @@ let parseTest input =
         | Error e -> raise (CustomError e)
     | Error e -> raise (CustomError(Array.map LexError e))
 
-[<Test>]
+[<Fact>]
 let Decl () =
-    Assert.That(
-        parseTest
-            "
+    (parseTest
+        "
         fn add<T: Add>(x: T, y: T) -> T {
             x + y
         }
-    ",
-        Matches.ChildSnapshot("function")
-    )
+    ")
+        .ShouldMatchChildSnapshot("function")
 
-    Assert.That(
-        parseTest
-            "
+    (parseTest
+        "
         let _ = {
-            let a = 10;
+            let mut a = 10;
             print(a);
             a
         }
-    ",
-        Matches.ChildSnapshot("Let")
-    )
+    ")
+        .ShouldMatchChildSnapshot("Let")
 
-    Assert.That(
-        parseTest
-            "
+    (parseTest
+        "
         enum Option<T> {
             Some(T),
             None
         }
-    ",
-        Matches.ChildSnapshot("Enum")
-    )
+    ")
+        .ShouldMatchChildSnapshot("Enum")

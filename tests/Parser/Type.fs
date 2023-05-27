@@ -3,8 +3,8 @@ module Parser.Tests.Type
 open Lexer
 open Parser.Parser
 
-open NUnit.Framework
-open Snapper.Nunit
+open Xunit
+open Snapper
 
 exception CustomError of Error[]
 
@@ -16,21 +16,23 @@ let parseTest input =
         | Error e -> raise (CustomError e)
     | Error e -> raise (CustomError(Array.map LexError e))
 
-[<Test>]
+[<Fact>]
 let Fn () =
-    Assert.That(parseTest "|i32| -> |i32| -> i32", Matches.ChildSnapshot("Assoc"))
-    Assert.That(parseTest "|| -> !", Matches.ChildSnapshot("Empty"))
+    (parseTest "|i32| -> |i32| -> i32").ShouldMatchChildSnapshot("Assoc")
+    (parseTest "|| -> !").ShouldMatchChildSnapshot("Empty")
 
-[<Test>]
+[<Fact>]
 let Inst () =
-    Assert.That(parseTest "std::collections::HashMap<i32, Vec<i32>>", Matches.ChildSnapshot("Shr"))
-    Assert.That(parseTest "pak::vec::Vec<<T>|T|->i32>", Matches.ChildSnapshot("Shl"))
+    (parseTest "std::collections::HashMap<i32, Vec<i32>>")
+        .ShouldMatchChildSnapshot("Shr")
 
-[<Test>]
+    (parseTest "pak::vec::Vec<<T>|T|->i32>").ShouldMatchChildSnapshot("Shl")
+
+[<Fact>]
 let Arr () =
-    Assert.That(parseTest "&[&[i32];4]", Matches.ChildSnapshot("Slice"))
-    Assert.That(parseTest "&&[usize]", Matches.ChildSnapshot("Ref"))
+    (parseTest "&[&[i32];4]").ShouldMatchChildSnapshot("Slice")
+    (parseTest "&&[usize]").ShouldMatchChildSnapshot("Ref")
 
-[<Test>]
+[<Fact>]
 let Const () =
-    Assert.That(parseTest "Container<-1>", Matches.ChildSnapshot("Neg"))
+    (parseTest "Container<-1>").ShouldMatchChildSnapshot("Neg")
