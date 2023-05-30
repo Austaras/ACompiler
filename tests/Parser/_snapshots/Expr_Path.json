@@ -1,304 +1,239 @@
 {
   "GenericShr": {
-    "Case": "Binary",
-    "Fields": [
-      {
-        "left": {
-          "Case": "Path",
-          "Fields": [
-            {
-              "prefix": null,
-              "seg": [
-                {
-                  "Item1": {
-                    "sym": "Vec",
-                    "span": {
-                      "first": 0,
-                      "last": 2
-                    }
-                  },
-                  "Item2": [
-                    {
-                      "Case": "TypeId",
-                      "Fields": [
-                        {
-                          "sym": "i32",
-                          "span": {
-                            "first": 6,
-                            "last": 8
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ],
-              "span": {
-                "first": 0,
-                "last": 10
-              }
-            }
-          ]
-        },
-        "op": {
-          "Case": "Arithmetic",
-          "Fields": [
-            {
-              "Case": "Shr"
-            }
-          ]
-        },
-        "right": {
-          "Case": "LitExpr",
-          "Fields": [
-            {
-              "Case": "Int",
-              "Fields": [
-                1
-              ]
-            },
-            {
-              "first": 12,
-              "last": 12
-            }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 12
-        }
-      }
-    ]
-  },
-  "DoubleGeneric": {
-    "Case": "Binary",
-    "Fields": [
-      {
-        "left": {
-          "Case": "Path",
-          "Fields": [
-            {
-              "prefix": null,
-              "seg": [
-                {
-                  "Item1": {
-                    "sym": "Vec",
-                    "span": {
-                      "first": 0,
-                      "last": 2
-                    }
-                  },
-                  "Item2": [
-                    {
-                      "Case": "TypeInst",
-                      "Fields": [
-                        {
-                          "ty": {
-                            "Case": "TypeId",
-                            "Fields": [
-                              {
-                                "sym": "Vec",
-                                "span": {
-                                  "first": 6,
-                                  "last": 8
-                                }
-                              }
-                            ]
-                          },
-                          "arg": [
-                            {
-                              "Case": "TypeId",
-                              "Fields": [
-                                {
-                                  "sym": "i32",
-                                  "span": {
-                                    "first": 10,
-                                    "last": 12
-                                  }
-                                }
-                              ]
-                            }
-                          ],
-                          "span": {
-                            "first": 6,
-                            "last": 14
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ],
-              "span": {
-                "first": 0,
-                "last": 15
-              }
-            }
-          ]
-        },
-        "op": {
-          "Case": "Gt"
-        },
-        "right": {
-          "Case": "LitExpr",
-          "Fields": [
-            {
-              "Case": "Int",
-              "Fields": [
-                1
-              ]
-            },
-            {
-              "first": 16,
-              "last": 16
-            }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 16
-        }
-      }
-    ]
-  },
-  "Struct": {
-    "Case": "StructLit",
-    "Fields": [
-      {
-        "ty": {
+    "Binary": {
+      "left": {
+        "Path": {
           "prefix": null,
           "seg": [
-            {
-              "Item1": {
-                "sym": "Foo",
+            [
+              {
+                "sym": "Vec",
                 "span": {
                   "first": 0,
                   "last": 2
                 }
               },
-              "Item2": []
-            },
-            {
-              "Item1": {
-                "sym": "Bar",
-                "span": {
-                  "first": 5,
-                  "last": 7
-                }
-              },
-              "Item2": [
+              [
                 {
-                  "Case": "TypeInst",
-                  "Fields": [
-                    {
-                      "ty": {
-                        "Case": "TypeId",
-                        "Fields": [
-                          {
-                            "sym": "Vec",
-                            "span": {
-                              "first": 11,
-                              "last": 13
-                            }
-                          }
-                        ]
-                      },
-                      "arg": [
-                        {
-                          "Case": "TypeId",
-                          "Fields": [
-                            {
-                              "sym": "i32",
-                              "span": {
-                                "first": 15,
-                                "last": 17
-                              }
-                            }
-                          ]
-                        }
-                      ],
-                      "span": {
-                        "first": 11,
-                        "last": 19
-                      }
+                  "TypeId": {
+                    "sym": "i32",
+                    "span": {
+                      "first": 6,
+                      "last": 8
                     }
-                  ]
+                  }
                 }
               ]
-            }
+            ]
           ],
           "span": {
             "first": 0,
-            "last": 20
+            "last": 10
           }
-        },
-        "field": [
+        }
+      },
+      "op": {
+        "Arithmetic": "Shr"
+      },
+      "right": {
+        "LitExpr": [
           {
-            "Case": "ShorthandField",
-            "Fields": [
-              {
-                "sym": "a",
-                "span": {
-                  "first": 23,
-                  "last": 23
-                }
-              }
-            ]
+            "Int": 1
           },
           {
-            "Case": "KeyValueField",
-            "Fields": [
+            "first": 12,
+            "last": 12
+          }
+        ]
+      },
+      "span": {
+        "first": 0,
+        "last": 12
+      }
+    }
+  },
+  "DoubleGeneric": {
+    "Binary": {
+      "left": {
+        "Path": {
+          "prefix": null,
+          "seg": [
+            [
               {
-                "name": "b",
-                "value": {
-                  "Case": "LitExpr",
-                  "Fields": [
-                    {
-                      "Case": "Int",
-                      "Fields": [
-                        10
-                      ]
-                    },
-                    {
-                      "first": 29,
-                      "last": 30
-                    }
-                  ]
-                },
+                "sym": "Vec",
                 "span": {
-                  "first": 26,
-                  "last": 30
+                  "first": 0,
+                  "last": 2
                 }
-              }
-            ]
-          },
-          {
-            "Case": "RestField",
-            "Fields": [
-              {
-                "first": 33,
-                "last": 35
               },
-              {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "d",
+              [
+                {
+                  "TypeInst": {
+                    "ty": {
+                      "TypeId": {
+                        "sym": "Vec",
+                        "span": {
+                          "first": 6,
+                          "last": 8
+                        }
+                      }
+                    },
+                    "arg": [
+                      {
+                        "TypeId": {
+                          "sym": "i32",
+                          "span": {
+                            "first": 10,
+                            "last": 12
+                          }
+                        }
+                      }
+                    ],
                     "span": {
-                      "first": 35,
-                      "last": 35
+                      "first": 6,
+                      "last": 14
                     }
                   }
-                ]
+                }
+              ]
+            ]
+          ],
+          "span": {
+            "first": 0,
+            "last": 15
+          }
+        }
+      },
+      "op": "Gt",
+      "right": {
+        "LitExpr": [
+          {
+            "Int": 1
+          },
+          {
+            "first": 16,
+            "last": 16
+          }
+        ]
+      },
+      "span": {
+        "first": 0,
+        "last": 16
+      }
+    }
+  },
+  "Struct": {
+    "StructLit": {
+      "ty": {
+        "prefix": null,
+        "seg": [
+          [
+            {
+              "sym": "Foo",
+              "span": {
+                "first": 0,
+                "last": 2
+              }
+            },
+            []
+          ],
+          [
+            {
+              "sym": "Bar",
+              "span": {
+                "first": 5,
+                "last": 7
+              }
+            },
+            [
+              {
+                "TypeInst": {
+                  "ty": {
+                    "TypeId": {
+                      "sym": "Vec",
+                      "span": {
+                        "first": 11,
+                        "last": 13
+                      }
+                    }
+                  },
+                  "arg": [
+                    {
+                      "TypeId": {
+                        "sym": "i32",
+                        "span": {
+                          "first": 15,
+                          "last": 17
+                        }
+                      }
+                    }
+                  ],
+                  "span": {
+                    "first": 11,
+                    "last": 19
+                  }
+                }
               }
             ]
-          }
+          ]
         ],
         "span": {
           "first": 0,
-          "last": 37
+          "last": 20
         }
+      },
+      "field": [
+        {
+          "ShorthandField": {
+            "sym": "a",
+            "span": {
+              "first": 23,
+              "last": 23
+            }
+          }
+        },
+        {
+          "KeyValueField": {
+            "name": "b",
+            "value": {
+              "LitExpr": [
+                {
+                  "Int": 10
+                },
+                {
+                  "first": 29,
+                  "last": 30
+                }
+              ]
+            },
+            "span": {
+              "first": 26,
+              "last": 30
+            }
+          }
+        },
+        {
+          "RestField": [
+            {
+              "first": 33,
+              "last": 35
+            },
+            {
+              "Id": {
+                "sym": "d",
+                "span": {
+                  "first": 35,
+                  "last": 35
+                }
+              }
+            }
+          ]
+        }
+      ],
+      "span": {
+        "first": 0,
+        "last": 37
       }
-    ]
+    }
   }
 }

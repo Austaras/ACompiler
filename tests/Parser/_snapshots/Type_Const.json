@@ -1,42 +1,32 @@
 {
   "Neg": {
-    "Case": "TypeInst",
-    "Fields": [
-      {
-        "ty": {
-          "Case": "TypeId",
-          "Fields": [
+    "TypeInst": {
+      "ty": {
+        "TypeId": {
+          "sym": "Container",
+          "span": {
+            "first": 0,
+            "last": 8
+          }
+        }
+      },
+      "arg": [
+        {
+          "LitType": [
             {
-              "sym": "Container",
-              "span": {
-                "first": 0,
-                "last": 8
-              }
+              "NegInt": 1
+            },
+            {
+              "first": 10,
+              "last": 11
             }
           ]
-        },
-        "arg": [
-          {
-            "Case": "LitType",
-            "Fields": [
-              {
-                "Case": "NegInt",
-                "Fields": [
-                  1
-                ]
-              },
-              {
-                "first": 10,
-                "last": 11
-              }
-            ]
-          }
-        ],
-        "span": {
-          "first": 0,
-          "last": 13
         }
+      ],
+      "span": {
+        "first": 0,
+        "last": 13
       }
-    ]
+    }
   }
 }

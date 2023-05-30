@@ -1,770 +1,518 @@
 {
   "Binary": {
-    "Case": "Binary",
-    "Fields": [
-      {
-        "left": {
-          "Case": "LitExpr",
-          "Fields": [
-            {
-              "Case": "Int",
-              "Fields": [
-                1
-              ]
-            },
-            {
-              "first": 0,
-              "last": 0
-            }
-          ]
-        },
-        "op": {
-          "Case": "Arithmetic",
-          "Fields": [
-            {
-              "Case": "Add"
-            }
-          ]
-        },
-        "right": {
-          "Case": "Binary",
-          "Fields": [
-            {
-              "left": {
-                "Case": "LitExpr",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      2
-                    ]
-                  },
-                  {
-                    "first": 4,
-                    "last": 4
-                  }
-                ]
+    "Binary": {
+      "left": {
+        "LitExpr": [
+          {
+            "Int": 1
+          },
+          {
+            "first": 0,
+            "last": 0
+          }
+        ]
+      },
+      "op": {
+        "Arithmetic": "Add"
+      },
+      "right": {
+        "Binary": {
+          "left": {
+            "LitExpr": [
+              {
+                "Int": 2
               },
-              "op": {
-                "Case": "Arithmetic",
-                "Fields": [
-                  {
-                    "Case": "Mul"
-                  }
-                ]
-              },
-              "right": {
-                "Case": "LitExpr",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      3
-                    ]
-                  },
-                  {
-                    "first": 8,
-                    "last": 8
-                  }
-                ]
-              },
-              "span": {
+              {
                 "first": 4,
-                "last": 8
-              }
-            }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 8
-        }
-      }
-    ]
-  },
-  "Assoc": {
-    "Case": "Binary",
-    "Fields": [
-      {
-        "left": {
-          "Case": "Binary",
-          "Fields": [
-            {
-              "left": {
-                "Case": "LitExpr",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      3
-                    ]
-                  },
-                  {
-                    "first": 0,
-                    "last": 0
-                  }
-                ]
-              },
-              "op": {
-                "Case": "Arithmetic",
-                "Fields": [
-                  {
-                    "Case": "Sub"
-                  }
-                ]
-              },
-              "right": {
-                "Case": "LitExpr",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      2
-                    ]
-                  },
-                  {
-                    "first": 4,
-                    "last": 4
-                  }
-                ]
-              },
-              "span": {
-                "first": 0,
                 "last": 4
               }
-            }
-          ]
-        },
-        "op": {
-          "Case": "Arithmetic",
-          "Fields": [
-            {
-              "Case": "Sub"
-            }
-          ]
-        },
-        "right": {
-          "Case": "LitExpr",
-          "Fields": [
-            {
-              "Case": "Int",
-              "Fields": [
-                1
-              ]
-            },
-            {
-              "first": 8,
-              "last": 8
-            }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 8
+            ]
+          },
+          "op": {
+            "Arithmetic": "Mul"
+          },
+          "right": {
+            "LitExpr": [
+              {
+                "Int": 3
+              },
+              {
+                "first": 8,
+                "last": 8
+              }
+            ]
+          },
+          "span": {
+            "first": 4,
+            "last": 8
+          }
         }
+      },
+      "span": {
+        "first": 0,
+        "last": 8
       }
-    ]
+    }
+  },
+  "Assoc": {
+    "Binary": {
+      "left": {
+        "Binary": {
+          "left": {
+            "LitExpr": [
+              {
+                "Int": 3
+              },
+              {
+                "first": 0,
+                "last": 0
+              }
+            ]
+          },
+          "op": {
+            "Arithmetic": "Sub"
+          },
+          "right": {
+            "LitExpr": [
+              {
+                "Int": 2
+              },
+              {
+                "first": 4,
+                "last": 4
+              }
+            ]
+          },
+          "span": {
+            "first": 0,
+            "last": 4
+          }
+        }
+      },
+      "op": {
+        "Arithmetic": "Sub"
+      },
+      "right": {
+        "LitExpr": [
+          {
+            "Int": 1
+          },
+          {
+            "first": 8,
+            "last": 8
+          }
+        ]
+      },
+      "span": {
+        "first": 0,
+        "last": 8
+      }
+    }
   },
   "Compare": {
-    "Case": "Binary",
-    "Fields": [
-      {
-        "left": {
-          "Case": "Id",
-          "Fields": [
-            {
-              "sym": "a",
-              "span": {
-                "first": 0,
-                "last": 0
-              }
-            }
-          ]
-        },
-        "op": {
-          "Case": "EqEq"
-        },
-        "right": {
-          "Case": "Binary",
-          "Fields": [
-            {
-              "left": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "c",
-                    "span": {
-                      "first": 5,
-                      "last": 5
-                    }
-                  }
-                ]
-              },
-              "op": {
-                "Case": "Arithmetic",
-                "Fields": [
-                  {
-                    "Case": "Add"
-                  }
-                ]
-              },
-              "right": {
-                "Case": "Binary",
-                "Fields": [
-                  {
-                    "left": {
-                      "Case": "Id",
-                      "Fields": [
-                        {
-                          "sym": "d",
-                          "span": {
-                            "first": 9,
-                            "last": 9
-                          }
-                        }
-                      ]
-                    },
-                    "op": {
-                      "Case": "Arithmetic",
-                      "Fields": [
-                        {
-                          "Case": "Mul"
-                        }
-                      ]
-                    },
-                    "right": {
-                      "Case": "LitExpr",
-                      "Fields": [
-                        {
-                          "Case": "Int",
-                          "Fields": [
-                            3
-                          ]
-                        },
-                        {
-                          "first": 13,
-                          "last": 13
-                        }
-                      ]
-                    },
-                    "span": {
-                      "first": 9,
-                      "last": 13
-                    }
-                  }
-                ]
-              },
+    "Binary": {
+      "left": {
+        "Id": {
+          "sym": "a",
+          "span": {
+            "first": 0,
+            "last": 0
+          }
+        }
+      },
+      "op": "EqEq",
+      "right": {
+        "Binary": {
+          "left": {
+            "Id": {
+              "sym": "c",
               "span": {
                 "first": 5,
-                "last": 13
-              }
-            }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 13
-        }
-      }
-    ]
-  },
-  "Assign": {
-    "Case": "Assign",
-    "Fields": [
-      {
-        "assignee": {
-          "Case": "Id",
-          "Fields": [
-            {
-              "sym": "a",
-              "span": {
-                "first": 0,
-                "last": 0
-              }
-            }
-          ]
-        },
-        "op": null,
-        "value": {
-          "Case": "Binary",
-          "Fields": [
-            {
-              "left": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "b",
-                    "span": {
-                      "first": 4,
-                      "last": 4
-                    }
-                  }
-                ]
-              },
-              "op": {
-                "Case": "Arithmetic",
-                "Fields": [
-                  {
-                    "Case": "Add"
-                  }
-                ]
-              },
-              "right": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "c",
-                    "span": {
-                      "first": 8,
-                      "last": 8
-                    }
-                  }
-                ]
-              },
-              "span": {
-                "first": 4,
-                "last": 8
-              }
-            }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 8
-        }
-      }
-    ]
-  },
-  "RightAssoc": {
-    "Case": "Assign",
-    "Fields": [
-      {
-        "assignee": {
-          "Case": "Id",
-          "Fields": [
-            {
-              "sym": "a",
-              "span": {
-                "first": 0,
-                "last": 0
-              }
-            }
-          ]
-        },
-        "op": null,
-        "value": {
-          "Case": "Assign",
-          "Fields": [
-            {
-              "assignee": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "b",
-                    "span": {
-                      "first": 4,
-                      "last": 4
-                    }
-                  }
-                ]
-              },
-              "op": null,
-              "value": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "c",
-                    "span": {
-                      "first": 8,
-                      "last": 8
-                    }
-                  }
-                ]
-              },
-              "span": {
-                "first": 4,
-                "last": 8
-              }
-            }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 8
-        }
-      }
-    ]
-  },
-  "AssignOp": {
-    "Case": "Assign",
-    "Fields": [
-      {
-        "assignee": {
-          "Case": "Id",
-          "Fields": [
-            {
-              "sym": "a",
-              "span": {
-                "first": 0,
-                "last": 0
-              }
-            }
-          ]
-        },
-        "op": {
-          "Case": "Some",
-          "Fields": [
-            {
-              "Case": "Mul"
-            }
-          ]
-        },
-        "value": {
-          "Case": "Binary",
-          "Fields": [
-            {
-              "left": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "b",
-                    "span": {
-                      "first": 5,
-                      "last": 5
-                    }
-                  }
-                ]
-              },
-              "op": {
-                "Case": "Arithmetic",
-                "Fields": [
-                  {
-                    "Case": "Add"
-                  }
-                ]
-              },
-              "right": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "c",
-                    "span": {
-                      "first": 9,
-                      "last": 9
-                    }
-                  }
-                ]
-              },
-              "span": {
-                "first": 5,
-                "last": 9
-              }
-            }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 9
-        }
-      }
-    ]
-  },
-  "Paren": {
-    "Case": "Binary",
-    "Fields": [
-      {
-        "left": {
-          "Case": "Binary",
-          "Fields": [
-            {
-              "left": {
-                "Case": "LitExpr",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      1
-                    ]
-                  },
-                  {
-                    "first": 1,
-                    "last": 1
-                  }
-                ]
-              },
-              "op": {
-                "Case": "Arithmetic",
-                "Fields": [
-                  {
-                    "Case": "Add"
-                  }
-                ]
-              },
-              "right": {
-                "Case": "LitExpr",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      2
-                    ]
-                  },
-                  {
-                    "first": 5,
-                    "last": 5
-                  }
-                ]
-              },
-              "span": {
-                "first": 1,
                 "last": 5
               }
             }
-          ]
-        },
-        "op": {
-          "Case": "Arithmetic",
-          "Fields": [
-            {
-              "Case": "Mul"
-            }
-          ]
-        },
-        "right": {
-          "Case": "LitExpr",
-          "Fields": [
-            {
-              "Case": "Int",
-              "Fields": [
-                3
-              ]
-            },
-            {
-              "first": 10,
-              "last": 10
-            }
-          ]
-        },
-        "span": {
-          "first": 1,
-          "last": 10
-        }
-      }
-    ]
-  },
-  "ManyParen": {
-    "Case": "Binary",
-    "Fields": [
-      {
-        "left": {
-          "Case": "Binary",
-          "Fields": [
-            {
+          },
+          "op": {
+            "Arithmetic": "Add"
+          },
+          "right": {
+            "Binary": {
               "left": {
-                "Case": "LitExpr",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      1
-                    ]
-                  },
-                  {
-                    "first": 4,
-                    "last": 4
+                "Id": {
+                  "sym": "d",
+                  "span": {
+                    "first": 9,
+                    "last": 9
                   }
-                ]
+                }
               },
               "op": {
-                "Case": "Arithmetic",
-                "Fields": [
-                  {
-                    "Case": "Add"
-                  }
-                ]
+                "Arithmetic": "Mul"
               },
               "right": {
-                "Case": "LitExpr",
-                "Fields": [
+                "LitExpr": [
                   {
-                    "Case": "Int",
-                    "Fields": [
-                      2
-                    ]
+                    "Int": 3
                   },
                   {
-                    "first": 8,
-                    "last": 8
+                    "first": 13,
+                    "last": 13
                   }
                 ]
               },
               "span": {
+                "first": 9,
+                "last": 13
+              }
+            }
+          },
+          "span": {
+            "first": 5,
+            "last": 13
+          }
+        }
+      },
+      "span": {
+        "first": 0,
+        "last": 13
+      }
+    }
+  },
+  "Assign": {
+    "Assign": {
+      "assignee": {
+        "Id": {
+          "sym": "a",
+          "span": {
+            "first": 0,
+            "last": 0
+          }
+        }
+      },
+      "op": null,
+      "value": {
+        "Binary": {
+          "left": {
+            "Id": {
+              "sym": "b",
+              "span": {
                 "first": 4,
+                "last": 4
+              }
+            }
+          },
+          "op": {
+            "Arithmetic": "Add"
+          },
+          "right": {
+            "Id": {
+              "sym": "c",
+              "span": {
+                "first": 8,
                 "last": 8
               }
             }
-          ]
-        },
-        "op": {
-          "Case": "Arithmetic",
-          "Fields": [
-            {
-              "Case": "Mul"
-            }
-          ]
-        },
-        "right": {
-          "Case": "LitExpr",
-          "Fields": [
-            {
-              "Case": "Int",
-              "Fields": [
-                3
-              ]
-            },
-            {
-              "first": 16,
-              "last": 16
-            }
-          ]
-        },
-        "span": {
-          "first": 4,
-          "last": 16
+          },
+          "span": {
+            "first": 4,
+            "last": 8
+          }
         }
+      },
+      "span": {
+        "first": 0,
+        "last": 8
       }
-    ]
+    }
   },
-  "Comment": {
-    "Case": "Binary",
-    "Fields": [
-      {
-        "left": {
-          "Case": "LitExpr",
-          "Fields": [
-            {
-              "Case": "Int",
-              "Fields": [
-                1
-              ]
-            },
-            {
-              "first": 0,
-              "last": 0
-            }
-          ]
-        },
-        "op": {
-          "Case": "Arithmetic",
-          "Fields": [
-            {
-              "Case": "Add"
-            }
-          ]
-        },
-        "right": {
-          "Case": "LitExpr",
-          "Fields": [
-            {
-              "Case": "Int",
-              "Fields": [
-                2
-              ]
-            },
-            {
-              "first": 19,
-              "last": 19
-            }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 19
+  "RightAssoc": {
+    "Assign": {
+      "assignee": {
+        "Id": {
+          "sym": "a",
+          "span": {
+            "first": 0,
+            "last": 0
+          }
         }
-      }
-    ]
-  },
-  "Malformed": {
-    "Case": "Binary",
-    "Fields": [
-      {
-        "left": {
-          "Case": "LitExpr",
-          "Fields": [
-            {
-              "Case": "Int",
-              "Fields": [
-                1
-              ]
-            },
-            {
-              "first": 0,
-              "last": 0
-            }
-          ]
-        },
-        "op": {
-          "Case": "Arithmetic",
-          "Fields": [
-            {
-              "Case": "Add"
-            }
-          ]
-        },
-        "right": {
-          "Case": "Binary",
-          "Fields": [
-            {
-              "left": {
-                "Case": "LitExpr",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      2
-                    ]
-                  },
-                  {
-                    "first": 4,
-                    "last": 4
-                  }
-                ]
-              },
-              "op": {
-                "Case": "Arithmetic",
-                "Fields": [
-                  {
-                    "Case": "Mul"
-                  }
-                ]
-              },
-              "right": {
-                "Case": "LitExpr",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      3
-                    ]
-                  },
-                  {
-                    "first": 12,
-                    "last": 12
-                  }
-                ]
-              },
+      },
+      "op": null,
+      "value": {
+        "Assign": {
+          "assignee": {
+            "Id": {
+              "sym": "b",
               "span": {
                 "first": 4,
-                "last": 12
+                "last": 4
               }
             }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 12
+          },
+          "op": null,
+          "value": {
+            "Id": {
+              "sym": "c",
+              "span": {
+                "first": 8,
+                "last": 8
+              }
+            }
+          },
+          "span": {
+            "first": 4,
+            "last": 8
+          }
         }
+      },
+      "span": {
+        "first": 0,
+        "last": 8
       }
-    ]
+    }
+  },
+  "AssignOp": {
+    "Assign": {
+      "assignee": {
+        "Id": {
+          "sym": "a",
+          "span": {
+            "first": 0,
+            "last": 0
+          }
+        }
+      },
+      "op": "Mul",
+      "value": {
+        "Binary": {
+          "left": {
+            "Id": {
+              "sym": "b",
+              "span": {
+                "first": 5,
+                "last": 5
+              }
+            }
+          },
+          "op": {
+            "Arithmetic": "Add"
+          },
+          "right": {
+            "Id": {
+              "sym": "c",
+              "span": {
+                "first": 9,
+                "last": 9
+              }
+            }
+          },
+          "span": {
+            "first": 5,
+            "last": 9
+          }
+        }
+      },
+      "span": {
+        "first": 0,
+        "last": 9
+      }
+    }
+  },
+  "Paren": {
+    "Binary": {
+      "left": {
+        "Binary": {
+          "left": {
+            "LitExpr": [
+              {
+                "Int": 1
+              },
+              {
+                "first": 1,
+                "last": 1
+              }
+            ]
+          },
+          "op": {
+            "Arithmetic": "Add"
+          },
+          "right": {
+            "LitExpr": [
+              {
+                "Int": 2
+              },
+              {
+                "first": 5,
+                "last": 5
+              }
+            ]
+          },
+          "span": {
+            "first": 1,
+            "last": 5
+          }
+        }
+      },
+      "op": {
+        "Arithmetic": "Mul"
+      },
+      "right": {
+        "LitExpr": [
+          {
+            "Int": 3
+          },
+          {
+            "first": 10,
+            "last": 10
+          }
+        ]
+      },
+      "span": {
+        "first": 1,
+        "last": 10
+      }
+    }
+  },
+  "ManyParen": {
+    "Binary": {
+      "left": {
+        "Binary": {
+          "left": {
+            "LitExpr": [
+              {
+                "Int": 1
+              },
+              {
+                "first": 4,
+                "last": 4
+              }
+            ]
+          },
+          "op": {
+            "Arithmetic": "Add"
+          },
+          "right": {
+            "LitExpr": [
+              {
+                "Int": 2
+              },
+              {
+                "first": 8,
+                "last": 8
+              }
+            ]
+          },
+          "span": {
+            "first": 4,
+            "last": 8
+          }
+        }
+      },
+      "op": {
+        "Arithmetic": "Mul"
+      },
+      "right": {
+        "LitExpr": [
+          {
+            "Int": 3
+          },
+          {
+            "first": 16,
+            "last": 16
+          }
+        ]
+      },
+      "span": {
+        "first": 4,
+        "last": 16
+      }
+    }
+  },
+  "Comment": {
+    "Binary": {
+      "left": {
+        "LitExpr": [
+          {
+            "Int": 1
+          },
+          {
+            "first": 0,
+            "last": 0
+          }
+        ]
+      },
+      "op": {
+        "Arithmetic": "Add"
+      },
+      "right": {
+        "LitExpr": [
+          {
+            "Int": 2
+          },
+          {
+            "first": 19,
+            "last": 19
+          }
+        ]
+      },
+      "span": {
+        "first": 0,
+        "last": 19
+      }
+    }
+  },
+  "Malformed": {
+    "Binary": {
+      "left": {
+        "LitExpr": [
+          {
+            "Int": 1
+          },
+          {
+            "first": 0,
+            "last": 0
+          }
+        ]
+      },
+      "op": {
+        "Arithmetic": "Add"
+      },
+      "right": {
+        "Binary": {
+          "left": {
+            "LitExpr": [
+              {
+                "Int": 2
+              },
+              {
+                "first": 4,
+                "last": 4
+              }
+            ]
+          },
+          "op": {
+            "Arithmetic": "Mul"
+          },
+          "right": {
+            "LitExpr": [
+              {
+                "Int": 3
+              },
+              {
+                "first": 12,
+                "last": 12
+              }
+            ]
+          },
+          "span": {
+            "first": 4,
+            "last": 12
+          }
+        }
+      },
+      "span": {
+        "first": 0,
+        "last": 12
+      }
+    }
   }
 }

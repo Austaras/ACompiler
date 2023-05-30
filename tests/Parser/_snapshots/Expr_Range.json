@@ -1,323 +1,206 @@
 {
   "Full": {
-    "Case": "Assign",
-    "Fields": [
-      {
-        "assignee": {
-          "Case": "Field",
-          "Fields": [
-            {
-              "receiver": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "a",
-                    "span": {
-                      "first": 0,
-                      "last": 0
-                    }
-                  }
-                ]
-              },
-              "prop": "b",
+    "Assign": {
+      "assignee": {
+        "Field": {
+          "receiver": {
+            "Id": {
+              "sym": "a",
               "span": {
                 "first": 0,
-                "last": 2
+                "last": 0
               }
             }
-          ]
-        },
-        "op": null,
-        "value": {
-          "Case": "Range",
-          "Fields": [
-            {
-              "from": {
-                "Case": "Some",
-                "Fields": [
+          },
+          "prop": "b",
+          "span": {
+            "first": 0,
+            "last": 2
+          }
+        }
+      },
+      "op": null,
+      "value": {
+        "Range": {
+          "from": {
+            "Binary": {
+              "left": {
+                "LitExpr": [
                   {
-                    "Case": "Binary",
-                    "Fields": [
-                      {
-                        "left": {
-                          "Case": "LitExpr",
-                          "Fields": [
-                            {
-                              "Case": "Int",
-                              "Fields": [
-                                1
-                              ]
-                            },
-                            {
-                              "first": 6,
-                              "last": 6
-                            }
-                          ]
-                        },
-                        "op": {
-                          "Case": "Arithmetic",
-                          "Fields": [
-                            {
-                              "Case": "Add"
-                            }
-                          ]
-                        },
-                        "right": {
-                          "Case": "LitExpr",
-                          "Fields": [
-                            {
-                              "Case": "Int",
-                              "Fields": [
-                                1
-                              ]
-                            },
-                            {
-                              "first": 8,
-                              "last": 8
-                            }
-                          ]
-                        },
-                        "span": {
-                          "first": 6,
-                          "last": 8
-                        }
-                      }
-                    ]
+                    "Int": 1
+                  },
+                  {
+                    "first": 6,
+                    "last": 6
                   }
                 ]
               },
-              "to_": {
-                "Case": "Some",
-                "Fields": [
+              "op": {
+                "Arithmetic": "Add"
+              },
+              "right": {
+                "LitExpr": [
                   {
-                    "Case": "Binary",
-                    "Fields": [
-                      {
-                        "left": {
-                          "Case": "LitExpr",
-                          "Fields": [
-                            {
-                              "Case": "Int",
-                              "Fields": [
-                                2
-                              ]
-                            },
-                            {
-                              "first": 13,
-                              "last": 13
-                            }
-                          ]
-                        },
-                        "op": {
-                          "Case": "Arithmetic",
-                          "Fields": [
-                            {
-                              "Case": "Mul"
-                            }
-                          ]
-                        },
-                        "right": {
-                          "Case": "LitExpr",
-                          "Fields": [
-                            {
-                              "Case": "Int",
-                              "Fields": [
-                                3
-                              ]
-                            },
-                            {
-                              "first": 15,
-                              "last": 15
-                            }
-                          ]
-                        },
-                        "span": {
-                          "first": 13,
-                          "last": 15
-                        }
-                      }
-                    ]
+                    "Int": 1
+                  },
+                  {
+                    "first": 8,
+                    "last": 8
                   }
                 ]
               },
-              "exclusive": false,
               "span": {
                 "first": 6,
+                "last": 8
+              }
+            }
+          },
+          "to_": {
+            "Binary": {
+              "left": {
+                "LitExpr": [
+                  {
+                    "Int": 2
+                  },
+                  {
+                    "first": 13,
+                    "last": 13
+                  }
+                ]
+              },
+              "op": {
+                "Arithmetic": "Mul"
+              },
+              "right": {
+                "LitExpr": [
+                  {
+                    "Int": 3
+                  },
+                  {
+                    "first": 15,
+                    "last": 15
+                  }
+                ]
+              },
+              "span": {
+                "first": 13,
                 "last": 15
               }
             }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 15
+          },
+          "exclusive": false,
+          "span": {
+            "first": 6,
+            "last": 15
+          }
         }
+      },
+      "span": {
+        "first": 0,
+        "last": 15
       }
-    ]
+    }
   },
   "Unary": {
-    "Case": "Range",
-    "Fields": [
-      {
-        "from": {
-          "Case": "Some",
-          "Fields": [
-            {
-              "Case": "Unary",
-              "Fields": [
-                {
-                  "op": {
-                    "Case": "Neg"
-                  },
-                  "expr": {
-                    "Case": "LitExpr",
-                    "Fields": [
-                      {
-                        "Case": "Int",
-                        "Fields": [
-                          5
-                        ]
-                      },
-                      {
-                        "first": 1,
-                        "last": 1
-                      }
-                    ]
-                  },
-                  "span": {
-                    "first": 0,
-                    "last": 1
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        "to_": {
-          "Case": "Some",
-          "Fields": [
-            {
-              "Case": "Unary",
-              "Fields": [
-                {
-                  "op": {
-                    "Case": "Neg"
-                  },
-                  "expr": {
-                    "Case": "LitExpr",
-                    "Fields": [
-                      {
-                        "Case": "Int",
-                        "Fields": [
-                          3
-                        ]
-                      },
-                      {
-                        "first": 5,
-                        "last": 5
-                      }
-                    ]
-                  },
-                  "span": {
-                    "first": 4,
-                    "last": 5
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        "exclusive": false,
-        "span": {
-          "first": 0,
-          "last": 5
+    "Range": {
+      "from": {
+        "Unary": {
+          "op": "Neg",
+          "expr": {
+            "LitExpr": [
+              {
+                "Int": 5
+              },
+              {
+                "first": 1,
+                "last": 1
+              }
+            ]
+          },
+          "span": {
+            "first": 0,
+            "last": 1
+          }
         }
+      },
+      "to_": {
+        "Unary": {
+          "op": "Neg",
+          "expr": {
+            "LitExpr": [
+              {
+                "Int": 3
+              },
+              {
+                "first": 5,
+                "last": 5
+              }
+            ]
+          },
+          "span": {
+            "first": 4,
+            "last": 5
+          }
+        }
+      },
+      "exclusive": false,
+      "span": {
+        "first": 0,
+        "last": 5
       }
-    ]
+    }
   },
   "Half": {
-    "Case": "Range",
-    "Fields": [
-      {
-        "from": null,
-        "to_": {
-          "Case": "Some",
-          "Fields": [
-            {
-              "Case": "Range",
-              "Fields": [
-                {
-                  "from": {
-                    "Case": "Some",
-                    "Fields": [
-                      {
-                        "Case": "Binary",
-                        "Fields": [
-                          {
-                            "left": {
-                              "Case": "LitExpr",
-                              "Fields": [
-                                {
-                                  "Case": "Int",
-                                  "Fields": [
-                                    1
-                                  ]
-                                },
-                                {
-                                  "first": 2,
-                                  "last": 2
-                                }
-                              ]
-                            },
-                            "op": {
-                              "Case": "Arithmetic",
-                              "Fields": [
-                                {
-                                  "Case": "Add"
-                                }
-                              ]
-                            },
-                            "right": {
-                              "Case": "LitExpr",
-                              "Fields": [
-                                {
-                                  "Case": "Int",
-                                  "Fields": [
-                                    1
-                                  ]
-                                },
-                                {
-                                  "first": 6,
-                                  "last": 6
-                                }
-                              ]
-                            },
-                            "span": {
-                              "first": 2,
-                              "last": 6
-                            }
-                          }
-                        ]
-                      }
-                    ]
+    "Range": {
+      "from": null,
+      "to_": {
+        "Range": {
+          "from": {
+            "Binary": {
+              "left": {
+                "LitExpr": [
+                  {
+                    "Int": 1
                   },
-                  "to_": null,
-                  "exclusive": false,
-                  "span": {
+                  {
                     "first": 2,
-                    "last": 8
+                    "last": 2
                   }
-                }
-              ]
+                ]
+              },
+              "op": {
+                "Arithmetic": "Add"
+              },
+              "right": {
+                "LitExpr": [
+                  {
+                    "Int": 1
+                  },
+                  {
+                    "first": 6,
+                    "last": 6
+                  }
+                ]
+              },
+              "span": {
+                "first": 2,
+                "last": 6
+              }
             }
-          ]
-        },
-        "exclusive": false,
-        "span": {
-          "first": 0,
-          "last": 8
+          },
+          "to_": null,
+          "exclusive": false,
+          "span": {
+            "first": 2,
+            "last": 8
+          }
         }
+      },
+      "exclusive": false,
+      "span": {
+        "first": 0,
+        "last": 8
       }
-    ]
+    }
   }
 }

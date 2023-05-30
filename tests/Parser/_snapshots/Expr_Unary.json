@@ -1,165 +1,111 @@
 {
   "Binary": {
-    "Case": "Binary",
-    "Fields": [
-      {
-        "left": {
-          "Case": "Unary",
-          "Fields": [
-            {
-              "op": {
-                "Case": "Neg"
+    "Binary": {
+      "left": {
+        "Unary": {
+          "op": "Neg",
+          "expr": {
+            "LitExpr": [
+              {
+                "Int": 1
               },
-              "expr": {
-                "Case": "LitExpr",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      1
-                    ]
-                  },
-                  {
-                    "first": 1,
-                    "last": 1
-                  }
-                ]
-              },
-              "span": {
-                "first": 0,
+              {
+                "first": 1,
                 "last": 1
               }
-            }
-          ]
-        },
-        "op": {
-          "Case": "Arithmetic",
-          "Fields": [
-            {
-              "Case": "Add"
-            }
-          ]
-        },
-        "right": {
-          "Case": "Unary",
-          "Fields": [
-            {
-              "op": {
-                "Case": "Neg"
+            ]
+          },
+          "span": {
+            "first": 0,
+            "last": 1
+          }
+        }
+      },
+      "op": {
+        "Arithmetic": "Add"
+      },
+      "right": {
+        "Unary": {
+          "op": "Neg",
+          "expr": {
+            "LitExpr": [
+              {
+                "Int": 2
               },
-              "expr": {
-                "Case": "LitExpr",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      2
-                    ]
-                  },
-                  {
-                    "first": 4,
-                    "last": 4
-                  }
-                ]
-              },
-              "span": {
-                "first": 3,
+              {
+                "first": 4,
                 "last": 4
               }
-            }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 4
+            ]
+          },
+          "span": {
+            "first": 3,
+            "last": 4
+          }
         }
+      },
+      "span": {
+        "first": 0,
+        "last": 4
       }
-    ]
+    }
   },
   "Delimiter": {
-    "Case": "Binary",
-    "Fields": [
-      {
-        "left": {
-          "Case": "Array",
-          "Fields": [
-            {
-              "element": [],
-              "span": {
-                "first": 0,
-                "last": 1
-              }
-            }
-          ]
-        },
-        "op": {
-          "Case": "Arithmetic",
-          "Fields": [
-            {
-              "Case": "Sub"
-            }
-          ]
-        },
-        "right": {
-          "Case": "LitExpr",
-          "Fields": [
-            {
-              "Case": "Int",
-              "Fields": [
-                1
-              ]
-            },
-            {
-              "first": 13,
-              "last": 13
-            }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 13
+    "Binary": {
+      "left": {
+        "Array": {
+          "element": [],
+          "span": {
+            "first": 0,
+            "last": 1
+          }
         }
+      },
+      "op": {
+        "Arithmetic": "Sub"
+      },
+      "right": {
+        "LitExpr": [
+          {
+            "Int": 1
+          },
+          {
+            "first": 13,
+            "last": 13
+          }
+        ]
+      },
+      "span": {
+        "first": 0,
+        "last": 13
       }
-    ]
+    }
   },
   "LogicalAnd": {
-    "Case": "Unary",
-    "Fields": [
-      {
-        "op": {
-          "Case": "Deref"
-        },
-        "expr": {
-          "Case": "Unary",
-          "Fields": [
-            {
-              "op": {
-                "Case": "Deref"
-              },
-              "expr": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "a",
-                    "span": {
-                      "first": 2,
-                      "last": 2
-                    }
-                  }
-                ]
-              },
+    "Unary": {
+      "op": "Deref",
+      "expr": {
+        "Unary": {
+          "op": "Deref",
+          "expr": {
+            "Id": {
+              "sym": "a",
               "span": {
-                "first": 1,
+                "first": 2,
                 "last": 2
               }
             }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 2
+          },
+          "span": {
+            "first": 1,
+            "last": 2
+          }
         }
+      },
+      "span": {
+        "first": 0,
+        "last": 2
       }
-    ]
+    }
   }
 }

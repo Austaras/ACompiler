@@ -1,12 +1,14 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
-
   <ItemGroup>
     <Compile Include="Library.fs" />
+    <Compile Include="Type.fs" />
+    <Compile Include="Layout.fs" />
   </ItemGroup>
-
+  <ItemGroup>
+    <ProjectReference Include="..\Config\Config.fsproj" />
+  </ItemGroup>
 </Project>

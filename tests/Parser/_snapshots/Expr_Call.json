@@ -1,173 +1,122 @@
 {
   "Many": {
-    "Case": "Call",
-    "Fields": [
-      {
-        "callee": {
-          "Case": "Call",
-          "Fields": [
-            {
-              "callee": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "a",
-                    "span": {
-                      "first": 0,
-                      "last": 0
-                    }
-                  }
-                ]
-              },
-              "arg": [],
+    "Call": {
+      "callee": {
+        "Call": {
+          "callee": {
+            "Id": {
+              "sym": "a",
               "span": {
                 "first": 0,
-                "last": 2
-              },
-              "isMethodCall": false
+                "last": 0
+              }
             }
-          ]
-        },
-        "arg": [],
-        "span": {
-          "first": 0,
-          "last": 4
-        },
-        "isMethodCall": false
+          },
+          "arg": [],
+          "span": {
+            "first": 0,
+            "last": 2
+          }
+        }
+      },
+      "arg": [],
+      "span": {
+        "first": 0,
+        "last": 4
       }
-    ]
+    }
   },
   "Unary": {
-    "Case": "Unary",
-    "Fields": [
-      {
-        "op": {
-          "Case": "Neg"
-        },
-        "expr": {
-          "Case": "Call",
-          "Fields": [
-            {
-              "callee": {
-                "Case": "Field",
-                "Fields": [
-                  {
-                    "receiver": {
-                      "Case": "Id",
-                      "Fields": [
-                        {
-                          "sym": "a",
-                          "span": {
-                            "first": 1,
-                            "last": 1
-                          }
-                        }
-                      ]
-                    },
-                    "prop": "b",
-                    "span": {
-                      "first": 1,
-                      "last": 3
-                    }
+    "Unary": {
+      "op": "Neg",
+      "expr": {
+        "Call": {
+          "callee": {
+            "Field": {
+              "receiver": {
+                "Id": {
+                  "sym": "a",
+                  "span": {
+                    "first": 1,
+                    "last": 1
                   }
-                ]
+                }
               },
-              "arg": [],
+              "prop": "b",
               "span": {
                 "first": 1,
-                "last": 5
-              },
-              "isMethodCall": true
+                "last": 3
+              }
             }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 5
+          },
+          "arg": [],
+          "span": {
+            "first": 1,
+            "last": 5
+          }
         }
+      },
+      "span": {
+        "first": 0,
+        "last": 5
       }
-    ]
+    }
   },
   "Bin": {
-    "Case": "Binary",
-    "Fields": [
-      {
-        "left": {
-          "Case": "Call",
-          "Fields": [
-            {
-              "callee": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "a",
-                    "span": {
-                      "first": 0,
-                      "last": 0
-                    }
-                  }
-                ]
-              },
-              "arg": [],
+    "Binary": {
+      "left": {
+        "Call": {
+          "callee": {
+            "Id": {
+              "sym": "a",
               "span": {
                 "first": 0,
-                "last": 2
-              },
-              "isMethodCall": false
+                "last": 0
+              }
             }
-          ]
-        },
-        "op": {
-          "Case": "Arithmetic",
-          "Fields": [
-            {
-              "Case": "Add"
-            }
-          ]
-        },
-        "right": {
-          "Case": "Call",
-          "Fields": [
-            {
-              "callee": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "c",
-                    "span": {
-                      "first": 6,
-                      "last": 6
-                    }
-                  }
-                ]
-              },
-              "arg": [
-                {
-                  "Case": "Id",
-                  "Fields": [
-                    {
-                      "sym": "d",
-                      "span": {
-                        "first": 8,
-                        "last": 8
-                      }
-                    }
-                  ]
-                }
-              ],
+          },
+          "arg": [],
+          "span": {
+            "first": 0,
+            "last": 2
+          }
+        }
+      },
+      "op": {
+        "Arithmetic": "Add"
+      },
+      "right": {
+        "Call": {
+          "callee": {
+            "Id": {
+              "sym": "c",
               "span": {
                 "first": 6,
-                "last": 9
-              },
-              "isMethodCall": false
+                "last": 6
+              }
             }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 9
+          },
+          "arg": [
+            {
+              "Id": {
+                "sym": "d",
+                "span": {
+                  "first": 8,
+                  "last": 8
+                }
+              }
+            }
+          ],
+          "span": {
+            "first": 6,
+            "last": 9
+          }
         }
+      },
+      "span": {
+        "first": 0,
+        "last": 9
       }
-    ]
+    }
   }
 }

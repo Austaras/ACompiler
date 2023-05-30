@@ -1,416 +1,311 @@
 {
   "function": {
-    "Case": "FnDecl",
-    "Fields": [
-      {
-        "name": {
-          "sym": "add",
-          "span": {
-            "first": 12,
-            "last": 14
-          }
-        },
-        "typeParam": [
-          {
-            "id": {
-              "sym": "T",
-              "span": {
-                "first": 16,
-                "last": 16
-              }
-            },
-            "const_": false,
-            "bound": {
-              "Case": "Some",
-              "Fields": [
-                {
-                  "Case": "TypeId",
-                  "Fields": [
-                    {
-                      "sym": "Add",
-                      "span": {
-                        "first": 19,
-                        "last": 21
-                      }
-                    }
-                  ]
-                }
-              ]
-            },
+    "FnDecl": {
+      "name": {
+        "sym": "add",
+        "span": {
+          "first": 12,
+          "last": 14
+        }
+      },
+      "typeParam": [
+        {
+          "id": {
+            "sym": "T",
             "span": {
               "first": 16,
-              "last": 21
-            }
-          }
-        ],
-        "param": [
-          {
-            "pat": {
-              "Case": "IdPat",
-              "Fields": [
-                {
-                  "sym": "x",
-                  "span": {
-                    "first": 24,
-                    "last": 24
-                  }
-                }
-              ]
-            },
-            "ty": {
-              "Case": "Some",
-              "Fields": [
-                {
-                  "Case": "TypeId",
-                  "Fields": [
-                    {
-                      "sym": "T",
-                      "span": {
-                        "first": 27,
-                        "last": 27
-                      }
-                    }
-                  ]
-                }
-              ]
-            },
-            "span": {
-              "first": 24,
-              "last": 27
+              "last": 16
             }
           },
+          "const_": false,
+          "bound": {
+            "TypeId": {
+              "sym": "Add",
+              "span": {
+                "first": 19,
+                "last": 21
+              }
+            }
+          },
+          "span": {
+            "first": 16,
+            "last": 21
+          }
+        }
+      ],
+      "param": [
+        {
+          "pat": {
+            "IdPat": {
+              "sym": "x",
+              "span": {
+                "first": 24,
+                "last": 24
+              }
+            }
+          },
+          "ty": {
+            "TypeId": {
+              "sym": "T",
+              "span": {
+                "first": 27,
+                "last": 27
+              }
+            }
+          },
+          "span": {
+            "first": 24,
+            "last": 27
+          }
+        },
+        {
+          "pat": {
+            "IdPat": {
+              "sym": "y",
+              "span": {
+                "first": 30,
+                "last": 30
+              }
+            }
+          },
+          "ty": {
+            "TypeId": {
+              "sym": "T",
+              "span": {
+                "first": 33,
+                "last": 33
+              }
+            }
+          },
+          "span": {
+            "first": 30,
+            "last": 33
+          }
+        }
+      ],
+      "retTy": {
+        "TypeId": {
+          "sym": "T",
+          "span": {
+            "first": 39,
+            "last": 39
+          }
+        }
+      },
+      "body": {
+        "stmt": [
           {
-            "pat": {
-              "Case": "IdPat",
-              "Fields": [
-                {
-                  "sym": "y",
-                  "span": {
-                    "first": 30,
-                    "last": 30
-                  }
-                }
-              ]
-            },
-            "ty": {
-              "Case": "Some",
-              "Fields": [
-                {
-                  "Case": "TypeId",
-                  "Fields": [
-                    {
-                      "sym": "T",
-                      "span": {
-                        "first": 33,
-                        "last": 33
-                      }
+            "ExprStmt": {
+              "Binary": {
+                "left": {
+                  "Id": {
+                    "sym": "x",
+                    "span": {
+                      "first": 55,
+                      "last": 55
                     }
-                  ]
+                  }
+                },
+                "op": {
+                  "Arithmetic": "Add"
+                },
+                "right": {
+                  "Id": {
+                    "sym": "y",
+                    "span": {
+                      "first": 59,
+                      "last": 59
+                    }
+                  }
+                },
+                "span": {
+                  "first": 55,
+                  "last": 59
                 }
-              ]
-            },
-            "span": {
-              "first": 30,
-              "last": 33
+              }
             }
           }
         ],
-        "retTy": {
-          "Case": "Some",
-          "Fields": [
-            {
-              "Case": "TypeId",
-              "Fields": [
-                {
-                  "sym": "T",
-                  "span": {
-                    "first": 39,
-                    "last": 39
-                  }
-                }
-              ]
-            }
-          ]
-        },
-        "body": {
+        "span": {
+          "first": 41,
+          "last": 69
+        }
+      },
+      "span": {
+        "first": 9,
+        "last": 10
+      }
+    }
+  },
+  "Let": {
+    "Let": {
+      "pat": {
+        "CatchAllPat": {
+          "first": 13,
+          "last": 13
+        }
+      },
+      "mut": false,
+      "ty": null,
+      "value": {
+        "Block": {
           "stmt": [
             {
-              "Case": "ExprStmt",
-              "Fields": [
-                {
-                  "Case": "Binary",
-                  "Fields": [
-                    {
-                      "left": {
-                        "Case": "Id",
-                        "Fields": [
-                          {
-                            "sym": "x",
-                            "span": {
-                              "first": 55,
-                              "last": 55
-                            }
-                          }
-                        ]
-                      },
-                      "op": {
-                        "Case": "Arithmetic",
-                        "Fields": [
-                          {
-                            "Case": "Add"
-                          }
-                        ]
-                      },
-                      "right": {
-                        "Case": "Id",
-                        "Fields": [
-                          {
-                            "sym": "y",
-                            "span": {
-                              "first": 59,
-                              "last": 59
-                            }
-                          }
-                        ]
-                      },
+              "DeclStmt": {
+                "Let": {
+                  "pat": {
+                    "IdPat": {
+                      "sym": "a",
                       "span": {
-                        "first": 55,
-                        "last": 59
+                        "first": 39,
+                        "last": 39
                       }
                     }
-                  ]
+                  },
+                  "mut": true,
+                  "ty": null,
+                  "value": {
+                    "LitExpr": [
+                      {
+                        "Int": 10
+                      },
+                      {
+                        "first": 43,
+                        "last": 44
+                      }
+                    ]
+                  },
+                  "span": {
+                    "first": 31,
+                    "last": 44
+                  }
                 }
-              ]
+              }
+            },
+            {
+              "ExprStmt": {
+                "Call": {
+                  "callee": {
+                    "Id": {
+                      "sym": "print",
+                      "span": {
+                        "first": 59,
+                        "last": 63
+                      }
+                    }
+                  },
+                  "arg": [
+                    {
+                      "Id": {
+                        "sym": "a",
+                        "span": {
+                          "first": 65,
+                          "last": 65
+                        }
+                      }
+                    }
+                  ],
+                  "span": {
+                    "first": 59,
+                    "last": 66
+                  }
+                }
+              }
+            },
+            {
+              "ExprStmt": {
+                "Id": {
+                  "sym": "a",
+                  "span": {
+                    "first": 81,
+                    "last": 81
+                  }
+                }
+              }
             }
           ],
           "span": {
-            "first": 41,
-            "last": 69
+            "first": 17,
+            "last": 91
           }
-        },
-        "span": {
-          "first": 9,
-          "last": 10
         }
+      },
+      "span": {
+        "first": 9,
+        "last": 91
       }
-    ]
-  },
-  "Let": {
-    "Case": "Let",
-    "Fields": [
-      {
-        "pat": {
-          "Case": "CatchAllPat",
-          "Fields": [
-            {
-              "first": 13,
-              "last": 13
-            }
-          ]
-        },
-        "mut": false,
-        "ty": null,
-        "value": {
-          "Case": "Block",
-          "Fields": [
-            {
-              "stmt": [
-                {
-                  "Case": "DeclStmt",
-                  "Fields": [
-                    {
-                      "Case": "Let",
-                      "Fields": [
-                        {
-                          "pat": {
-                            "Case": "IdPat",
-                            "Fields": [
-                              {
-                                "sym": "a",
-                                "span": {
-                                  "first": 39,
-                                  "last": 39
-                                }
-                              }
-                            ]
-                          },
-                          "mut": true,
-                          "ty": null,
-                          "value": {
-                            "Case": "LitExpr",
-                            "Fields": [
-                              {
-                                "Case": "Int",
-                                "Fields": [
-                                  10
-                                ]
-                              },
-                              {
-                                "first": 43,
-                                "last": 44
-                              }
-                            ]
-                          },
-                          "span": {
-                            "first": 31,
-                            "last": 44
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "Case": "ExprStmt",
-                  "Fields": [
-                    {
-                      "Case": "Call",
-                      "Fields": [
-                        {
-                          "callee": {
-                            "Case": "Id",
-                            "Fields": [
-                              {
-                                "sym": "print",
-                                "span": {
-                                  "first": 59,
-                                  "last": 63
-                                }
-                              }
-                            ]
-                          },
-                          "arg": [
-                            {
-                              "Case": "Id",
-                              "Fields": [
-                                {
-                                  "sym": "a",
-                                  "span": {
-                                    "first": 65,
-                                    "last": 65
-                                  }
-                                }
-                              ]
-                            }
-                          ],
-                          "span": {
-                            "first": 59,
-                            "last": 66
-                          },
-                          "isMethodCall": false
-                        }
-                      ]
-                    }
-                  ]
-                },
-                {
-                  "Case": "ExprStmt",
-                  "Fields": [
-                    {
-                      "Case": "Id",
-                      "Fields": [
-                        {
-                          "sym": "a",
-                          "span": {
-                            "first": 81,
-                            "last": 81
-                          }
-                        }
-                      ]
-                    }
-                  ]
-                }
-              ],
-              "span": {
-                "first": 17,
-                "last": 91
-              }
-            }
-          ]
-        },
-        "span": {
-          "first": 9,
-          "last": 91
-        }
-      }
-    ]
+    }
   },
   "Enum": {
-    "Case": "EnumDecl",
-    "Fields": [
-      {
-        "name": {
-          "sym": "Option",
-          "span": {
-            "first": 14,
-            "last": 19
-          }
-        },
-        "tyParam": [
-          {
-            "id": {
-              "sym": "T",
-              "span": {
-                "first": 21,
-                "last": 21
-              }
-            },
-            "const_": false,
-            "bound": null,
+    "EnumDecl": {
+      "name": {
+        "sym": "Option",
+        "span": {
+          "first": 14,
+          "last": 19
+        }
+      },
+      "tyParam": [
+        {
+          "id": {
+            "sym": "T",
             "span": {
               "first": 21,
               "last": 21
             }
+          },
+          "const_": false,
+          "bound": null,
+          "span": {
+            "first": 21,
+            "last": 21
           }
-        ],
-        "variant": [
-          {
-            "name": {
-              "sym": "Some",
-              "span": {
-                "first": 38,
-                "last": 41
-              }
-            },
-            "payload": [
-              {
-                "Case": "TypeId",
-                "Fields": [
-                  {
-                    "sym": "T",
-                    "span": {
-                      "first": 43,
-                      "last": 43
-                    }
-                  }
-                ]
-              }
-            ],
+        }
+      ],
+      "variant": [
+        {
+          "name": {
+            "sym": "Some",
             "span": {
               "first": 38,
               "last": 41
             }
           },
-          {
-            "name": {
-              "sym": "None",
-              "span": {
-                "first": 59,
-                "last": 62
+          "payload": [
+            {
+              "TypeId": {
+                "sym": "T",
+                "span": {
+                  "first": 43,
+                  "last": 43
+                }
               }
-            },
-            "payload": [],
+            }
+          ],
+          "span": {
+            "first": 38,
+            "last": 41
+          }
+        },
+        {
+          "name": {
+            "sym": "None",
             "span": {
               "first": 59,
               "last": 62
             }
+          },
+          "payload": [],
+          "span": {
+            "first": 59,
+            "last": 62
           }
-        ],
-        "span": {
-          "first": 9,
-          "last": 72
         }
+      ],
+      "span": {
+        "first": 9,
+        "last": 72
       }
-    ]
+    }
   }
 }

@@ -1,146 +1,21 @@
 {
   "Zero": {
-    "Case": "Tuple",
-    "Fields": [
-      {
-        "element": [],
-        "span": {
-          "first": 0,
-          "last": 1
-        }
+    "Tuple": {
+      "element": [],
+      "span": {
+        "first": 0,
+        "last": 1
       }
-    ]
+    }
   },
   "One": {
-    "Case": "Binary",
-    "Fields": [
-      {
-        "left": {
-          "Case": "Binary",
-          "Fields": [
-            {
-              "left": {
-                "Case": "LitExpr",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      1
-                    ]
-                  },
-                  {
-                    "first": 1,
-                    "last": 1
-                  }
-                ]
-              },
-              "op": {
-                "Case": "Arithmetic",
-                "Fields": [
-                  {
-                    "Case": "Add"
-                  }
-                ]
-              },
-              "right": {
-                "Case": "LitExpr",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      2
-                    ]
-                  },
-                  {
-                    "first": 5,
-                    "last": 5
-                  }
-                ]
-              },
-              "span": {
-                "first": 1,
-                "last": 5
-              }
-            }
-          ]
-        },
-        "op": {
-          "Case": "Arithmetic",
-          "Fields": [
-            {
-              "Case": "Mul"
-            }
-          ]
-        },
-        "right": {
-          "Case": "Binary",
-          "Fields": [
-            {
-              "left": {
-                "Case": "LitExpr",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      4
-                    ]
-                  },
-                  {
-                    "first": 11,
-                    "last": 11
-                  }
-                ]
-              },
-              "op": {
-                "Case": "Arithmetic",
-                "Fields": [
-                  {
-                    "Case": "Sub"
-                  }
-                ]
-              },
-              "right": {
-                "Case": "LitExpr",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      5
-                    ]
-                  },
-                  {
-                    "first": 15,
-                    "last": 15
-                  }
-                ]
-              },
-              "span": {
-                "first": 11,
-                "last": 15
-              }
-            }
-          ]
-        },
-        "span": {
-          "first": 1,
-          "last": 15
-        }
-      }
-    ]
-  },
-  "Many": {
-    "Case": "Tuple",
-    "Fields": [
-      {
-        "element": [
-          {
-            "Case": "LitExpr",
-            "Fields": [
+    "Binary": {
+      "left": {
+        "Binary": {
+          "left": {
+            "LitExpr": [
               {
-                "Case": "Int",
-                "Fields": [
-                  2
-                ]
+                "Int": 1
               },
               {
                 "first": 1,
@@ -148,91 +23,146 @@
               }
             ]
           },
-          {
-            "Case": "Tuple",
-            "Fields": [
+          "op": {
+            "Arithmetic": "Add"
+          },
+          "right": {
+            "LitExpr": [
               {
-                "element": [
-                  {
-                    "Case": "LitExpr",
-                    "Fields": [
-                      {
-                        "Case": "Int",
-                        "Fields": [
-                          1
-                        ]
-                      },
-                      {
-                        "first": 5,
-                        "last": 5
-                      }
-                    ]
-                  },
-                  {
-                    "Case": "LitExpr",
-                    "Fields": [
-                      {
-                        "Case": "Int",
-                        "Fields": [
-                          2
-                        ]
-                      },
-                      {
-                        "first": 8,
-                        "last": 8
-                      }
-                    ]
-                  }
-                ],
-                "span": {
-                  "first": 4,
-                  "last": 9
-                }
+                "Int": 2
+              },
+              {
+                "first": 5,
+                "last": 5
               }
             ]
           },
-          {
-            "Case": "Assign",
-            "Fields": [
+          "span": {
+            "first": 1,
+            "last": 5
+          }
+        }
+      },
+      "op": {
+        "Arithmetic": "Mul"
+      },
+      "right": {
+        "Binary": {
+          "left": {
+            "LitExpr": [
               {
-                "assignee": {
-                  "Case": "Id",
-                  "Fields": [
-                    {
-                      "sym": "a",
-                      "span": {
-                        "first": 12,
-                        "last": 12
-                      }
-                    }
-                  ]
-                },
-                "op": null,
-                "value": {
-                  "Case": "Id",
-                  "Fields": [
-                    {
-                      "sym": "b",
-                      "span": {
-                        "first": 16,
-                        "last": 16
-                      }
-                    }
-                  ]
-                },
+                "Int": 4
+              },
+              {
+                "first": 11,
+                "last": 11
+              }
+            ]
+          },
+          "op": {
+            "Arithmetic": "Sub"
+          },
+          "right": {
+            "LitExpr": [
+              {
+                "Int": 5
+              },
+              {
+                "first": 15,
+                "last": 15
+              }
+            ]
+          },
+          "span": {
+            "first": 11,
+            "last": 15
+          }
+        }
+      },
+      "span": {
+        "first": 1,
+        "last": 15
+      }
+    }
+  },
+  "Many": {
+    "Tuple": {
+      "element": [
+        {
+          "LitExpr": [
+            {
+              "Int": 2
+            },
+            {
+              "first": 1,
+              "last": 1
+            }
+          ]
+        },
+        {
+          "Tuple": {
+            "element": [
+              {
+                "LitExpr": [
+                  {
+                    "Int": 1
+                  },
+                  {
+                    "first": 5,
+                    "last": 5
+                  }
+                ]
+              },
+              {
+                "LitExpr": [
+                  {
+                    "Int": 2
+                  },
+                  {
+                    "first": 8,
+                    "last": 8
+                  }
+                ]
+              }
+            ],
+            "span": {
+              "first": 4,
+              "last": 9
+            }
+          }
+        },
+        {
+          "Assign": {
+            "assignee": {
+              "Id": {
+                "sym": "a",
                 "span": {
                   "first": 12,
+                  "last": 12
+                }
+              }
+            },
+            "op": null,
+            "value": {
+              "Id": {
+                "sym": "b",
+                "span": {
+                  "first": 16,
                   "last": 16
                 }
               }
-            ]
+            },
+            "span": {
+              "first": 12,
+              "last": 16
+            }
           }
-        ],
-        "span": {
-          "first": 0,
-          "last": 17
         }
+      ],
+      "span": {
+        "first": 0,
+        "last": 17
       }
-    ]
+    }
   }
 }

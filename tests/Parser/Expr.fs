@@ -3,8 +3,9 @@ module Parser.Tests.Expr
 open Lexer
 open Parser.Parser
 
-open Xunit
+open FSharp.Json
 open Snapper
+open Xunit
 
 exception CustomError of Error[]
 
@@ -12,7 +13,7 @@ let parseTest input =
     match Lexer.lex input with
     | Ok token ->
         match parseExpr Context.Normal token with
-        | Ok ast -> ast.data
+        | Ok ast -> Json.serialize ast.data
         | Error e -> raise (CustomError e)
     | Error e -> raise (CustomError(Array.map LexError e))
 
@@ -45,7 +46,7 @@ let Tuple () =
 
 [<Fact>]
 let Array () =
-    (parseTest "[1, 2 + 3, 4,]").ShouldMatchChildSnapshot("Nomral")
+    (parseTest "[1, 2 + 3, 4,]").ShouldMatchChildSnapshot("Normal")
     (parseTest "[a; 10]").ShouldMatchChildSnapshot("Repeat")
     (parseTest "[1 + 2] + [3 * 4]").ShouldMatchChildSnapshot("Binary")
 

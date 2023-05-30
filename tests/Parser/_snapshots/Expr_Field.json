@@ -1,146 +1,42 @@
 {
   "Assoc": {
-    "Case": "Field",
-    "Fields": [
-      {
-        "receiver": {
-          "Case": "Field",
-          "Fields": [
-            {
-              "receiver": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "a",
-                    "span": {
-                      "first": 0,
-                      "last": 0
-                    }
-                  }
-                ]
-              },
-              "prop": "b",
+    "Field": {
+      "receiver": {
+        "Field": {
+          "receiver": {
+            "Id": {
+              "sym": "a",
               "span": {
                 "first": 0,
-                "last": 2
+                "last": 0
               }
             }
-          ]
-        },
-        "prop": "c",
-        "span": {
-          "first": 0,
-          "last": 4
+          },
+          "prop": "b",
+          "span": {
+            "first": 0,
+            "last": 2
+          }
         }
+      },
+      "prop": "c",
+      "span": {
+        "first": 0,
+        "last": 4
       }
-    ]
+    }
   },
   "Tuple": {
-    "Case": "Binary",
-    "Fields": [
-      {
-        "left": {
-          "Case": "Field",
-          "Fields": [
-            {
-              "receiver": {
-                "Case": "Tuple",
-                "Fields": [
-                  {
-                    "element": [
-                      {
-                        "Case": "LitExpr",
-                        "Fields": [
-                          {
-                            "Case": "Int",
-                            "Fields": [
-                              0
-                            ]
-                          },
-                          {
-                            "first": 1,
-                            "last": 1
-                          }
-                        ]
-                      },
-                      {
-                        "Case": "LitExpr",
-                        "Fields": [
-                          {
-                            "Case": "Int",
-                            "Fields": [
-                              1
-                            ]
-                          },
-                          {
-                            "first": 4,
-                            "last": 4
-                          }
-                        ]
-                      }
-                    ],
-                    "span": {
-                      "first": 0,
-                      "last": 5
-                    }
-                  }
-                ]
-              },
-              "prop": "_0",
-              "span": {
-                "first": 0,
-                "last": 8
-              }
-            }
-          ]
-        },
-        "op": {
-          "Case": "Arithmetic",
-          "Fields": [
-            {
-              "Case": "Add"
-            }
-          ]
-        },
-        "right": {
-          "Case": "LitExpr",
-          "Fields": [
-            {
-              "Case": "Int",
-              "Fields": [
-                1
-              ]
-            },
-            {
-              "first": 12,
-              "last": 12
-            }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 12
-        }
-      }
-    ]
-  },
-  "Array": {
-    "Case": "Index",
-    "Fields": [
-      {
-        "container": {
-          "Case": "Array",
-          "Fields": [
-            {
+    "Binary": {
+      "left": {
+        "Field": {
+          "receiver": {
+            "Tuple": {
               "element": [
                 {
-                  "Case": "LitExpr",
-                  "Fields": [
+                  "LitExpr": [
                     {
-                      "Case": "Int",
-                      "Fields": [
-                        1
-                      ]
+                      "Int": 0
                     },
                     {
                       "first": 1,
@@ -149,370 +45,332 @@
                   ]
                 },
                 {
-                  "Case": "LitExpr",
-                  "Fields": [
+                  "LitExpr": [
                     {
-                      "Case": "Int",
-                      "Fields": [
-                        2
-                      ]
+                      "Int": 1
                     },
                     {
-                      "first": 3,
-                      "last": 3
-                    }
-                  ]
-                },
-                {
-                  "Case": "LitExpr",
-                  "Fields": [
-                    {
-                      "Case": "Int",
-                      "Fields": [
-                        3
-                      ]
-                    },
-                    {
-                      "first": 5,
-                      "last": 5
+                      "first": 4,
+                      "last": 4
                     }
                   ]
                 }
               ],
               "span": {
                 "first": 0,
-                "last": 6
+                "last": 5
               }
             }
-          ]
-        },
-        "index": {
-          "Case": "LitExpr",
-          "Fields": [
+          },
+          "prop": "_0",
+          "span": {
+            "first": 0,
+            "last": 8
+          }
+        }
+      },
+      "op": {
+        "Arithmetic": "Add"
+      },
+      "right": {
+        "LitExpr": [
+          {
+            "Int": 1
+          },
+          {
+            "first": 12,
+            "last": 12
+          }
+        ]
+      },
+      "span": {
+        "first": 0,
+        "last": 12
+      }
+    }
+  },
+  "Array": {
+    "Index": {
+      "container": {
+        "Array": {
+          "element": [
             {
-              "Case": "Int",
-              "Fields": [
-                2
+              "LitExpr": [
+                {
+                  "Int": 1
+                },
+                {
+                  "first": 1,
+                  "last": 1
+                }
               ]
             },
             {
-              "first": 8,
-              "last": 8
+              "LitExpr": [
+                {
+                  "Int": 2
+                },
+                {
+                  "first": 3,
+                  "last": 3
+                }
+              ]
+            },
+            {
+              "LitExpr": [
+                {
+                  "Int": 3
+                },
+                {
+                  "first": 5,
+                  "last": 5
+                }
+              ]
             }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 9
+          ],
+          "span": {
+            "first": 0,
+            "last": 6
+          }
         }
+      },
+      "index": {
+        "LitExpr": [
+          {
+            "Int": 2
+          },
+          {
+            "first": 8,
+            "last": 8
+          }
+        ]
+      },
+      "span": {
+        "first": 0,
+        "last": 9
       }
-    ]
+    }
   },
   "Multi": {
-    "Case": "Index",
-    "Fields": [
-      {
-        "container": {
-          "Case": "Index",
-          "Fields": [
-            {
-              "container": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "a",
-                    "span": {
-                      "first": 0,
-                      "last": 0
-                    }
-                  }
-                ]
-              },
-              "index": {
-                "Case": "LitExpr",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      1
-                    ]
-                  },
-                  {
-                    "first": 2,
-                    "last": 2
-                  }
-                ]
-              },
+    "Index": {
+      "container": {
+        "Index": {
+          "container": {
+            "Id": {
+              "sym": "a",
               "span": {
                 "first": 0,
-                "last": 3
+                "last": 0
               }
             }
-          ]
-        },
-        "index": {
-          "Case": "Binary",
-          "Fields": [
-            {
-              "left": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "c",
-                    "span": {
-                      "first": 5,
-                      "last": 5
-                    }
-                  }
-                ]
+          },
+          "index": {
+            "LitExpr": [
+              {
+                "Int": 1
               },
-              "op": {
-                "Case": "Arithmetic",
-                "Fields": [
-                  {
-                    "Case": "Add"
-                  }
-                ]
-              },
-              "right": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "d",
-                    "span": {
-                      "first": 9,
-                      "last": 9
-                    }
-                  }
-                ]
-              },
+              {
+                "first": 2,
+                "last": 2
+              }
+            ]
+          },
+          "span": {
+            "first": 0,
+            "last": 3
+          }
+        }
+      },
+      "index": {
+        "Binary": {
+          "left": {
+            "Id": {
+              "sym": "c",
               "span": {
                 "first": 5,
+                "last": 5
+              }
+            }
+          },
+          "op": {
+            "Arithmetic": "Add"
+          },
+          "right": {
+            "Id": {
+              "sym": "d",
+              "span": {
+                "first": 9,
                 "last": 9
               }
             }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 10
+          },
+          "span": {
+            "first": 5,
+            "last": 9
+          }
         }
+      },
+      "span": {
+        "first": 0,
+        "last": 10
       }
-    ]
+    }
   },
   "Mix": {
-    "Case": "Field",
-    "Fields": [
-      {
-        "receiver": {
-          "Case": "Index",
-          "Fields": [
-            {
-              "container": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "a",
-                    "span": {
-                      "first": 0,
-                      "last": 0
-                    }
-                  }
-                ]
-              },
-              "index": {
-                "Case": "LitExpr",
-                "Fields": [
-                  {
-                    "Case": "Int",
-                    "Fields": [
-                      1
-                    ]
-                  },
-                  {
-                    "first": 2,
-                    "last": 2
-                  }
-                ]
-              },
+    "Field": {
+      "receiver": {
+        "Index": {
+          "container": {
+            "Id": {
+              "sym": "a",
               "span": {
                 "first": 0,
-                "last": 3
+                "last": 0
               }
             }
-          ]
-        },
-        "prop": "x",
-        "span": {
-          "first": 0,
-          "last": 5
+          },
+          "index": {
+            "LitExpr": [
+              {
+                "Int": 1
+              },
+              {
+                "first": 2,
+                "last": 2
+              }
+            ]
+          },
+          "span": {
+            "first": 0,
+            "last": 3
+          }
         }
+      },
+      "prop": "x",
+      "span": {
+        "first": 0,
+        "last": 5
       }
-    ]
+    }
   },
   "Mix2": {
-    "Case": "Index",
-    "Fields": [
-      {
-        "container": {
-          "Case": "Field",
-          "Fields": [
-            {
-              "receiver": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "a",
-                    "span": {
-                      "first": 0,
-                      "last": 0
-                    }
-                  }
-                ]
-              },
-              "prop": "x",
+    "Index": {
+      "container": {
+        "Field": {
+          "receiver": {
+            "Id": {
+              "sym": "a",
               "span": {
                 "first": 0,
-                "last": 2
+                "last": 0
               }
             }
-          ]
-        },
-        "index": {
-          "Case": "LitExpr",
-          "Fields": [
-            {
-              "Case": "Int",
-              "Fields": [
-                1
-              ]
-            },
-            {
-              "first": 4,
-              "last": 4
-            }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 5
+          },
+          "prop": "x",
+          "span": {
+            "first": 0,
+            "last": 2
+          }
         }
+      },
+      "index": {
+        "LitExpr": [
+          {
+            "Int": 1
+          },
+          {
+            "first": 4,
+            "last": 4
+          }
+        ]
+      },
+      "span": {
+        "first": 0,
+        "last": 5
       }
-    ]
+    }
   },
   "Assign": {
-    "Case": "Assign",
-    "Fields": [
-      {
-        "assignee": {
-          "Case": "Field",
-          "Fields": [
-            {
-              "receiver": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "a",
-                    "span": {
-                      "first": 0,
-                      "last": 0
-                    }
-                  }
-                ]
-              },
-              "prop": "b",
+    "Assign": {
+      "assignee": {
+        "Field": {
+          "receiver": {
+            "Id": {
+              "sym": "a",
               "span": {
                 "first": 0,
-                "last": 2
+                "last": 0
               }
             }
-          ]
-        },
-        "op": null,
-        "value": {
-          "Case": "Field",
-          "Fields": [
-            {
-              "receiver": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "c",
-                    "span": {
-                      "first": 6,
-                      "last": 6
-                    }
-                  }
-                ]
-              },
-              "prop": "d",
-              "span": {
-                "first": 6,
-                "last": 8
-              }
-            }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 8
+          },
+          "prop": "b",
+          "span": {
+            "first": 0,
+            "last": 2
+          }
         }
-      }
-    ]
-  },
-  "Bin": {
-    "Case": "Binary",
-    "Fields": [
-      {
-        "left": {
-          "Case": "Field",
-          "Fields": [
-            {
-              "receiver": {
-                "Case": "Id",
-                "Fields": [
-                  {
-                    "sym": "a",
-                    "span": {
-                      "first": 0,
-                      "last": 0
-                    }
-                  }
-                ]
-              },
-              "prop": "b",
-              "span": {
-                "first": 0,
-                "last": 2
-              }
-            }
-          ]
-        },
-        "op": {
-          "Case": "Arithmetic",
-          "Fields": [
-            {
-              "Case": "Add"
-            }
-          ]
-        },
-        "right": {
-          "Case": "Id",
-          "Fields": [
-            {
+      },
+      "op": null,
+      "value": {
+        "Field": {
+          "receiver": {
+            "Id": {
               "sym": "c",
               "span": {
                 "first": 6,
                 "last": 6
               }
             }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 6
+          },
+          "prop": "d",
+          "span": {
+            "first": 6,
+            "last": 8
+          }
         }
+      },
+      "span": {
+        "first": 0,
+        "last": 8
       }
-    ]
+    }
+  },
+  "Bin": {
+    "Binary": {
+      "left": {
+        "Field": {
+          "receiver": {
+            "Id": {
+              "sym": "a",
+              "span": {
+                "first": 0,
+                "last": 0
+              }
+            }
+          },
+          "prop": "b",
+          "span": {
+            "first": 0,
+            "last": 2
+          }
+        }
+      },
+      "op": {
+        "Arithmetic": "Add"
+      },
+      "right": {
+        "Id": {
+          "sym": "c",
+          "span": {
+            "first": 6,
+            "last": 6
+          }
+        }
+      },
+      "span": {
+        "first": 0,
+        "last": 6
+      }
+    }
   }
 }

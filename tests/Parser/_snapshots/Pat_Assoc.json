@@ -1,78 +1,62 @@
 {
   "AsOr": {
-    "Case": "OrPat",
-    "Fields": [
-      {
-        "pat": [
-          {
-            "Case": "AsPat",
-            "Fields": [
-              {
+    "OrPat": {
+      "pat": [
+        {
+          "AsPat": {
+            "pat": {
+              "AsPat": {
                 "pat": {
-                  "Case": "AsPat",
-                  "Fields": [
+                  "LitPat": [
                     {
-                      "pat": {
-                        "Case": "LitPat",
-                        "Fields": [
-                          {
-                            "Case": "Int",
-                            "Fields": [
-                              1
-                            ]
-                          },
-                          {
-                            "first": 0,
-                            "last": 0
-                          }
-                        ]
-                      },
-                      "id": {
-                        "sym": "a",
-                        "span": {
-                          "first": 5,
-                          "last": 5
-                        }
-                      },
-                      "span": {
-                        "first": 0,
-                        "last": 5
-                      }
+                      "Int": 1
+                    },
+                    {
+                      "first": 0,
+                      "last": 0
                     }
                   ]
                 },
                 "id": {
-                  "sym": "b",
+                  "sym": "a",
                   "span": {
-                    "first": 10,
-                    "last": 10
+                    "first": 5,
+                    "last": 5
                   }
                 },
                 "span": {
                   "first": 0,
-                  "last": 10
+                  "last": 5
                 }
               }
-            ]
-          },
-          {
-            "Case": "IdPat",
-            "Fields": [
-              {
-                "sym": "d",
-                "span": {
-                  "first": 14,
-                  "last": 14
-                }
+            },
+            "id": {
+              "sym": "b",
+              "span": {
+                "first": 10,
+                "last": 10
               }
-            ]
+            },
+            "span": {
+              "first": 0,
+              "last": 10
+            }
           }
-        ],
-        "span": {
-          "first": 0,
-          "last": 14
+        },
+        {
+          "IdPat": {
+            "sym": "d",
+            "span": {
+              "first": 14,
+              "last": 14
+            }
+          }
         }
+      ],
+      "span": {
+        "first": 0,
+        "last": 14
       }
-    ]
+    }
   }
 }

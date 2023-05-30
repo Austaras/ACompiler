@@ -1,111 +1,79 @@
 {
   "Slice": {
-    "Case": "RefType",
-    "Fields": [
-      {
-        "ty": {
-          "Case": "ArrayType",
-          "Fields": [
-            {
-              "ele": {
-                "Case": "RefType",
-                "Fields": [
-                  {
-                    "ty": {
-                      "Case": "ArrayType",
-                      "Fields": [
-                        {
-                          "ele": {
-                            "Case": "TypeId",
-                            "Fields": [
-                              {
-                                "sym": "i32",
-                                "span": {
-                                  "first": 4,
-                                  "last": 6
-                                }
-                              }
-                            ]
-                          },
-                          "len": null,
-                          "span": {
-                            "first": 3,
-                            "last": 7
-                          }
-                        }
-                      ]
-                    },
-                    "span": {
-                      "first": 2,
-                      "last": 7
+    "RefType": {
+      "ty": {
+        "ArrayType": {
+          "ele": {
+            "RefType": {
+              "ty": {
+                "ArrayType": {
+                  "ele": {
+                    "TypeId": {
+                      "sym": "i32",
+                      "span": {
+                        "first": 4,
+                        "last": 6
+                      }
                     }
+                  },
+                  "len": null,
+                  "span": {
+                    "first": 3,
+                    "last": 7
                   }
-                ]
-              },
-              "len": {
-                "Case": "Some",
-                "Fields": [
-                  4
-                ]
+                }
               },
               "span": {
-                "first": 1,
-                "last": 10
+                "first": 2,
+                "last": 7
               }
             }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 10
+          },
+          "len": 4,
+          "span": {
+            "first": 1,
+            "last": 10
+          }
         }
+      },
+      "span": {
+        "first": 0,
+        "last": 10
       }
-    ]
+    }
   },
   "Ref": {
-    "Case": "RefType",
-    "Fields": [
-      {
-        "ty": {
-          "Case": "RefType",
-          "Fields": [
-            {
-              "ty": {
-                "Case": "ArrayType",
-                "Fields": [
-                  {
-                    "ele": {
-                      "Case": "TypeId",
-                      "Fields": [
-                        {
-                          "sym": "usize",
-                          "span": {
-                            "first": 3,
-                            "last": 7
-                          }
-                        }
-                      ]
-                    },
-                    "len": null,
-                    "span": {
-                      "first": 2,
-                      "last": 8
-                    }
+    "RefType": {
+      "ty": {
+        "RefType": {
+          "ty": {
+            "ArrayType": {
+              "ele": {
+                "TypeId": {
+                  "sym": "usize",
+                  "span": {
+                    "first": 3,
+                    "last": 7
                   }
-                ]
+                }
               },
+              "len": null,
               "span": {
-                "first": 1,
+                "first": 2,
                 "last": 8
               }
             }
-          ]
-        },
-        "span": {
-          "first": 0,
-          "last": 8
+          },
+          "span": {
+            "first": 1,
+            "last": 8
+          }
         }
+      },
+      "span": {
+        "first": 0,
+        "last": 8
       }
-    ]
+    }
   }
 }

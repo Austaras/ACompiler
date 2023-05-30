@@ -14,9 +14,10 @@
    - reference type with auto ref/deref which is GC tracked
 3. suffix is .adf which stands for Advanced Dominance Fighter
 4. Major TODO
-   - [ ] module system
+   - [ ] module system and linking
    - [ ] effect system
    - [ ] trait and dynamic dispatch, orphan rule, specification
+   - [ ] try trait
    - [ ] GC
    - [ ] macro
    - [ ] HKT

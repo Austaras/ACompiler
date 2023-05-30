@@ -1210,6 +1210,12 @@ let internal parseManyItem (input: Token[]) parser delimiter =
 
         skip 0 0
 
+    let rec skipUntil (input: Token[]) =
+        match peekInline input with
+        | Some({ data = Delimiter _ }, i) -> input[i..]
+        | Some(_, i) -> skipUntil input[i..]
+        | None -> [||]
+
     let i, _ = skipLimiter input
 
     let state =
@@ -1223,7 +1229,15 @@ let internal parseManyItem (input: Token[]) parser delimiter =
         | Some token when delimiter token.data -> Ok({ state with rest = state.rest[1..] }, Some token)
         | Some _ ->
             match parser state.rest with
-            | Error e -> Error e
+            | Error e ->
+                let data = state.data
+                let rest = skipUntil state.rest
+                let error = Array.append state.error e
+
+                parseMany
+                    { data = data
+                      error = error
+                      rest = rest }
             | Ok(item: State<_>) ->
                 let i, cnt = skipLimiter item.rest
 
@@ -1292,9 +1306,8 @@ let rec internal parseExpr (ctx: Context) input =
         if ctx.inCond then
             Ok ret
         else
-            match peekWith state.rest (Curly Open) with
-            | None -> Ok ret
-            | Some(_, i) ->
+            match peekInline state.rest with
+            | Some({ data = Curly Open }, i) ->
                 let field =
                     parseCommaSeq state.rest[i..] parseStructField (Curly Close) "struct pattern field"
 
@@ -1319,6 +1332,7 @@ let rec internal parseExpr (ctx: Context) input =
                           error = Array.concat [ state.error; field.error; restError ]
                           rest = field.rest }
                 | Error e -> Error e
+            | _ -> Ok ret
 
     let parsePath (state: State<Path>) =
         let rec parsePath (state: State<Path>) =
@@ -2075,7 +2089,7 @@ let rec internal parseExpr (ctx: Context) input =
                       prop = id
                       span = Span.Make state.data.span.first span.last }
 
-                parseFollow
+                parsePostfix
                     ctx
                     prec
                     { state with
@@ -2084,12 +2098,12 @@ let rec internal parseExpr (ctx: Context) input =
             | Some(token, _) -> state.FatalError(UnexpectedToken(token, "field access"))
 
         | Some({ data = Paren Open; span = span }, i) ->
-            let ctx = ctx.NotInCond
+            let newCtx = ctx.NotInCond
 
             match peek state.rest with
             | None -> Error([| IncompletePair(Token.Make (Paren Close) span) |])
             | _ ->
-                match parseCommaSeq state.rest[i..] (parseExpr ctx) (Paren Close) "call arguments" with
+                match parseCommaSeq state.rest[i..] (parseExpr newCtx) (Paren Close) "call arguments" with
                 | Error e -> Error e
                 | Ok(param, paren) ->
                     let span = paren.span.WithFirst state.data.span.first
@@ -2099,7 +2113,7 @@ let rec internal parseExpr (ctx: Context) input =
                           callee = state.data
                           span = span }
 
-                    parseFollow
+                    parsePostfix
                         ctx
                         prec
                         { data = Call expr
@@ -2107,12 +2121,12 @@ let rec internal parseExpr (ctx: Context) input =
                           rest = param.rest }
 
         | Some({ data = Bracket Open } as token, i) ->
-            let ctx = ctx.NotInCond
+            let newCtx = ctx.NotInCond
 
             match peek state.rest[i..] with
             | None -> state.FatalError(IncompletePair token)
             | _ ->
-                match parseExpr ctx state.rest[i..] with
+                match parseExpr newCtx state.rest[i..] with
                 | Error e -> Error e
                 | Ok idx ->
                     match consume idx.rest (Bracket Close) "index expression" with
@@ -2122,7 +2136,7 @@ let rec internal parseExpr (ctx: Context) input =
                               index = idx.data
                               span = span.WithFirst state.data.span.first }
 
-                        parseFollow
+                        parsePostfix
                             ctx
                             prec
                             { data = Index expr
@@ -2130,6 +2144,20 @@ let rec internal parseExpr (ctx: Context) input =
                               rest = idx.rest[i..] }
 
                     | Error e -> Error(Array.concat [ state.error; idx.error; [| e |] ])
+
+        | Some({ data = Question; span = span }, i) ->
+            let expr =
+                { base_ = state.data
+                  span = state.data.span.WithLast span.last }
+
+            let error = if ctx.inFn then [||] else [| OutOfFn span |]
+
+            parsePostfix
+                ctx
+                prec
+                { data = TryReturn expr
+                  error = Array.append state.error error
+                  rest = state.rest[i..] }
 
         | _ -> Ok state
 

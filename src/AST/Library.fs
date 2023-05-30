@@ -11,8 +11,8 @@ type Span =
 
     member this.WithLast last = { this with last = last }
 
-    member this.ShrinkFirst i = { this with first = this.first + 1 }
-    member this.ShrinkLast i = { this with last = this.last - 1 }
+    member this.ShrinkFirst i = { this with first = this.first + i }
+    member this.ShrinkLast i = { this with last = this.last - i }
 
 type Lit =
     | String of string
@@ -216,6 +216,8 @@ and Pat =
         | RangePat r -> r.span
         | SelfPat s -> s
 
+    member this.ExtractId = [||]
+
 type Param =
     { pat: Pat
       ty: Option<Type>
@@ -320,6 +322,8 @@ and For =
 
 and While = { cond: Cond; body: Block; span: Span }
 
+and TryReturn = { base_: Expr; span: Span }
+
 and Closure =
     { typeParam: TypeParam[]
       param: Param[]
@@ -362,6 +366,7 @@ and Expr =
     | Range of RangeExpr
     | For of For
     | While of While
+    | TryReturn of TryReturn
     | Match of Match
 
     member this.span =
@@ -389,6 +394,7 @@ and Expr =
         | Range r -> r.span
         | For f -> f.span
         | While w -> w.span
+        | TryReturn t -> t.span
         | Match m -> m.span
 
 and Let =
