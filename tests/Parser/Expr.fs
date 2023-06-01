@@ -35,7 +35,6 @@ let Bin () =
     2")
         .ShouldMatchChildSnapshot("Comment")
 
-
     (parseTest "1 + 2 * let 3").ShouldMatchChildSnapshot("Malformed")
 
 [<Fact>]

@@ -14,7 +14,10 @@ jobs:
           dotnet-version: '7.0.x'
 
       - name: Install dependencies
-        run: dotnet restore && dotnet tool restore
+        run: dotnet restore
+
+      - name: Install tools
+        run: dotnet tool restore
 
       - name: Format
         run: dotnet fantomas -r --check .

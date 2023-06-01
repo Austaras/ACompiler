@@ -178,7 +178,17 @@ let internal parseCommaSeq (input: Lexer.Token[]) parser limiter error =
                         { newState with
                             rest = newState.rest[i..] }
                     )
-                | _ -> parseRecursive newState
+                | Some(token, i) when limiter token.data ->
+                    Ok(
+                        { newState with
+                            rest = newState.rest[i..] },
+                        token
+                    )
+                | Some(_, i) ->
+                    parseRecursive
+                        { newState with
+                            error = Array.append newState.error [| NeedDelimiter newState.rest[i - 1].span |] }
+                | None -> newState.FatalError(IncompleteAtEnd "comma seq")
 
     match parseRecursive state with
     | Ok(s, p) -> Ok(s, p)
@@ -1974,10 +1984,24 @@ let rec internal parseExpr (ctx: Context) input =
         | Some({ data = Reserved RETURN; span = span }, i) ->
             let error = if ctx.inFn then [| OutOfFn span |] else [||]
 
-            Ok
-                { data = Continue span
-                  error = error
-                  rest = input[i..] }
+            match peekInline input[i..] with
+            | Some({ data = data }, _) when canStartExpr data ->
+                match parseExpr ctx input[i..] with
+                | Error e -> Error e
+                | Ok state ->
+                    let expr =
+                        { value = Some state.data
+                          span = state.data.span.WithFirst span.first }
+
+                    Ok
+                        { data = Return expr
+                          error = state.error
+                          rest = state.rest }
+            | _ ->
+                Ok
+                    { data = Return { value = None; span = span }
+                      error = error
+                      rest = input[i..] }
 
         | Some({ data = Reserved MATCH; span = span }, i) ->
             match parseExpr ctx.InCond input[i..] with

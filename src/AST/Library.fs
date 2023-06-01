@@ -342,6 +342,8 @@ and Match =
       branch: MatchBranch[]
       span: Span }
 
+and Return = { value: Option<Expr>; span: Span }
+
 and Expr =
     | Id of Id
     | SelfExpr of Span
@@ -362,7 +364,7 @@ and Expr =
     | Path of Path
     | Break of Span
     | Continue of Span
-    | Return of Span
+    | Return of Return
     | Range of RangeExpr
     | For of For
     | While of While
@@ -390,7 +392,7 @@ and Expr =
         | Path p -> p.span
         | Break b -> b
         | Continue c -> c
-        | Return r -> r
+        | Return r -> r.span
         | Range r -> r.span
         | For f -> f.span
         | While w -> w.span

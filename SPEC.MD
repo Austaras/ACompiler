@@ -17,6 +17,7 @@
    - [ ] module system and linking
    - [ ] effect system
    - [ ] trait and dynamic dispatch, orphan rule, specification
+   - [ ] const generic
    - [ ] try trait
    - [ ] GC
    - [ ] macro
