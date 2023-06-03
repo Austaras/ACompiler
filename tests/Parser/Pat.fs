@@ -10,7 +10,7 @@ open Xunit
 exception CustomError of Error[]
 
 let parseTest input =
-    match Lexer.lex input with
+    match Lexer.lex 0 input with
     | Ok token ->
         match parsePat Context.Normal token with
         | Ok ast -> Json.serialize ast.data

@@ -151,14 +151,15 @@ type internal State =
       data: Token[]
       error: Error[] }
 
-let lex (input: string) =
+let lex offset (input: string) =
     let len = input.Length
+    let makeSpan i j = AST.Span.Make (offset + i) (offset + j)
 
     let rec lex state =
         let i = state.i
 
         let withNewToken token j =
-            let span = AST.Span.Make i (j - 1)
+            let span = makeSpan i (j - 1)
 
             let newState =
                 { state with
@@ -168,7 +169,7 @@ let lex (input: string) =
             lex newState
 
         let withNewError error j =
-            let span = AST.Span.Make i (j - 1)
+            let span = makeSpan i (j - 1)
 
             let newState =
                 { state with
@@ -431,10 +432,10 @@ let lex (input: string) =
             | '"' ->
                 let rec takeWhen j =
                     if j = len then
-                        Error(Unmatched(AST.Span.Make i (j - 1), '"'))
+                        Error(Unmatched(makeSpan i (j - 1), '"'))
                     else if input[j] = '\\' then
                         if j = len - 1 then
-                            Error(IncompleteEscapeSeq(AST.Span.Make i j))
+                            Error(IncompleteEscapeSeq(makeSpan i j))
                         else
                             takeWhen (j + 2)
                     else if input[j] = '"' then
@@ -467,7 +468,7 @@ let lex (input: string) =
 
                 match j with
                 | Error j ->
-                    let error = Array.append state.error [| IncompleteEscapeSeq(AST.Span.Make j j) |]
+                    let error = Array.append state.error [| IncompleteEscapeSeq(makeSpan j j) |]
 
                     Error error
                 | Ok j ->
@@ -547,8 +548,7 @@ let lex (input: string) =
                 | Error c -> withNewError (fun span -> UnknownNumberPrefix(span, c)) (i + 2)
 
             | c ->
-                let error =
-                    Array.append state.error [| UnrecognizablePattern(AST.Span.Make i i, c) |]
+                let error = Array.append state.error [| UnrecognizablePattern(makeSpan i i, c) |]
 
                 Error error
 

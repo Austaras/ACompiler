@@ -7,7 +7,7 @@ open Lexer
 exception CustomError of Error[]
 
 let lex_strip_span =
-    lex
+    lex 0
     >> (fun r ->
         match r with
         | Ok d -> d
