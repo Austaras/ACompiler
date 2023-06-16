@@ -39,7 +39,6 @@ type Reserved =
     | SELF
     | LOWSELF
     | PACKAGE
-    | DYNAMIC
 
 type CommentKind =
     | SingleLine
@@ -114,7 +113,6 @@ let internal parseIdentifier input =
     | "Self" -> Reserved SELF
     | "self" -> Reserved LOWSELF
     | "pak" -> Reserved PACKAGE
-    | "dyn" -> Reserved DYNAMIC
     | "as" -> Operator AST.As
     | "true" -> Lit(AST.Bool true)
     | "false" -> Lit(AST.Bool false)

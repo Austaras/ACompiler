@@ -8,15 +8,17 @@
    - struct/enum keyword
    - .\_0 for tuple access
 2. ML semantic with Rust characteristics
-   - static type with type inference
+   - HM type inference with trait and operator overloading
    - all functions are mutually recursive
    - internal mutable
-   - reference type with auto ref/deref which is GC tracked
+   - no auto boxing, provide generic reference type(s) tracked by GC
+   - user can roll their own container as in Rust
 3. suffix is .adf which stands for Advanced Dominance Fighter
 4. Major TODO
+   - [ ] f-string
    - [ ] module system and linking
    - [ ] effect system
-   - [ ] trait and dynamic dispatch, orphan rule, specification
+   - [ ] orphan rule, specification
    - [ ] const generic
    - [ ] try trait
    - [ ] GC

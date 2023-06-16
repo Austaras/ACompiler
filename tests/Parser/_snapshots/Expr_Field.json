@@ -12,14 +12,26 @@
               }
             }
           },
-          "prop": "b",
+          "prop": {
+            "sym": "b",
+            "span": {
+              "first": 2,
+              "last": 2
+            }
+          },
           "span": {
             "first": 0,
             "last": 2
           }
         }
       },
-      "prop": "c",
+      "prop": {
+        "sym": "c",
+        "span": {
+          "first": 4,
+          "last": 4
+        }
+      },
       "span": {
         "first": 0,
         "last": 4
@@ -62,7 +74,13 @@
               }
             }
           },
-          "prop": "_0",
+          "prop": {
+            "sym": "_0",
+            "span": {
+              "first": 7,
+              "last": 8
+            }
+          },
           "span": {
             "first": 0,
             "last": 8
@@ -246,7 +264,13 @@
           }
         }
       },
-      "prop": "x",
+      "prop": {
+        "sym": "x",
+        "span": {
+          "first": 5,
+          "last": 5
+        }
+      },
       "span": {
         "first": 0,
         "last": 5
@@ -266,7 +290,13 @@
               }
             }
           },
-          "prop": "x",
+          "prop": {
+            "sym": "x",
+            "span": {
+              "first": 2,
+              "last": 2
+            }
+          },
           "span": {
             "first": 0,
             "last": 2
@@ -303,7 +333,13 @@
               }
             }
           },
-          "prop": "b",
+          "prop": {
+            "sym": "b",
+            "span": {
+              "first": 2,
+              "last": 2
+            }
+          },
           "span": {
             "first": 0,
             "last": 2
@@ -322,7 +358,13 @@
               }
             }
           },
-          "prop": "d",
+          "prop": {
+            "sym": "d",
+            "span": {
+              "first": 8,
+              "last": 8
+            }
+          },
           "span": {
             "first": 6,
             "last": 8
@@ -348,7 +390,13 @@
               }
             }
           },
-          "prop": "b",
+          "prop": {
+            "sym": "b",
+            "span": {
+              "first": 2,
+              "last": 2
+            }
+          },
           "span": {
             "first": 0,
             "last": 2

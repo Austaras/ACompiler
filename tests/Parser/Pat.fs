@@ -1,21 +1,11 @@
 module Parser.Tests.Pat
 
-open Lexer
 open Parser.Parser
 
-open FSharp.Json
 open Snapper
 open Xunit
 
-exception CustomError of Error[]
-
-let parseTest input =
-    match Lexer.lex 0 input with
-    | Ok token ->
-        match parsePat Context.Normal token with
-        | Ok ast -> Json.serialize ast.data
-        | Error e -> raise (CustomError e)
-    | Error e -> raise (CustomError(Array.map LexError e))
+let parseTest = Util.makeTest parsePat
 
 [<Fact>]
 let StructEnum () =

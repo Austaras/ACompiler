@@ -6,7 +6,7 @@
   <ItemGroup>
     <Compile Include="Library.fs" />
     <Compile Include="Type.fs" />
-    <Compile Include="Layout.fs" />
+    <Compile Include="Infer.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Config\Config.fsproj" />

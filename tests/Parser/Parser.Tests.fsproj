@@ -5,6 +5,7 @@
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Util.fs" />
     <Compile Include="Stmt.fs" />
     <Compile Include="Expr.fs" />
     <Compile Include="Pat.fs" />

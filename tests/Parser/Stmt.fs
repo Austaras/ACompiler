@@ -1,21 +1,13 @@
 module Parser.Tests.Stmt
 
-open Lexer
 open Parser.Parser
 
-open FSharp.Json
 open Snapper
 open Xunit
 
 exception CustomError of Error[]
 
-let parseTest input =
-    match Lexer.lex 0 input with
-    | Ok token ->
-        match parseDecl Context.Normal token with
-        | Ok ast -> Json.serialize ast.data
-        | Error e -> raise (CustomError e)
-    | Error e -> raise (CustomError(Array.map LexError e))
+let parseTest = Util.makeTest parseDecl
 
 [<Fact>]
 let Decl () =

@@ -12,7 +12,13 @@
               }
             }
           },
-          "prop": "b",
+          "prop": {
+            "sym": "b",
+            "span": {
+              "first": 2,
+              "last": 2
+            }
+          },
           "span": {
             "first": 0,
             "last": 2

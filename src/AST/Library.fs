@@ -18,6 +18,7 @@ type Lit =
     | String of string
     | Char of char
     | Int of uint
+    /// only used in const generic
     | NegInt of uint
     | Float of double
     | Bool of bool
@@ -269,9 +270,7 @@ and Binary =
       span: Span }
 
 and Field =
-    { receiver: Expr
-      prop: string
-      span: Span }
+    { receiver: Expr; prop: Id; span: Span }
 
 and Index =
     { container: Expr
@@ -368,6 +367,7 @@ and Expr =
     | Range of RangeExpr
     | For of For
     | While of While
+    /// question mark expression
     | TryReturn of TryReturn
     | Match of Match
 
@@ -488,8 +488,10 @@ and ImplDecl =
 
 and ImplItem = { vis: Visibility; item: ImplDecl }
 
+and ImplTrait = { path: Path; tyParam: TypeParam[] }
+
 and Impl =
-    { trait_: Option<Id>
+    { trait_: Option<ImplTrait>
       typeParam: TypeParam[]
       ty: Type
       item: ImplDecl[]
@@ -522,7 +524,9 @@ and Stmt =
     | ExprStmt of Expr
     | DeclStmt of Decl
 
-and ModuleItem =
+type ModuleItem =
     { vis: Visibility
       decl: Decl
       span: Span }
+
+type Module = { item: ModuleItem[]; span: Span }

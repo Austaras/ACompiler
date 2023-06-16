@@ -4,7 +4,6 @@ open AST
 open Lexer
 
 type Error =
-    | LexError of Lexer.Error
     | UnexpectedToken of Lexer.Token * string
     | UnexpectedManyToken of AST.Span * string
     | Incomplete of AST.Span * string
@@ -27,6 +26,7 @@ type Error =
     | NeedDelimiter of AST.Span
     | ConstPat of AST.Span
     | InvalidCatchAll of AST.Span
+    | PubTypeAnnotation of AST.Span
 
 type internal Context =
     { inLoop: bool
@@ -1196,6 +1196,7 @@ let internal canStartExpr token =
     | Bracket Open
     | Curly Open
     | Operator(Arithmetic Sub | Arithmetic Mul | Arithmetic BitAnd | Arithmetic BitOr | Arithmetic LogicalOr | Gt)
+    | Not
     | Reserved(PACKAGE | SELF | IF | MATCH | FOR | WHILE | RETURN | BREAK | CONTINUE)
     | DotDot
     | DotDotCaret -> true
@@ -1254,7 +1255,7 @@ let internal parseManyItem (input: Token[]) parser delimiter =
                 let error = Array.append state.error item.error
 
                 let error =
-                    if cnt = 0 then
+                    if cnt = 0 && i <> item.rest.Length then
                         Array.append error [| NeedDelimiter item.rest[i].span |]
                     else
                         error
@@ -2107,10 +2108,10 @@ let rec internal parseExpr (ctx: Context) input =
         | Some({ data = Dot }, i) ->
             match peek state.rest[i..] with
             | None -> state.FatalError(Incomplete(state.data.span, "field access expression"))
-            | Some({ data = Identifier id; span = span }, j) ->
+            | Some({ data = Identifier sym; span = span }, j) ->
                 let expr =
                     { receiver = state.data
-                      prop = id
+                      prop = { sym = sym; span = span }
                       span = Span.Make state.data.span.first span.last }
 
                 parsePostfix
@@ -2611,9 +2612,18 @@ let rec internal parseModuleItem (input: Lexer.Token[]) =
                   decl = d
                   span = d.span.WithFirst first }
 
+            let error =
+                match d with
+                | FnDecl f when vis = Public ->
+                    let needTy = Array.filter (fun (p: Param) -> p.ty <> None) f.param
+                    let needTy = Array.map (fun (p: Param) -> PubTypeAnnotation p.span) needTy
+
+                    Array.append s.error needTy
+                | _ -> s.error
+
             Ok
                 { data = item
-                  error = s.error
+                  error = error
                   rest = s.rest }
         | ExprStmt e ->
             let error = Array.append s.error [| TopLevelExpr e.span |]
@@ -2629,10 +2639,21 @@ let rec internal parseModuleItem (input: Lexer.Token[]) =
 ///
 /// There should be a CST somewhere, but at the time it's omitted
 let parse (input: Lexer.Token[]) =
+    let span =
+        if input.Length > 0 then
+            let first = input[0].span.first
+            let last = (Array.last input).span.last
+
+            Span.Make first last
+        else
+            Span.dummy
+
     match parseManyItem input parseModuleItem (fun _ -> false) with
     | Ok(state, _) ->
+        let data = { item = state.data; span = span }
+
         if state.error.Length = 0 then
-            Ok state.data
+            Ok data
         else
-            Error(state.error, Some state.data)
+            Error(state.error, Some data)
     | Error e -> Error(e, None)

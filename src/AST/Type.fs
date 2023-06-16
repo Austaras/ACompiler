@@ -1,6 +1,6 @@
 module AST.Type
 
-// TODO: Array
+// TODO: Array and String
 // TODO: generic
 
 type Integer =
@@ -32,13 +32,29 @@ type Primitive =
         | F64 -> "f64"
         | Char -> "char"
 
-type Function = { arg: Type[]; ret: Type }
+type Function = { param: Type[]; ret: Type }
+
+and Struct =
+    { name: AST.Id
+      field: Map<string, Type> }
+
+and Enum =
+    { name: AST.Id
+      variant: Map<string, Type[]> }
 
 and Type =
     | Primitive of Primitive
-    | Struct of Map<string, Type>
-    | Enum of Map<string, Type[]>
+    | Struct of Struct
+    | Enum of Enum
     | Tuple of Type[]
     | Function of Function
     | Reference of Type
+    | TVar of AST.Id
     | Never
+
+let UnitType = Tuple [||]
+
+type ModuleType =
+    { ty: Map<string, Type>
+      var: Map<string, Type>
+      module_: Map<string, ModuleType> }
