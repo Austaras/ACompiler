@@ -122,7 +122,7 @@ type Context(moduleMap) =
         | NeverType _ -> Never
         | TypeId i -> resolve i env
         | TupleType t -> Tuple(Array.map (this.ProcessTy env) t.element)
-        | RefType r -> Reference(this.ProcessTy env r.ty)
+        | RefType r -> TRef(this.ProcessTy env r.ty)
         | LitType(_, _) -> failwith "Not Implemented"
         | ArrayType(_) -> failwith "Not Implemented"
         | InferedType(_) -> failwith "Not Implemented"
@@ -178,7 +178,7 @@ type Context(moduleMap) =
                       span = f.name.span }
             | None -> ()
 
-            binding[f.name] <- Function { param = param; ret = ret }
+            binding[f.name] <- TFn { param = param; ret = ret }
 
         | StructDecl s ->
             if s.tyParam.Length > 0 then
@@ -234,11 +234,11 @@ type Context(moduleMap) =
         | Trait(_) -> failwith "Not Implemented"
         | Impl(_) -> failwith "Not Implemented"
 
-    member internal this.TypeOfExpr (e: Expr) env =
+    member internal this.TypeOfExpr env (e: Expr) =
         match e with
         | Binary b ->
-            let l = this.TypeOfExpr b.left env
-            let r = this.TypeOfExpr b.right env
+            let l = this.TypeOfExpr env b.left
+            let r = this.TypeOfExpr env b.right
 
             constra.Add
                 { expect = Primitive(Int(true, I32))
@@ -273,7 +273,7 @@ type Context(moduleMap) =
         | If i ->
             let cond, span =
                 match i.cond with
-                | BoolCond b -> this.TypeOfExpr b env, b.span
+                | BoolCond b -> this.TypeOfExpr env b, b.span
 
             constra.Add
                 { expect = Primitive Bool
@@ -299,35 +299,42 @@ type Context(moduleMap) =
             then_
         | Block(_) -> failwith "Not Implemented"
         | Call c ->
-            let callee = this.TypeOfExpr c.callee env
+            let callee = this.TypeOfExpr env c.callee
+            let arg = Array.map (this.TypeOfExpr env) c.arg
+            let ret = TVar { sym = ""; span = c.callee.span }
 
-            match callee with
-            | Function f ->
-                if f.param.Length <> c.arg.Length then
-                    error.Add(ArgumentCountMismatch(f.param.Length, c.arg.Length, c.span))
-                else
-                    for (i, a) in Array.indexed c.arg do
-                        let arg = this.TypeOfExpr a env
+            constra.Add
+                { expect = TFn { param = arg; ret = ret }
+                  actual = callee
+                  span = c.span }
 
-                        constra.Add
-                            { expect = f.param[i]
-                              actual = arg
-                              span = a.span }
-
-                f.ret
-            | callee ->
-                error.Add(CalleeNotCallable(callee, c.callee.span))
-                Never
-
+            ret
         | Unary u ->
             match u.op with
             | Not ->
                 constra.Add
                     { expect = Primitive Bool
-                      actual = this.TypeOfExpr u.expr env
+                      actual = this.TypeOfExpr env u.expr
                       span = u.span }
 
                 Primitive Bool
+            | Neg ->
+                constra.Add
+                    { expect = Primitive(Int(true, I32))
+                      actual = this.TypeOfExpr env u.expr
+                      span = u.span }
+
+                Primitive(Int(true, I32))
+            | Ref -> TRef(this.TypeOfExpr env u.expr)
+            | Deref ->
+                let ptr = TVar { sym = ""; span = u.expr.span }
+
+                constra.Add
+                    { expect = TRef ptr
+                      actual = this.TypeOfExpr env u.expr
+                      span = u.span }
+
+                ptr
         | Assign(_) -> failwith "Not Implemented"
         | Field(_) -> failwith "Not Implemented"
         | Index(_) -> failwith "Not Implemented"
@@ -350,7 +357,7 @@ type Context(moduleMap) =
         let typeof _ stmt =
             match stmt with
             | DeclStmt _ -> failwith "Not Implemented"
-            | ExprStmt e -> this.TypeOfExpr e env
+            | ExprStmt e -> this.TypeOfExpr env e
 
         Array.fold typeof UnitType b.stmt
 
@@ -386,7 +393,7 @@ type Context(moduleMap) =
 
         constra.Add
             { expect = TVar f.name
-              actual = Function { param = param; ret = ret }
+              actual = TFn { param = param; ret = ret }
               span = f.name.span }
 
     member this.Infer m =
@@ -423,26 +430,45 @@ type Context(moduleMap) =
 
         let rec resolve ty =
             match ty with
-            | TVar id -> mapping[id]
-            | Function f ->
-                Function
+            | TVar id -> if mapping.ContainsKey id then mapping[id] else TVar id
+            | TFn f ->
+                TFn
                     { param = Array.map resolve f.param
                       ret = resolve f.ret }
             | Primitive p -> Primitive p
+            | TRef r -> TRef(resolve r)
             | Struct(_) -> failwith "Not Implemented"
             | Enum(_) -> failwith "Not Implemented"
             | Tuple(_) -> failwith "Not Implemented"
-            | Reference(_) -> failwith "Not Implemented"
             | Never -> failwith "Not Implemented"
 
-        for c in constra do
+        let rec unify c =
             match c.expect, c.actual with
             | TVar id, ty
             | ty, TVar id -> mapping[id] <- resolve ty
+            | TFn t1, TFn t2 ->
+                if t1.param.Length <> t2.param.Length then
+                    error.Add(TypeMismatch(c.expect, c.actual, c.span))
+                else
+                    for (idx, p1) in (Array.indexed t1.param) do
+                        unify
+                            { expect = p1
+                              actual = t2.param[idx]
+                              span = c.span }
+
+                    unify
+                        { expect = t1.ret
+                          actual = t2.ret
+                          span = c.span }
             | p1, p2 ->
                 if p1 <> p2 then
                     error.Add(TypeMismatch(c.expect, c.actual, c.span))
 
+        for c in constra do
+            unify c
+
         for id in mapping.Keys do
             if binding.ContainsKey id then
-                binding[id] <- mapping[id]
+                binding[id] <- resolve mapping[id]
+
+        constra.Clear()

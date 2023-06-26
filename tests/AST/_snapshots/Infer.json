@@ -1,0 +1,15 @@
+{
+  "Closure": {
+    "c": "|i32| -> i32",
+    "call": "||i32| -> i32| -> i32"
+  },
+  "Reference": {
+    "a": "&i32",
+    "deref": "|&i32| -> i32"
+  },
+  "MutualRec": {
+    "is_even": "|i32| -> bool",
+    "is_odd": "|i32| -> bool",
+    "n": "i32"
+  }
+}

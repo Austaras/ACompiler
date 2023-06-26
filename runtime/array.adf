@@ -1,0 +1,51 @@
+pub struct Array<T> {
+    inner: &RawArray<T>
+}
+
+impl<T> Array<T> {
+    pub fn new() {
+        Self {
+            inner: &RawArray::malloc(0)
+        }
+    }
+
+    pub fn with_capacity(n: usize) {
+        Self {
+            inner: &RawArray::malloc(n)
+        }
+    }
+
+    pub fn push(&self, element: T) {
+        if self.inner.cap == self.inner.len {
+            let new_cap = if self.inner.cap == 0 {
+                4
+            } else {
+                self.inner.cap * 2
+            }
+            self.inner = self.inner.realloc(new_cap)
+        }
+        self.inner[self.inner.len] = element
+        self.inner.len += 1
+    }
+
+    pub fn pop(&self) -> Option<T> {
+        if self.inner.len == 0 {
+            None
+        } else {
+            self.inner.len -= 1
+            Some(self.inner[self.inner.len])
+        }
+    }
+
+    pub fn reserve(&self, n: usize) {
+        if self.inner.cap < n {
+            self.inner.realloc(n)
+        }
+    }
+
+    pub fn shrink_to_fit(&self) {
+        if self.inner.cap > self.inner.len {
+            self.inner.realloc(self.inner.len)
+        }
+    }
+}
