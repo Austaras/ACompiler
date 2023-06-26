@@ -18,6 +18,7 @@ type Error =
     | EmptyEnum of AST.Span
     | EmptyTypeInst of AST.Span
     | TooManyRestPat of AST.Span
+    | InvalidRestPat of AST.Span
     | InvalidRangePat of Lexer.Token
     | InclusiveNoEnd of AST.Span
     | RestAtStructEnd of AST.Span
@@ -686,7 +687,7 @@ let rec internal parseType ctx input =
     | Error e -> Error e
     | Ok p -> parseTypePostfix p
 
-and internal parsePat (ctx: Context) input =
+and internal parsePatInner (ctx: Context) input =
     let childCtx = ctx.NotInDecl
 
     let isRestPat i =
@@ -750,7 +751,7 @@ and internal parsePat (ctx: Context) input =
 
             match peekWith input[i..] Colon with
             | Some(_, j) ->
-                match parsePat childCtx input[i + j ..] with
+                match parsePatInner childCtx input[i + j ..] with
                 | Error e -> Error e
                 | Ok(v: State<Pat>) ->
                     Ok
@@ -827,7 +828,7 @@ and internal parsePat (ctx: Context) input =
         match peek state.rest with
         | Some({ data = Paren Open }, i) ->
             let content =
-                parseCommaSeq state.rest[i..] (parsePat childCtx) (Paren Close) "enum pattern content"
+                parseCommaSeq state.rest[i..] (parsePatInner childCtx) (Paren Close) "enum pattern content"
 
             match content with
             | Ok(content, paren) ->
@@ -953,7 +954,8 @@ and internal parsePat (ctx: Context) input =
                 span
 
         | Some({ data = Paren Open; span = span }, i) ->
-            let ele = parseCommaSeq input[i..] (parsePat childCtx) (Paren Close) "tuple pattern"
+            let ele =
+                parseCommaSeq input[i..] (parsePatInner childCtx) (Paren Close) "tuple pattern"
 
             match ele with
             | Ok(ele, paren) ->
@@ -979,7 +981,7 @@ and internal parsePat (ctx: Context) input =
 
         | Some({ data = Bracket Open; span = span }, i) ->
             let ele =
-                parseCommaSeq input[i..] (parsePat childCtx) (Bracket Close) "array pattern"
+                parseCommaSeq input[i..] (parsePatInner childCtx) (Bracket Close) "array pattern"
 
             match ele with
             | Ok(ele, bracket) ->
@@ -1087,6 +1089,17 @@ and internal parsePat (ctx: Context) input =
             | Ok o -> if ctx.inDecl then Ok o else parseOr o
 
     parseRecursive input
+
+and internal parsePat ctx input =
+    match parsePatInner ctx input with
+    | Error e -> Error e
+    | Ok p ->
+        let error =
+            match p.data with
+            | RestPat span -> Array.append p.error [| InvalidRestPat span |]
+            | _ -> p.error
+
+        Ok { p with error = error }
 
 and internal parseParam (ctx: Context) input =
     match parsePat ctx.InDecl input with

@@ -28,19 +28,18 @@ let runInfer input name =
 
     Assert.Empty ctx.GetError
 
-    let stripSpan (key: AST.Id, value: Type.Type) = key.sym, value.ToString
+    let reform (key: AST.Id, value: Type.Type) = key.sym, value.ToString
 
     (ctx.GetTypes
      |> Seq.map (|KeyValue|)
-     |> Seq.map stripSpan
+     |> Seq.map reform
      |> Map.ofSeq
      |> Json.serialize)
         .ShouldMatchChildSnapshot(name, settings)
 
 let runInferFromExample path =
-    let input = IO.File.ReadAllText(__SOURCE_DIRECTORY__ + "/../../examples/" + path)
-
-    runInfer input
+    IO.File.ReadAllText(__SOURCE_DIRECTORY__ + "/../../examples/" + path)
+    |> runInfer
 
 [<Fact>]
 let MutualRec () =
@@ -53,3 +52,10 @@ let Closure () =
 [<Fact>]
 let Reference () =
     runInfer "fn deref(a) { *a + 1 }" "Reference"
+
+[<Fact>]
+let Struct () =
+    runInferFromExample "function/struct.adf" "Struct"
+
+// [<Fact>]
+// let Id () = runInfer "fn id(x) { x }" "Id"

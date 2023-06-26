@@ -5,7 +5,7 @@ open Parser.Parser
 open Snapper
 open Xunit
 
-let parseTest = Util.makeTest parsePat
+let parseTest = Util.makeTest parsePatInner
 
 [<Fact>]
 let StructEnum () =
@@ -20,7 +20,6 @@ let StructEnum () =
         ..
     }")
         .ShouldMatchChildSnapshot("Compound")
-
 
 [<Fact>]
 let Range () =

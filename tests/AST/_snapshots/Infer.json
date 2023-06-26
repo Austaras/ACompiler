@@ -11,5 +11,9 @@
     "is_even": "|i32| -> bool",
     "is_odd": "|i32| -> bool",
     "n": "i32"
+  },
+  "Struct": {
+    "add": "|Point| -> i32",
+    "p": "Point"
   }
 }

@@ -13,8 +13,8 @@ open AST.Type
 
 type Error =
     | Undefined of Id
-    | UndefinedField of Id * string
-    | UndefinedMember of Id * string
+    | UndefinedField of Span * string
+    | UndefinedVariant of Id * string
     | DuplicateDefinition of Id
     | DuplicateField of Id
     | DuplicateVariant of Id
@@ -89,7 +89,7 @@ type Context(moduleMap) =
     member internal this.GetVarFromEnv id env =
         if Array.length env = 0 then
             error.Add(Undefined id)
-            Never
+            TNever
         else
             let last = Array.last env
 
@@ -103,7 +103,7 @@ type Context(moduleMap) =
             let len = e.Length
 
             if len = 0 then
-                Never
+                TNever
             else
                 let last = e[len - 1]
 
@@ -119,7 +119,7 @@ type Context(moduleMap) =
                     resolve id e[0 .. (len - 2)]
 
         match ty with
-        | NeverType _ -> Never
+        | NeverType _ -> TNever
         | TypeId i -> resolve i env
         | TupleType t -> Tuple(Array.map (this.ProcessTy env) t.element)
         | RefType r -> TRef(this.ProcessTy env r.ty)
@@ -134,10 +134,26 @@ type Context(moduleMap) =
         match d with
         | Let _
         | Const _ -> ()
-        | FnDecl f -> env.AddVar f.name
-        | StructDecl s -> env.AddTy s.name
-        | EnumDecl e -> env.AddTy e.name
-        | TypeDecl t -> env.AddTy t.name
+        | FnDecl f ->
+            if env.var.ContainsKey f.name.sym then
+                error.Add(DuplicateDefinition f.name)
+
+            env.AddVar f.name
+        | StructDecl s ->
+            if env.ty.ContainsKey s.name.sym then
+                error.Add(DuplicateDefinition s.name)
+
+            env.AddTy s.name
+        | EnumDecl e ->
+            if env.ty.ContainsKey e.name.sym then
+                error.Add(DuplicateDefinition e.name)
+
+            env.AddTy e.name
+        | TypeDecl t ->
+            if env.ty.ContainsKey t.name.sym then
+                error.Add(DuplicateDefinition t.name)
+
+            env.AddTy t.name
         | Use(_) -> failwith "Not Implemented"
         | Trait(_) -> failwith "Not Implemented"
         | Impl(_) -> failwith "Not Implemented"
@@ -184,10 +200,7 @@ type Context(moduleMap) =
             if s.tyParam.Length > 0 then
                 failwith "Not Implemented"
 
-            if (Array.last env).ty.ContainsKey s.name.sym then
-                error.Add(DuplicateDefinition s.name)
-
-            let addKey m (field: StructFieldDef) =
+            let processField m (field: StructFieldDef) =
                 let name = field.name.sym
 
                 if Map.containsKey name m then
@@ -195,20 +208,17 @@ type Context(moduleMap) =
 
                 Map.add name (this.ProcessTy env field.ty) m
 
-            let field = Array.fold addKey Map.empty s.field
+            let field = Array.fold processField Map.empty s.field
 
             let strct = { name = s.name; field = field }
 
-            tyMap[s.name] <- Struct strct
+            tyMap[s.name] <- TStruct strct
 
         | EnumDecl e ->
             if e.tyParam.Length > 0 then
                 failwith "Not Implemented"
 
-            if (Array.last env).ty.ContainsKey e.name.sym then
-                error.Add(DuplicateDefinition e.name)
-
-            let addKey m (variant: EnumVariantDef) =
+            let processVariant m (variant: EnumVariantDef) =
                 let name = variant.name.sym
 
                 if Map.containsKey name m then
@@ -218,17 +228,13 @@ type Context(moduleMap) =
 
                 Map.add name payload m
 
-            let variant = Array.fold addKey Map.empty e.variant
+            let variant = Array.fold processVariant Map.empty e.variant
 
             let enum = { name = e.name; variant = variant }
 
-            tyMap[e.name] <- Enum enum
+            tyMap[e.name] <- TEnum enum
 
-        | TypeDecl t ->
-            if (Array.last env).ty.ContainsKey t.name.sym then
-                error.Add(DuplicateDefinition t.name)
-
-            tyMap[t.name] <- this.ProcessTy env t.ty
+        | TypeDecl t -> tyMap[t.name] <- this.ProcessTy env t.ty
 
         | Use(_) -> failwith "Not Implemented"
         | Trait(_) -> failwith "Not Implemented"
@@ -274,6 +280,7 @@ type Context(moduleMap) =
             let cond, span =
                 match i.cond with
                 | BoolCond b -> this.TypeOfExpr env b, b.span
+                | LetCond(_) -> failwith "Not Implemented"
 
             constra.Add
                 { expect = Primitive Bool
@@ -336,7 +343,38 @@ type Context(moduleMap) =
 
                 ptr
         | Assign(_) -> failwith "Not Implemented"
-        | Field(_) -> failwith "Not Implemented"
+        | Field f ->
+            let key = f.prop.sym
+
+            let rec findStruct env =
+                let last = tyMap |> Seq.map (|KeyValue|)
+
+                let find (_, ty) =
+                    match ty with
+                    | TStruct f ->
+                        match Map.tryFind key f.field with
+                        | Some t -> Some(t, Some(f))
+                        | None -> None
+                    | _ -> None
+
+                match Seq.tryPick find last with
+                | Some s -> s
+                | None ->
+                    error.Add(UndefinedField(f.span, key))
+                    TNever, None
+
+            let field, stru = findStruct env
+
+            match stru with
+            | Some s ->
+                constra.Add
+                    { expect = TStruct s
+                      actual = this.TypeOfExpr env f.receiver
+                      span = f.span }
+            | None -> ()
+
+            field
+
         | Index(_) -> failwith "Not Implemented"
         | Array(_) -> failwith "Not Implemented"
         | ArrayRepeat(_) -> failwith "Not Implemented"
@@ -412,9 +450,9 @@ type Context(moduleMap) =
             | FnDecl f -> this.InferFn f env
             | Let(_) -> failwith "Not Implemented"
             | Const(_) -> failwith "Not Implemented"
-            | StructDecl(_) -> failwith "Not Implemented"
-            | EnumDecl(_) -> failwith "Not Implemented"
-            | TypeDecl(_) -> failwith "Not Implemented"
+            | StructDecl(_)
+            | EnumDecl(_)
+            | TypeDecl(_) -> ()
             | Use(_) -> failwith "Not Implemented"
             | Trait(_) -> failwith "Not Implemented"
             | Impl(_) -> failwith "Not Implemented"
@@ -437,10 +475,10 @@ type Context(moduleMap) =
                       ret = resolve f.ret }
             | Primitive p -> Primitive p
             | TRef r -> TRef(resolve r)
-            | Struct(_) -> failwith "Not Implemented"
-            | Enum(_) -> failwith "Not Implemented"
+            | TStruct s -> TStruct s
+            | TEnum(_) -> failwith "Not Implemented"
             | Tuple(_) -> failwith "Not Implemented"
-            | Never -> failwith "Not Implemented"
+            | TNever -> failwith "Not Implemented"
 
         let rec unify c =
             match c.expect, c.actual with
@@ -460,6 +498,11 @@ type Context(moduleMap) =
                         { expect = t1.ret
                           actual = t2.ret
                           span = c.span }
+            | TRef t1, TRef t2 ->
+                unify
+                    { expect = t1
+                      actual = t2
+                      span = c.span }
             | p1, p2 ->
                 if p1 <> p2 then
                     error.Add(TypeMismatch(c.expect, c.actual, c.span))

@@ -44,19 +44,19 @@ and Enum =
 
 and Type =
     | Primitive of Primitive
-    | Struct of Struct
-    | Enum of Enum
+    | TStruct of Struct
+    | TEnum of Enum
     | Tuple of Type[]
     | TFn of Function
     | TRef of Type
     | TVar of AST.Id
-    | Never
+    | TNever
 
     member this.ToString =
         match this with
         | Primitive p -> p.str
-        | Struct(_) -> failwith "Not Implemented"
-        | Enum(_) -> failwith "Not Implemented"
+        | TStruct s -> s.name.sym
+        | TEnum(_) -> failwith "Not Implemented"
         | Tuple(_) -> failwith "Not Implemented"
         | TFn f ->
             let param = Array.map (fun (t: Type) -> t.ToString) f.param
@@ -66,7 +66,7 @@ and Type =
             $"|{param}| -> {f.ret.ToString}"
         | TRef r -> $"&{r.ToString}"
         | TVar(_) -> failwith "Not Implemented"
-        | Never -> "!"
+        | TNever -> "!"
 
 let UnitType = Tuple [||]
 
