@@ -1,16 +1,17 @@
 {
   "Neg": {
-    "TypeInst": {
-      "ty": {
-        "TypeId": {
+    "PathType": {
+      "prefix": null,
+      "seg": [
+        {
           "sym": "Container",
           "span": {
             "first": 0,
             "last": 8
           }
         }
-      },
-      "arg": [
+      ],
+      "typeArg": [
         {
           "LitType": [
             {

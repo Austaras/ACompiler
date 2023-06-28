@@ -128,7 +128,6 @@ type Context(moduleMap) =
         | InferedType(_) -> failwith "Not Implemented"
         | FnType(_) -> failwith "Not Implemented"
         | PathType(_) -> failwith "Not Implemented"
-        | TypeInst(_) -> failwith "Not Implemented"
 
     member internal this.HoistDeclName d (env: Env) =
         match d with

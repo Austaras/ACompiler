@@ -109,17 +109,18 @@
             }
           ],
           "ret": {
-            "TypeInst": {
-              "ty": {
-                "TypeId": {
+            "PathType": {
+              "prefix": null,
+              "seg": [
+                {
                   "sym": "Option",
                   "span": {
                     "first": 28,
                     "last": 33
                   }
                 }
-              },
-              "arg": [
+              ],
+              "typeArg": [
                 {
                   "TypeId": {
                     "sym": "T",

@@ -68,17 +68,18 @@
               },
               [
                 {
-                  "TypeInst": {
-                    "ty": {
-                      "TypeId": {
+                  "PathType": {
+                    "prefix": null,
+                    "seg": [
+                      {
                         "sym": "Vec",
                         "span": {
                           "first": 6,
                           "last": 8
                         }
                       }
-                    },
-                    "arg": [
+                    ],
+                    "typeArg": [
                       {
                         "TypeId": {
                           "sym": "i32",
@@ -147,17 +148,18 @@
             },
             [
               {
-                "TypeInst": {
-                  "ty": {
-                    "TypeId": {
+                "PathType": {
+                  "prefix": null,
+                  "seg": [
+                    {
                       "sym": "Vec",
                       "span": {
                         "first": 11,
                         "last": 13
                       }
                     }
-                  },
-                  "arg": [
+                  ],
+                  "typeArg": [
                     {
                       "TypeId": {
                         "sym": "i32",

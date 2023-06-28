@@ -20,6 +20,7 @@ type Error =
     | TooManyRestPat of AST.Span
     | InvalidRestPat of AST.Span
     | InvalidRangePat of Lexer.Token
+    | InvalidTrait of AST.Span
     | InclusiveNoEnd of AST.Span
     | RestAtStructEnd of AST.Span
     | VisibilityNotAllowed of Lexer.Token
@@ -375,30 +376,6 @@ let internal parseId input msg =
     | Some(token, _) -> Error(UnexpectedToken(token, msg))
     | None -> Error(IncompleteAtEnd msg)
 
-let internal parsePath (state: State<PathType>) mapper error =
-    let rec parsePath (state: State<PathType>) =
-        match parseId state.rest error with
-        | Ok id ->
-            let newState: State<PathType> =
-                { data =
-                    { prefix = state.data.prefix
-                      seg = Array.append state.data.seg [| id.data |]
-                      span = state.data.span.WithLast id.data.span.last }
-                  error = Array.append state.error id.error
-                  rest = id.rest }
-
-            match peekWith id.rest ColonColon with
-            | Some(_, i) ->
-                parsePath
-                    { newState with
-                        rest = newState.rest[i..] }
-            | _ -> Ok newState
-        | Error e -> state.FatalError e
-
-    match parsePath state with
-    | Error e -> Error e
-    | Ok s -> mapper s
-
 let rec internal parseType ctx input =
     let normalCtx = { ctx with inTypeInst = false }
 
@@ -447,245 +424,294 @@ let rec internal parseType ctx input =
             | None -> Error [| IncompleteAtEnd "function type" |]
         | Error e -> Error e
 
-    let mapPath (s: State<PathType>) =
-        let path = s.data
+    let parsePath (s: State<PathType>) =
+        let rec parsePath (s: State<PathType>) =
+            match parseId s.rest "path type" with
+            | Error e -> Error e
+            | Ok id ->
+                let newState =
+                    { data =
+                        { s.data with
+                            seg = Array.append s.data.seg [| id.data |] }
+                      error = Array.append s.error id.error
+                      rest = id.rest }
 
-        let data, error =
-            if path.prefix = None && path.seg.Length = 1 then
-                let ty =
-                    if path.seg[0].sym = "_" then
-                        InferedType path.seg[0].span
-                    else
-                        TypeId path.seg[0]
+                match peek newState.rest with
+                | Some({ data = ColonColon }, i) ->
+                    parsePath
+                        { newState with
+                            rest = newState.rest[i..] }
+                | _ -> Ok newState
 
-                ty, s.error
-            else
-                let isCatchAll id = id.sym = "_"
-                let toError (id: Id) = InvalidCatchAll id.span
-                PathType path, Array.append s.error (Array.filter isCatchAll path.seg |> Array.map toError)
+        let s = parsePath s
 
-        Ok
-            { data = data
-              error = error
-              rest = s.rest }
+        match s with
+        | Error e -> Error [| e |]
+        | Ok s ->
+            let path = s.data
 
-    let prefix =
-        match peek input with
-        | Some({ data = Reserved(PACKAGE | SELF as kw)
-                 span = span },
-               i) ->
-            let prefix, isSelf =
-                match kw with
-                | PACKAGE -> Package, false
-                | SELF -> Self, true
+            let data, error =
+                if path.prefix = None && path.seg.Length = 1 then
+                    let ty =
+                        if path.seg[0].sym = "_" then
+                            InferedType path.seg[0].span
+                        else
+                            TypeId path.seg[0]
+
+                    ty, s.error
+                else
+                    let isCatchAll id = id.sym = "_"
+                    let toError (id: Id) = InvalidCatchAll id.span
+                    PathType path, Array.append s.error (Array.filter isCatchAll path.seg |> Array.map toError)
+
+            let typeArg =
+                match peek s.rest with
+                | Some({ data = Operator(Lt | Arithmetic Shl) }, i) ->
+                    let curr = s.rest[i - 1 ..]
+
+                    let param = parseLtGt curr (parseType ctx.InTypeInst) "type instantiation"
+
+                    match param with
+                    | Ok(param) ->
+                        let data, span = param.data
+                        let error = Array.append s.error param.error
+
+                        let error =
+                            if data.Length = 0 then
+                                Array.append error [| EmptyTypeInst span |]
+                            else
+                                error
+
+                        Ok(
+                            Some
+                                { data = param.data
+                                  error = error
+                                  rest = param.rest }
+                        )
+                    | Error e -> Error e
+                | _ -> Ok None
+
+            match typeArg with
+            | Error e -> Error(Array.append error e)
+            | Ok None ->
+                Ok
+                    { data = data
+                      error = error
+                      rest = s.rest }
+            | Ok(Some ty) ->
+                let (arg, span) = ty.data
+                let error = Array.append error ty.error
+
+                match data with
+                | InferedType i ->
+                    let error = Array.append error [| InvalidCatchAll i |]
+
+                    Ok
+                        { data = data
+                          error = error
+                          rest = ty.rest }
+                | TypeId i ->
+                    Ok
+                        { data =
+                            PathType
+                                { prefix = None
+                                  seg = [| i |]
+                                  typeArg = arg
+                                  span = i.span.WithLast span.last }
+                          error = error
+                          rest = ty.rest }
+                | PathType p ->
+                    Ok
+                        { data =
+                            PathType
+                                { p with
+                                    typeArg = arg
+                                    span = p.span.WithLast span.last }
+                          error = error
+                          rest = ty.rest }
                 | _ -> failwith "unreachable"
 
-            let path: State<PathType> =
-                { data =
-                    { prefix = Some prefix
-                      seg = [||]
-                      span = span }
-                  error = [||]
-                  rest = input[i..] }
+    match peek input with
+    | Some({ data = Reserved(PACKAGE | SELF as kw)
+             span = span },
+           i) ->
+        let prefix, isSelf =
+            match kw with
+            | PACKAGE -> Package, false
+            | SELF -> Self, true
+            | _ -> failwith "unreachable"
 
-            match consume path.rest ColonColon "path type" with
-            | Error _ ->
-                let error =
-                    if isSelf then
-                        if ctx.inMethod then [||] else [| OutofMethod span |]
-                    else
-                        [| IncompletePath span |]
+        let path =
+            { data =
+                { prefix = Some prefix
+                  seg = [||]
+                  typeArg = [||]
+                  span = span }
+              error = [||]
+              rest = input[i..] }
 
-                Ok
-                    { data = PathType path.data
-                      error = error
-                      rest = path.rest }
-            | Ok(_, i) -> parsePath { path with rest = path.rest[i..] } mapPath "path type"
-        | Some({ data = Identifier _; span = span }, _) ->
-            parsePath
-                { data =
-                    { prefix = None
-                      seg = [||]
-                      span = span }
-                  error = [||]
-                  rest = input }
-                mapPath
-                "path type"
-        | Some({ data = Operator(Arithmetic Sub)
-                 span = span },
-               i) ->
-            let first = span.first
+        match consume path.rest ColonColon "path type" with
+        | Error _ ->
+            let error =
+                if isSelf then
+                    if ctx.inMethod then [||] else [| OutofMethod span |]
+                else
+                    [| IncompletePath span |]
 
-            match peek input[i..] with
-            | Some({ data = Lit(Int _ | Float _ as l)
-                     span = span } as token,
-                   j) ->
-
-                let l =
-                    match l with
-                    | Int i -> NegInt i
-                    | Float f -> Float -f
-                    | _ -> failwith "unreachable"
-
-                Ok
-                    { data = LitType(l, span.WithFirst first)
-                      error = if ctx.inTypeInst then [||] else [| ConstInType token |]
-                      rest = input[i + j ..] }
-            | Some(token, _) -> Error [| UnexpectedToken(token, "const generic") |]
-            | None -> Error [| IncompleteAtEnd "const generic" |]
-
-        | Some({ data = Lit l; span = span } as token, i) ->
             Ok
-                { data = LitType(l, span)
+                { data = PathType path.data
+                  error = error
+                  rest = path.rest }
+        | Ok(_, i) -> parsePath { path with rest = path.rest[i..] }
+    | Some({ data = Identifier _; span = span }, _) ->
+        parsePath
+            { data =
+                { prefix = None
+                  typeArg = [||]
+                  seg = [||]
+                  span = span }
+              error = [||]
+              rest = input }
+    | Some({ data = Operator(Arithmetic Sub)
+             span = span },
+           i) ->
+        let first = span.first
+
+        match peek input[i..] with
+        | Some({ data = Lit(Int _ | Float _ as l)
+                 span = span } as token,
+               j) ->
+
+            let l =
+                match l with
+                | Int i -> NegInt i
+                | Float f -> Float -f
+                | _ -> failwith "unreachable"
+
+            Ok
+                { data = LitType(l, span.WithFirst first)
                   error = if ctx.inTypeInst then [||] else [| ConstInType token |]
-                  rest = input[i..] }
+                  rest = input[i + j ..] }
+        | Some(token, _) -> Error [| UnexpectedToken(token, "const generic") |]
+        | None -> Error [| IncompleteAtEnd "const generic" |]
 
-        | Some({ data = Not; span = span }, i) ->
+    | Some({ data = Lit l; span = span } as token, i) ->
+        Ok
+            { data = LitType(l, span)
+              error = if ctx.inTypeInst then [||] else [| ConstInType token |]
+              rest = input[i..] }
+
+    | Some({ data = Not; span = span }, i) ->
+        Ok
+            { data = NeverType span
+              error = [||]
+              rest = input[i..] }
+
+    | Some({ data = Paren Open; span = span }, i) ->
+        let ele = parseCommaSeq input[i..] (parseType normalCtx) (Paren Close) "tuple type"
+
+        match ele with
+        | Ok(ele, paren) ->
+            let ty =
+                if ele.data.Length = 1 then
+                    ele.data[0]
+                else
+                    TupleType
+                        { element = ele.data
+                          span = paren.span.WithFirst span.first }
+
             Ok
-                { data = NeverType span
-                  error = [||]
-                  rest = input[i..] }
+                { data = ty
+                  error = ele.error
+                  rest = ele.rest }
+        | Error e -> Error e
 
-        | Some({ data = Paren Open; span = span }, i) ->
-            let ele = parseCommaSeq input[i..] (parseType normalCtx) (Paren Close) "tuple type"
+    | Some({ data = Bracket Open; span = span }, i) ->
+        let first = span.first
+        let ele = parseType normalCtx input[i..]
 
-            match ele with
-            | Ok(ele, paren) ->
-                let ty =
-                    if ele.data.Length = 1 then
-                        ele.data[0]
-                    else
-                        TupleType
-                            { element = ele.data
-                              span = paren.span.WithFirst span.first }
-
-                Ok
-                    { data = ty
-                      error = ele.error
-                      rest = ele.rest }
-            | Error e -> Error e
-
-        | Some({ data = Bracket Open; span = span }, i) ->
-            let first = span.first
-            let ele = parseType normalCtx input[i..]
-
-            match ele with
-            | Ok ele ->
-                let len =
-                    match peek ele.rest with
-                    | Some({ data = Delimiter Semi }, i) ->
-                        match peek ele.rest[i..] with
-                        | Some({ data = Lit(Int v) }, j) -> Ok(Some(v, i + j))
-
-                        | Some(token, _) -> Error(UnexpectedToken(token, "array type length"))
-                        | None -> Error(IncompleteAtEnd("array type"))
-                    | _ -> Ok None
-
-                match len with
-                | Ok len ->
-                    let len, i =
-                        match len with
-                        | Some(i, j) -> Some i, j
-                        | None -> None, 0
-
+        match ele with
+        | Ok ele ->
+            let len =
+                match peek ele.rest with
+                | Some({ data = Delimiter Semi }, i) ->
                     match peek ele.rest[i..] with
-                    | Some({ data = Bracket Close; span = span }, j) ->
-                        let ty =
-                            { ele = ele.data
-                              len = len
-                              span = span.WithFirst first }
+                    | Some({ data = Lit(Int v) }, j) -> Ok(Some(v, i + j))
 
-                        Ok
-                            { data = ArrayType ty
-                              error = ele.error
-                              rest = ele.rest[i + j ..] }
+                    | Some(token, _) -> Error(UnexpectedToken(token, "array type length"))
+                    | None -> Error(IncompleteAtEnd("array type"))
+                | _ -> Ok None
 
-                    | Some(token, _) -> ele.FatalError(UnexpectedToken(token, "array type"))
-                    | None -> ele.FatalError(IncompleteAtEnd "array type")
-                | Error e -> Error [| e |]
-            | Error e -> Error e
+            match len with
+            | Ok len ->
+                let len, i =
+                    match len with
+                    | Some(i, j) -> Some i, j
+                    | None -> None, 0
 
-        | Some({ data = Operator(Lt | Arithmetic Shr) }, i) ->
-            let typeParam =
-                parseLtGt input[i - 1 ..] (parseTypeParam normalCtx) "closure type parameter"
+                match peek ele.rest[i..] with
+                | Some({ data = Bracket Close; span = span }, j) ->
+                    let ty =
+                        { ele = ele.data
+                          len = len
+                          span = span.WithFirst first }
 
-            match typeParam with
-            | Ok param ->
-                let data, _ = param.data
-                let closure = parseClosure data param.rest
-
-                match closure with
-                | Ok c ->
                     Ok
-                        { c with
-                            error = Array.append param.error c.error }
-                | Error e -> param.MergeFatalError e
-            | Error e -> Error e
+                        { data = ArrayType ty
+                          error = ele.error
+                          rest = ele.rest[i + j ..] }
 
-        | Some({ data = Operator(Arithmetic(BitOr | LogicalOr)) }, i) -> parseClosure [||] input[i - 1 ..]
+                | Some(token, _) -> ele.FatalError(UnexpectedToken(token, "array type"))
+                | None -> ele.FatalError(IncompleteAtEnd "array type")
+            | Error e -> Error [| e |]
+        | Error e -> Error e
 
-        | Some({ data = Operator(Arithmetic(BitAnd | LogicalAnd as op))
-                 span = span },
-               i) ->
-            match parseType normalCtx input[i..] with
-            | Error e -> Error e
-            | Ok ty ->
-                let expr =
-                    match op with
-                    | BitAnd ->
-                        RefType
-                            { ty = ty.data
-                              span = ty.data.span.WithFirst span.first }
-                    | LogicalAnd ->
-                        let span = ty.data.span.WithFirst span.first
+    | Some({ data = Operator(Lt | Arithmetic Shr) }, i) ->
+        let typeParam =
+            parseLtGt input[i - 1 ..] (parseTypeParam normalCtx) "closure type parameter"
 
-                        RefType
-                            { ty =
-                                RefType
-                                    { ty = ty.data
-                                      span = span.ShrinkFirst 1 }
-                              span = span }
-                    | _ -> failwith "unreachable"
+        match typeParam with
+        | Ok param ->
+            let data, _ = param.data
+            let closure = parseClosure data param.rest
 
-                Ok { ty with data = expr }
+            match closure with
+            | Ok c ->
+                Ok
+                    { c with
+                        error = Array.append param.error c.error }
+            | Error e -> param.MergeFatalError e
+        | Error e -> Error e
 
-        | Some(token, _) -> Error [| UnexpectedToken(token, "type") |]
-        | None -> Error [| IncompleteAtEnd "type" |]
+    | Some({ data = Operator(Arithmetic(BitOr | LogicalOr)) }, i) -> parseClosure [||] input[i - 1 ..]
 
-    let rec parseTypePostfix (state: State<Type>) =
-        match peek state.rest with
-        | Some({ data = Operator(Lt | Arithmetic Shl) }, i) ->
-            let curr = state.rest[i - 1 ..]
+    | Some({ data = Operator(Arithmetic(BitAnd | LogicalAnd as op))
+             span = span },
+           i) ->
+        match parseType normalCtx input[i..] with
+        | Error e -> Error e
+        | Ok ty ->
+            let expr =
+                match op with
+                | BitAnd ->
+                    RefType
+                        { ty = ty.data
+                          span = ty.data.span.WithFirst span.first }
+                | LogicalAnd ->
+                    let span = ty.data.span.WithFirst span.first
 
-            let param = parseLtGt curr (parseType ctx.InTypeInst) "type instantiation"
+                    RefType
+                        { ty =
+                            RefType
+                                { ty = ty.data
+                                  span = span.ShrinkFirst 1 }
+                          span = span }
+                | _ -> failwith "unreachable"
 
-            match param with
-            | Ok(param) ->
-                let data, span = param.data
-                let error = Array.append state.error param.error
+            Ok { ty with data = expr }
 
-                let error =
-                    if data.Length = 0 then
-                        Array.append error [| EmptyTypeInst span |]
-                    else
-                        error
-
-                let state =
-                    { data =
-                        TypeInst
-                            { ty = state.data
-                              arg = data
-                              span = span.WithFirst state.data.span.first }
-                      error = error
-                      rest = param.rest }
-
-                parseTypePostfix state
-            | Error e -> Error e
-        | _ -> Ok state
-
-    match prefix with
-    | Error e -> Error e
-    | Ok p -> parseTypePostfix p
+    | Some(token, _) -> Error [| UnexpectedToken(token, "type") |]
+    | None -> Error [| IncompleteAtEnd "type" |]
 
 and internal parsePatInner (ctx: Context) input =
     let childCtx = ctx.NotInDecl
@@ -803,53 +829,75 @@ and internal parsePatInner (ctx: Context) input =
                   rest = field.rest }
         | Error e -> Error e
 
-    and mapPath (s: State<PathType>) =
-        let path = s.data
+    and parsePath (state: State<PathPat>) =
+        let rec parsePath (state: State<PathPat>) =
+            match parseId state.rest "path pattern" with
+            | Ok id ->
+                let newState: State<PathPat> =
+                    { data =
+                        { prefix = state.data.prefix
+                          seg = Array.append state.data.seg [| id.data |]
+                          span = state.data.span.WithLast id.data.span.last }
+                      error = Array.append state.error id.error
+                      rest = id.rest }
 
-        let data, error =
-            if path.prefix = None && path.seg.Length = 1 then
-                let pat =
-                    if path.seg[0].sym = "_" then
-                        CatchAllPat path.seg[0].span
-                    else
-                        IdPat path.seg[0]
+                match peekWith id.rest ColonColon with
+                | Some(_, i) ->
+                    parsePath
+                        { newState with
+                            rest = newState.rest[i..] }
+                | _ -> Ok newState
+            | Error e -> state.FatalError e
 
-                pat, s.error
-            else
-                let isCatchAll id = id.sym = "_"
-                let toError (id: Id) = InvalidCatchAll id.span
-                PathPat path, Array.append s.error (Array.filter isCatchAll path.seg |> Array.map toError)
+        match parsePath state with
+        | Error e -> Error e
+        | Ok s ->
+            let path = s.data
 
-        let state =
-            { data = data
-              error = error
-              rest = s.rest }
+            let data, error =
+                if path.prefix = None && path.seg.Length = 1 then
+                    let pat =
+                        if path.seg[0].sym = "_" then
+                            CatchAllPat path.seg[0].span
+                        else
+                            IdPat path.seg[0]
 
-        match peek state.rest with
-        | Some({ data = Paren Open }, i) ->
-            let content =
-                parseCommaSeq state.rest[i..] (parsePatInner childCtx) (Paren Close) "enum pattern content"
+                    pat, s.error
+                else
+                    let isCatchAll id = id.sym = "_"
+                    let toError (id: Id) = InvalidCatchAll id.span
+                    PathPat path, Array.append s.error (Array.filter isCatchAll path.seg |> Array.map toError)
 
-            match content with
-            | Ok(content, paren) ->
-                let pat =
-                    { name = state.data
-                      content = content.data
-                      span = state.data.span.WithLast paren.span.last }
+            let state =
+                { data = data
+                  error = error
+                  rest = s.rest }
 
-                Ok
-                    { data = EnumPat pat
-                      error = Array.append state.error content.error
-                      rest = content.rest }
-            | Error e -> Error e
+            match peek state.rest with
+            | Some({ data = Paren Open }, i) ->
+                let content =
+                    parseCommaSeq state.rest[i..] (parsePatInner childCtx) (Paren Close) "enum pattern content"
 
-        | Some({ data = Curly Open }, i) ->
-            parseStruct
-                { data = path
-                  error = state.error
-                  rest = state.rest[i..] }
+                match content with
+                | Ok(content, paren) ->
+                    let pat =
+                        { name = state.data
+                          content = content.data
+                          span = state.data.span.WithLast paren.span.last }
 
-        | _ -> Ok state
+                    Ok
+                        { data = EnumPat pat
+                          error = Array.append state.error content.error
+                          rest = content.rest }
+                | Error e -> Error e
+
+            | Some({ data = Curly Open }, i) ->
+                parseStruct
+                    { data = path
+                      error = state.error
+                      rest = state.rest[i..] }
+
+            | _ -> Ok state
 
     and parsePrefix input =
         match peek input with
@@ -870,7 +918,7 @@ and internal parsePatInner (ctx: Context) input =
                 | SELF -> Self, true
                 | _ -> failwith "unreachable"
 
-            let path: State<PathType> =
+            let path: State<PathPat> =
                 { data =
                     { prefix = Some prefix
                       seg = [||]
@@ -879,7 +927,7 @@ and internal parsePatInner (ctx: Context) input =
                   rest = input[i..] }
 
             match consume path.rest ColonColon "path pattern" with
-            | Ok(_, i) -> parsePath { path with rest = path.rest[i..] } mapPath "path pattern"
+            | Ok(_, i) -> parsePath { path with rest = path.rest[i..] }
             | Error _ ->
                 let error =
                     if isSelf then
@@ -914,8 +962,6 @@ and internal parsePatInner (ctx: Context) input =
                       span = span }
                   error = [||]
                   rest = input }
-                mapPath
-                "path pattern"
 
         | Some({ data = Operator(Arithmetic Sub)
                  span = span },
@@ -999,6 +1045,17 @@ and internal parsePatInner (ctx: Context) input =
                       error = error
                       rest = ele.rest }
             | Error e -> Error e
+
+        | Some({ data = Operator(Arithmetic BitAnd)
+                 span = span },
+               i) ->
+            match consume input[i..] (Reserved LOWSELF) "reference self" with
+            | Error e -> Error [| e |]
+            | Ok(s, j) ->
+                Ok
+                    { data = RefSelfPat(span.WithLast s.last)
+                      error = [||]
+                      rest = input[i + j ..] }
 
         | Some(token, _) -> Error [| UnexpectedToken(token, "pattern") |]
         | None -> Error [| IncompleteAtEnd "pattern" |]
@@ -1321,7 +1378,7 @@ let rec internal parseExpr (ctx: Context) input =
         | Some(token, _) -> Error [| UnexpectedToken(token, "struct pattern field") |]
         | None -> Error [| IncompleteAtEnd "struct pattern field" |]
 
-    let parseStruct (state: State<Path>) =
+    let parseStruct (state: State<PathExpr>) =
         let ret =
             { data = Path state.data
               error = state.error
@@ -1358,8 +1415,8 @@ let rec internal parseExpr (ctx: Context) input =
                 | Error e -> Error e
             | _ -> Ok ret
 
-    let parsePath (state: State<Path>) =
-        let rec parsePath (state: State<Path>) =
+    let parsePath (state: State<PathExpr>) =
+        let rec parsePath (state: State<PathExpr>) =
             match peek state.rest with
             | Some({ data = Identifier sym; span = span }, i) ->
                 let id = { sym = sym; span = span }
@@ -2216,70 +2273,148 @@ let rec internal parseExpr (ctx: Context) input =
 
     parseWithPrec ctx -100 input
 
+and internal parseFn ctx input span =
+    match parseId input "function name" with
+    | Error e -> Error [| e |]
+    | Ok id ->
+        let typeParam =
+            match peek id.rest with
+            | Some({ data = Operator(Lt | Arithmetic Shl) }, _) ->
+                parseLtGt id.rest (parseTypeParam ctx) "function type paramater"
+            | _ ->
+                Ok
+                    { data = [||], Span.dummy
+                      error = [||]
+                      rest = id.rest }
+
+        match typeParam with
+        | Error e -> Error e
+        | Ok typeParam ->
+            match consume typeParam.rest (Paren Open) "function parameter" with
+            | Error e -> Error [| e |]
+            | Ok(_, i) ->
+                match parseCommaSeq typeParam.rest[i..] (parseParam ctx) (Paren Close) "function parameter" with
+                | Error e -> id.MergeFatalError e
+                | Ok(param, _) ->
+                    let error = Array.append typeParam.error param.error
+                    let typeParam, _ = typeParam.data
+
+                    let retTy =
+                        match peekWith param.rest Arrow with
+                        | Some(_, i) ->
+                            match parseType ctx param.rest[i..] with
+                            | Error e -> Error(Array.append error e)
+                            | Ok s ->
+                                Ok
+                                    { data = Some s.data
+                                      error = Array.append error s.error
+                                      rest = s.rest }
+                        | _ ->
+                            Ok
+                                { data = None
+                                  error = error
+                                  rest = param.rest }
+
+                    match retTy with
+                    | Error e -> Error e
+                    | Ok retTy ->
+                        match parseBlock Context.InFn retTy.rest with
+                        | Error e -> Error(Array.append retTy.error e)
+                        | Ok block ->
+                            let fn =
+                                { name = id.data
+                                  typeParam = typeParam
+                                  retTy = retTy.data
+                                  param = param.data
+                                  body = block.data
+                                  span = span }
+
+                            Ok
+                                { data = fn
+                                  error = Array.append retTy.error block.error
+                                  rest = block.rest }
+
+and internal parseImplItem isForTrait input =
+    let vis, visSpan, error, i =
+        match peek input with
+        | Some({ data = Reserved PUBLIC; span = span } as token, i) ->
+            Public,
+            Some span,
+            (if isForTrait then
+                 [| VisibilityNotAllowed token |]
+             else
+                 [||]),
+            i
+        | Some({ data = Reserved INTERNAL
+                 span = span } as token,
+               i) ->
+            Internal,
+            Some span,
+            (if isForTrait then
+                 [| VisibilityNotAllowed token |]
+             else
+                 [||]),
+            i
+        | _ -> Private, None, [||], 0
+
+    let makeItem item =
+        match visSpan with
+        | Some span ->
+            { vis = vis
+              item = item
+              span = item.span.WithFirst span.first }
+        | None ->
+            { vis = vis
+              item = item
+              span = item.span }
+
+    let input = input[i..]
+    let ctx = Context.Normal
+
+    match peek input with
+    | Some({ data = Reserved FUNCTION
+             span = span },
+           i) ->
+        let f = parseFn { ctx with inMethod = true } input[i..] span
+
+        match f with
+        | Error e -> Error e
+        | Ok f ->
+            Ok
+                { data = makeItem (Method f.data)
+                  error = Array.append error f.error
+                  rest = f.rest }
+    | Some({ data = Reserved TYPE; span = span }, i) ->
+        match parseFn { ctx with inMethod = true } input[i..] span with
+        | Error e -> Error e
+        | Ok f ->
+            Ok
+                { data = makeItem (Method f.data)
+                  error = Array.append error f.error
+                  rest = f.rest }
+    | Some({ data = Reserved CONST; span = span }, i) ->
+        match parseFn { ctx with inMethod = true } input[i..] span with
+        | Error e -> Error e
+        | Ok f ->
+            Ok
+                { data = makeItem (Method f.data)
+                  error = Array.append error f.error
+                  rest = f.rest }
+    | Some(token, _) -> Error [| UnexpectedToken(token, "impl item") |]
+    | None -> Error [| IncompleteAtEnd "impl item" |]
+
 and internal parseDecl (ctx: Context) input =
     match peek input with
     | Some({ data = Reserved FUNCTION
              span = span },
            i) ->
-        match parseId input[i..] "function name" with
-        | Error e -> Error [| e |]
-        | Ok id ->
-            let typeParam =
-                match peek id.rest with
-                | Some({ data = Operator(Lt | Arithmetic Shl) }, _) ->
-                    parseLtGt id.rest (parseTypeParam ctx) "function type paramater"
-                | _ ->
-                    Ok
-                        { data = [||], Span.dummy
-                          error = [||]
-                          rest = id.rest }
-
-            match typeParam with
-            | Error e -> Error e
-            | Ok typeParam ->
-                match consume typeParam.rest (Paren Open) "function parameter" with
-                | Error e -> Error [| e |]
-                | Ok(_, i) ->
-                    match parseCommaSeq typeParam.rest[i..] (parseParam ctx) (Paren Close) "function parameter" with
-                    | Error e -> id.MergeFatalError e
-                    | Ok(param, _) ->
-                        let error = Array.append typeParam.error param.error
-                        let typeParam, _ = typeParam.data
-
-                        let retTy =
-                            match peekWith param.rest Arrow with
-                            | Some(_, i) ->
-                                match parseType ctx param.rest[i..] with
-                                | Error e -> Error(Array.append error e)
-                                | Ok s ->
-                                    Ok
-                                        { data = Some s.data
-                                          error = Array.append error s.error
-                                          rest = s.rest }
-                            | _ ->
-                                Ok
-                                    { data = None
-                                      error = error
-                                      rest = param.rest }
-
-                        match retTy with
-                        | Error e -> Error e
-                        | Ok retTy ->
-                            match parseBlock Context.InFn retTy.rest with
-                            | Error e -> Error(Array.append retTy.error e)
-                            | Ok block ->
-                                let fn =
-                                    { name = id.data
-                                      typeParam = typeParam
-                                      retTy = retTy.data
-                                      param = param.data
-                                      body = block.data
-                                      span = span }
-
-                                Ok
-                                    { data = FnDecl fn
-                                      error = Array.append retTy.error block.error
-                                      rest = block.rest }
+        match parseFn ctx input[i..] span with
+        | Error e -> Error e
+        | Ok f ->
+            Ok
+                { data = FnDecl f.data
+                  error = f.error
+                  rest = f.rest }
 
     | Some({ data = Reserved LET; span = span }, i) ->
         let mut, i =
@@ -2540,10 +2675,107 @@ and internal parseDecl (ctx: Context) input =
                           rest = variants.rest }
             | Some(token, _) -> id.FatalError(UnexpectedToken(token, "struct definition"))
 
-    | Some({ data = Reserved IMPL }, i) ->
-        match parseId input[i..] "implementation name" with
-        | Error e -> Error [| e |]
-        | Ok id -> failwith "123"
+    | Some({ data = Reserved IMPL; span = span }, i) ->
+        let first = span.first
+
+        let typeParam =
+            let rest = input[i..]
+
+            match peek rest with
+            | Some({ data = Operator(Lt | Arithmetic Shl) }, i) ->
+                parseLtGt rest[i - 1 ..] (parseTypeParam ctx) "function type paramater"
+            | _ ->
+                Ok
+                    { data = [||], Span.dummy
+                      error = [||]
+                      rest = rest }
+
+        match typeParam with
+        | Error e -> Error e
+        | Ok param ->
+            match parseType ctx param.rest with
+            | Error e -> param.MergeFatalError e
+            | Ok ty1 ->
+                let ty2, isForTrait =
+                    match peek ty1.rest with
+                    | Some({ data = Reserved FOR }, i) ->
+                        match parseType ctx ty1.rest[i..] with
+                        | Error e -> ty1.MergeFatalError e, false
+                        | Ok t -> Ok(Some t), true
+                    | _ -> Ok None, false
+
+                let impl =
+                    match ty2 with
+                    | Ok None ->
+                        let data =
+                            { trait_ = None
+                              typeParam = fst param.data
+                              type_ = ty1.data
+                              item = [||]
+                              span = Span.dummy }
+
+                        Ok
+                            { data = data
+                              error = ty1.error
+                              rest = ty1.rest }
+                    | Ok(Some ty2) ->
+                        let error = Array.append ty1.error ty2.error
+
+                        let trait_, error =
+                            match ty1.data with
+                            | TypeId id ->
+                                Some
+                                    { prefix = None
+                                      seg = [| id |]
+                                      typeArg = [||]
+                                      span = id.span },
+                                error
+                            | PathType p ->
+                                Some
+                                    { prefix = p.prefix
+                                      seg = p.seg
+                                      typeArg = p.typeArg
+                                      span = p.span },
+                                error
+                            | _ -> None, Array.append error [| InvalidTrait ty1.data.span |]
+
+                        let data =
+                            { trait_ = trait_
+                              typeParam = fst param.data
+                              type_ = ty2.data
+                              item = [||]
+                              span = Span.dummy }
+
+                        Ok
+                            { data = data
+                              error = error
+                              rest = ty2.rest }
+                    | Error e -> Error e
+
+                match impl with
+                | Error e -> Error e
+                | Ok impl ->
+                    match consume impl.rest (Curly Open) "impl block" with
+                    | Error e -> impl.FatalError e
+                    | Ok(_, i) ->
+                        let item =
+                            parseManyItem impl.rest[i..] (parseImplItem isForTrait) ((=) (Curly Close))
+
+                        match item with
+                        | Error e -> impl.MergeFatalError e
+                        | Ok(item, curly) ->
+                            match curly with
+                            | None ->
+                                Error(Array.concat [ impl.error; item.error; [| IncompleteAtEnd "implmentation" |] ])
+                            | Some { span = span } ->
+                                Ok
+                                    { data =
+                                        Impl
+                                            { impl.data with
+                                                item = item.data
+                                                span = span.WithFirst first }
+                                      error = Array.append impl.error item.error
+                                      rest = item.rest }
 
     | Some({ data = Reserved TRAIT }, i) ->
         match parseId input[i..] "trait name" with

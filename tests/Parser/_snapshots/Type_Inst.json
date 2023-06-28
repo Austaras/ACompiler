@@ -1,39 +1,31 @@
 {
   "Shr": {
-    "TypeInst": {
-      "ty": {
-        "PathType": {
-          "prefix": null,
-          "seg": [
-            {
-              "sym": "std",
-              "span": {
-                "first": 0,
-                "last": 2
-              }
-            },
-            {
-              "sym": "collections",
-              "span": {
-                "first": 5,
-                "last": 15
-              }
-            },
-            {
-              "sym": "HashMap",
-              "span": {
-                "first": 18,
-                "last": 24
-              }
-            }
-          ],
+    "PathType": {
+      "prefix": null,
+      "seg": [
+        {
+          "sym": "std",
           "span": {
             "first": 0,
+            "last": 2
+          }
+        },
+        {
+          "sym": "collections",
+          "span": {
+            "first": 5,
+            "last": 15
+          }
+        },
+        {
+          "sym": "HashMap",
+          "span": {
+            "first": 18,
             "last": 24
           }
         }
-      },
-      "arg": [
+      ],
+      "typeArg": [
         {
           "TypeId": {
             "sym": "i32",
@@ -44,17 +36,18 @@
           }
         },
         {
-          "TypeInst": {
-            "ty": {
-              "TypeId": {
+          "PathType": {
+            "prefix": null,
+            "seg": [
+              {
                 "sym": "Vec",
                 "span": {
                   "first": 31,
                   "last": 33
                 }
               }
-            },
-            "arg": [
+            ],
+            "typeArg": [
               {
                 "TypeId": {
                   "sym": "i32",
@@ -79,33 +72,25 @@
     }
   },
   "Shl": {
-    "TypeInst": {
-      "ty": {
-        "PathType": {
-          "prefix": "Package",
-          "seg": [
-            {
-              "sym": "vec",
-              "span": {
-                "first": 5,
-                "last": 7
-              }
-            },
-            {
-              "sym": "Vec",
-              "span": {
-                "first": 10,
-                "last": 12
-              }
-            }
-          ],
+    "PathType": {
+      "prefix": "Package",
+      "seg": [
+        {
+          "sym": "vec",
           "span": {
-            "first": 0,
+            "first": 5,
+            "last": 7
+          }
+        },
+        {
+          "sym": "Vec",
+          "span": {
+            "first": 10,
             "last": 12
           }
         }
-      },
-      "arg": [
+      ],
+      "typeArg": [
         {
           "FnType": {
             "param": [

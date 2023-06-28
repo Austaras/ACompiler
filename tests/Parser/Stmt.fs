@@ -37,3 +37,11 @@ let Decl () =
         }
     ")
         .ShouldMatchChildSnapshot("Enum")
+
+    (parseTest
+        "
+        impl<T> Vec<T> {
+            pub fn push(&self, element: T) {}
+        }
+    ")
+        .ShouldMatchChildSnapshot("Impl")

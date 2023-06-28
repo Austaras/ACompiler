@@ -99,7 +99,7 @@ type PathPrefix =
     | Self
     | Package
 
-type PathType =
+type PathPat =
     { prefix: Option<PathPrefix>
       seg: Id[]
       span: Span }
@@ -112,6 +112,7 @@ type FnType =
 
 and RefType = { ty: Type; span: Span }
 
+
 and ArrayType =
     { ele: Type
       len: Option<uint>
@@ -119,7 +120,11 @@ and ArrayType =
 
 and TupleType = { element: Type[]; span: Span }
 
-and InstType = { ty: Type; arg: Type[]; span: Span }
+and PathType =
+    { prefix: Option<PathPrefix>
+      seg: Id[]
+      typeArg: Type[]
+      span: Span }
 
 and TypeParam =
     { id: Id
@@ -137,7 +142,6 @@ and Type =
     | ArrayType of ArrayType
     | InferedType of Span
     | FnType of FnType
-    | TypeInst of InstType
 
     member this.span =
         match this with
@@ -150,7 +154,6 @@ and Type =
         | ArrayType a -> a.span
         | InferedType s -> s
         | FnType f -> f.span
-        | TypeInst i -> i.span
 
 type SeqPat = { element: Pat[]; span: Span }
 
@@ -182,7 +185,7 @@ and RangePat =
       span: Span }
 
 and StructPat =
-    { name: PathType
+    { name: PathPat
       field: FieldPat[]
       span: Span }
 
@@ -192,7 +195,7 @@ and Pat =
     | TuplePat of SeqPat
     | ArrayPat of SeqPat
     | AsPat of AsPat
-    | PathPat of PathType
+    | PathPat of PathPat
     | EnumPat of EnumPat
     | StructPat of StructPat
     | OrPat of OrPat
@@ -200,6 +203,7 @@ and Pat =
     | CatchAllPat of Span
     | RangePat of RangePat
     | SelfPat of Span
+    | RefSelfPat of Span
 
     member this.span =
         match this with
@@ -216,6 +220,7 @@ and Pat =
         | CatchAllPat s -> s
         | RangePat r -> r.span
         | SelfPat s -> s
+        | RefSelfPat s -> s
 
     member this.ExtractId = [||]
 
@@ -224,7 +229,7 @@ type Param =
       ty: Option<Type>
       span: Span }
 
-type Path =
+type PathExpr =
     { prefix: Option<PathPrefix>
       seg: (Id * Type[])[]
       span: Span }
@@ -309,7 +314,7 @@ and StructField =
         | RestField(s, _) -> s
 
 and StructLit =
-    { ty: Path
+    { ty: PathExpr
       field: StructField[]
       span: Span }
 
@@ -360,7 +365,7 @@ and Expr =
     | StructLit of StructLit
     | Tuple of Seq
     | Closure of Closure
-    | Path of Path
+    | Path of PathExpr
     | Break of Span
     | Continue of Span
     | Return of Return
@@ -467,7 +472,7 @@ and TraitType =
 and TraitValue =
     { name: Id
       ty: Type
-      defualtValue: Option<Expr>
+      defaultValue: Option<Expr>
       span: Span }
 
 and TraitItem =
@@ -486,15 +491,22 @@ and ImplDecl =
     | AssocValue of Const
     | Method of Fn
 
-and ImplItem = { vis: Visibility; item: ImplDecl }
+    member this.span =
+        match this with
+        | AssocType t -> t.span
+        | AssocValue c -> c.span
+        | Method m -> m.span
 
-and ImplTrait = { path: Path; tyParam: TypeParam[] }
+and ImplItem =
+    { vis: Visibility
+      item: ImplDecl
+      span: Span }
 
 and Impl =
-    { trait_: Option<ImplTrait>
+    { trait_: Option<PathType>
       typeParam: TypeParam[]
-      ty: Type
-      item: ImplDecl[]
+      type_: Type
+      item: ImplItem[]
       span: Span }
 
 and Decl =

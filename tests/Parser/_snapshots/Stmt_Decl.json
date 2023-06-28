@@ -307,5 +307,132 @@
         "last": 72
       }
     }
+  },
+  "Impl": {
+    "Impl": {
+      "trait_": null,
+      "typeParam": [
+        {
+          "id": {
+            "sym": "T",
+            "span": {
+              "first": 14,
+              "last": 14
+            }
+          },
+          "const_": false,
+          "bound": null,
+          "span": {
+            "first": 14,
+            "last": 14
+          }
+        }
+      ],
+      "type_": {
+        "PathType": {
+          "prefix": null,
+          "seg": [
+            {
+              "sym": "Vec",
+              "span": {
+                "first": 17,
+                "last": 19
+              }
+            }
+          ],
+          "typeArg": [
+            {
+              "TypeId": {
+                "sym": "T",
+                "span": {
+                  "first": 21,
+                  "last": 21
+                }
+              }
+            }
+          ],
+          "span": {
+            "first": 17,
+            "last": 23
+          }
+        }
+      },
+      "item": [
+        {
+          "vis": "Public",
+          "item": {
+            "Method": {
+              "name": {
+                "sym": "push",
+                "span": {
+                  "first": 45,
+                  "last": 48
+                }
+              },
+              "typeParam": [],
+              "param": [
+                {
+                  "pat": {
+                    "RefSelfPat": {
+                      "first": 50,
+                      "last": 54
+                    }
+                  },
+                  "ty": null,
+                  "span": {
+                    "first": 50,
+                    "last": 54
+                  }
+                },
+                {
+                  "pat": {
+                    "IdPat": {
+                      "sym": "element",
+                      "span": {
+                        "first": 57,
+                        "last": 63
+                      }
+                    }
+                  },
+                  "ty": {
+                    "TypeId": {
+                      "sym": "T",
+                      "span": {
+                        "first": 66,
+                        "last": 66
+                      }
+                    }
+                  },
+                  "span": {
+                    "first": 57,
+                    "last": 66
+                  }
+                }
+              ],
+              "retTy": null,
+              "body": {
+                "stmt": [],
+                "span": {
+                  "first": 69,
+                  "last": 70
+                }
+              },
+              "span": {
+                "first": 42,
+                "last": 43
+              }
+            }
+          },
+          "span": {
+            "first": 38,
+            "last": 43
+          }
+        }
+      ],
+      "span": {
+        "first": 9,
+        "last": 80
+      }
+    }
   }
 }
