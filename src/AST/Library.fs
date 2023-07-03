@@ -14,6 +14,8 @@ type Span =
     member this.ShrinkFirst i = { this with first = this.first + i }
     member this.ShrinkLast i = { this with last = this.last - i }
 
+type Pos = { line: int; column: int }
+
 type Lit =
     | String of string
     | Char of char
@@ -112,7 +114,6 @@ type FnType =
 
 and RefType = { ty: Type; span: Span }
 
-
 and ArrayType =
     { ele: Type
       len: Option<uint>
@@ -142,6 +143,7 @@ and Type =
     | ArrayType of ArrayType
     | InferedType of Span
     | FnType of FnType
+    | SelfType of Span
 
     member this.span =
         match this with
@@ -154,6 +156,7 @@ and Type =
         | ArrayType a -> a.span
         | InferedType s -> s
         | FnType f -> f.span
+        | SelfType s -> s
 
 type SeqPat = { element: Pat[]; span: Span }
 

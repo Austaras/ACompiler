@@ -381,8 +381,8 @@ type Context(moduleMap) =
         | AST.Tuple(_) -> failwith "Not Implemented"
         | Closure(_) -> failwith "Not Implemented"
         | Path(_) -> failwith "Not Implemented"
-        | Break(_) -> failwith "Not Implemented"
-        | Continue(_) -> failwith "Not Implemented"
+        | Break _ -> TNever
+        | Continue _ -> TNever
         | Return(_) -> failwith "Not Implemented"
         | Range(_) -> failwith "Not Implemented"
         | For(_) -> failwith "Not Implemented"
@@ -502,6 +502,8 @@ type Context(moduleMap) =
                     { expect = t1
                       actual = t2
                       span = c.span }
+            | TNever, _
+            | _, TNever -> ()
             | p1, p2 ->
                 if p1 <> p2 then
                     error.Add(TypeMismatch(c.expect, c.actual, c.span))
@@ -512,5 +514,3 @@ type Context(moduleMap) =
         for id in mapping.Keys do
             if binding.ContainsKey id then
                 binding[id] <- resolve mapping[id]
-
-        constra.Clear()

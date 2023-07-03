@@ -532,13 +532,13 @@ let rec internal parseType ctx input =
                 | _ -> failwith "unreachable"
 
     match peek input with
-    | Some({ data = Reserved(PACKAGE | SELF as kw)
+    | Some({ data = Reserved(PACKAGE | LOWSELF as kw)
              span = span },
            i) ->
         let prefix, isSelf =
             match kw with
             | PACKAGE -> Package, false
-            | SELF -> Self, true
+            | LOWSELF -> Self, true
             | _ -> failwith "unreachable"
 
         let path =
@@ -572,6 +572,11 @@ let rec internal parseType ctx input =
                   span = span }
               error = [||]
               rest = input }
+    | Some({ data = Reserved SELF; span = span }, i) ->
+        Ok
+            { data = SelfType span
+              error = [||]
+              rest = input[i..] }
     | Some({ data = Operator(Arithmetic Sub)
              span = span },
            i) ->
@@ -1251,11 +1256,12 @@ and internal parseTypeParam ctx input =
     | Some(token, _) -> Error [| UnexpectedToken(token, "type parameter") |]
     | None -> Error [| IncompleteAtEnd "type parameter" |]
 
-let internal isValidLValue expr =
+let internal isValidPlace expr =
     match expr with
     | Id _
     | Field _
-    | Unary { op = Deref } -> true
+    | Unary { op = Deref }
+    | Index _ -> true
     | _ -> false
 
 let internal canStartExpr token =
@@ -1267,7 +1273,7 @@ let internal canStartExpr token =
     | Curly Open
     | Operator(Arithmetic Sub | Arithmetic Mul | Arithmetic BitAnd | Arithmetic BitOr | Arithmetic LogicalOr | Gt)
     | Not
-    | Reserved(PACKAGE | SELF | IF | MATCH | FOR | WHILE | RETURN | BREAK | CONTINUE)
+    | Reserved(PACKAGE | SELF | LOWSELF | IF | MATCH | FOR | WHILE | RETURN | BREAK | CONTINUE)
     | DotDot
     | DotDotCaret -> true
     | _ -> false
@@ -1741,7 +1747,7 @@ let rec internal parseExpr (ctx: Context) input =
                 if isSelf then
                     Ok
                         { data = SelfExpr span
-                          error = Array.append error [| IncompletePath span |]
+                          error = error
                           rest = input[i..] }
                 else
                     Ok
@@ -2123,7 +2129,7 @@ let rec internal parseExpr (ctx: Context) input =
                     | _ -> failwith "unreachable"
 
                 let error =
-                    if isValidLValue assignee then
+                    if isValidPlace assignee then
                         state.error
                     else
                         Array.append state.error [| InvalidLValue assignee |]
@@ -2318,7 +2324,15 @@ and internal parseFn ctx input span =
                     match retTy with
                     | Error e -> Error e
                     | Ok retTy ->
-                        match parseBlock Context.InFn retTy.rest with
+                        match
+                            parseBlock
+                                { ctx with
+                                    inFn = true
+                                    inLoop = false
+                                    inCond = false
+                                    mayHaveVis = false }
+                                retTy.rest
+                        with
                         | Error e -> Error(Array.append retTy.error e)
                         | Ok block ->
                             let fn =

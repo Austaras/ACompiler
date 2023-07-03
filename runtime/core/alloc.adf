@@ -3,3 +3,8 @@ pub struct RawArray<T> {
     pub len: usize,
     pub cap: usize
 }
+
+pub struct Span<T> {
+    pub ptr: Ptr<T>
+    pub len: usize
+}

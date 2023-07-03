@@ -2,3 +2,12 @@ pub enum Result<T, E> {
     Ok(T),
     Error(E)
 }
+
+impl<T, E> Resutl<T, E> {
+    pub ok(self) -> Option<T> {
+        match self {
+            Ok(T) => Some(T),
+            Error(_) => None
+        }
+    }
+}

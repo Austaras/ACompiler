@@ -94,10 +94,10 @@ let internal parseIdentifier input =
     | "for" -> Reserved FOR
     | "in" -> Reserved IN
     | "while" -> Reserved WHILE
-    | "cnt" -> Reserved CONTINUE
+    | "continue" -> Reserved CONTINUE
     | "break" -> Reserved BREAK
     | "fn" -> Reserved FUNCTION
-    | "ret" -> Reserved RETURN
+    | "return" -> Reserved RETURN
     | "let" -> Reserved LET
     | "mut" -> Reserved MUTABLE
     | "const" -> Reserved CONST
