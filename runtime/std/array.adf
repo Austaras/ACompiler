@@ -43,9 +43,17 @@ impl<T> Array<T> {
         }
     }
 
-    pub fn shrink_to_fit(&self) {
+    pub fn shrink_to_len(&self) {
         if self.inner.cap > self.inner.len {
             self.inner.realloc(self.inner.len)
         }
+    }
+
+    pub fn len(self) {
+        self.inner.len()
+    }
+
+    pub fn is_empty(self) {
+        self.inner.len() == 0
     }
 }

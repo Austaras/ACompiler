@@ -14,7 +14,25 @@ type Span =
     member this.ShrinkFirst i = { this with first = this.first + i }
     member this.ShrinkLast i = { this with last = this.last - i }
 
-type Pos = { line: int; column: int }
+type Pos =
+    { line: int
+      column: int }
+
+    static member FromSpan lines span =
+        let rec fromSpan lines line column =
+            if Array.length lines = 0 then
+                failwith "not in lines"
+            else if column < lines[0] then
+                { line = line; column = column }
+            else
+                let newColumn = column - lines[0]
+
+                if newColumn = 0 then
+                    { line = line + 1; column = 0 }
+                else
+                    fromSpan lines[1..] (line + 1) newColumn
+
+        fromSpan lines 0 span
 
 type Lit =
     | String of string

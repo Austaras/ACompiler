@@ -65,7 +65,7 @@ and Type =
 
             $"|{param}| -> {f.ret.ToString}"
         | TRef r -> $"&{r.ToString}"
-        | TVar(_) -> failwith "Not Implemented"
+        | TVar v -> v.sym
         | TNever -> "!"
 
 let UnitType = Tuple [||]

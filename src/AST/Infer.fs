@@ -82,7 +82,7 @@ type Context(moduleMap) =
 
     let binding = Dictionary<Id, Type>()
 
-    let constra = ResizeArray<Constraint>()
+    let constr = ResizeArray<Constraint>()
 
     let error = ResizeArray<Error>()
 
@@ -170,7 +170,7 @@ type Context(moduleMap) =
                         let ty = this.ProcessTy env ty
                         binding[i] <- ty
 
-                        constra.Add
+                        constr.Add
                             { expect = ty
                               actual = TVar i
                               span = p.span }
@@ -187,7 +187,7 @@ type Context(moduleMap) =
 
             match f.retTy with
             | Some ty ->
-                constra.Add
+                constr.Add
                     { expect = this.ProcessTy env ty
                       actual = ret
                       span = f.name.span }
@@ -245,12 +245,12 @@ type Context(moduleMap) =
             let l = this.TypeOfExpr env b.left
             let r = this.TypeOfExpr env b.right
 
-            constra.Add
+            constr.Add
                 { expect = Primitive(Int(true, I32))
                   actual = l
                   span = b.left.span }
 
-            constra.Add
+            constr.Add
                 { expect = Primitive(Int(true, I32))
                   actual = r
                   span = b.right.span }
@@ -281,7 +281,7 @@ type Context(moduleMap) =
                 | BoolCond b -> this.TypeOfExpr env b, b.span
                 | LetCond(_) -> failwith "Not Implemented"
 
-            constra.Add
+            constr.Add
                 { expect = Primitive Bool
                   actual = cond
                   span = span }
@@ -292,12 +292,12 @@ type Context(moduleMap) =
             | Some else_ ->
                 let else_ = this.InferBlock else_ env
 
-                constra.Add
+                constr.Add
                     { expect = then_
                       actual = else_
                       span = i.span }
             | None ->
-                constra.Add
+                constr.Add
                     { expect = then_
                       actual = UnitType
                       span = i.span }
@@ -309,7 +309,7 @@ type Context(moduleMap) =
             let arg = Array.map (this.TypeOfExpr env) c.arg
             let ret = TVar { sym = ""; span = c.callee.span }
 
-            constra.Add
+            constr.Add
                 { expect = TFn { param = arg; ret = ret }
                   actual = callee
                   span = c.span }
@@ -318,14 +318,14 @@ type Context(moduleMap) =
         | Unary u ->
             match u.op with
             | Not ->
-                constra.Add
+                constr.Add
                     { expect = Primitive Bool
                       actual = this.TypeOfExpr env u.expr
                       span = u.span }
 
                 Primitive Bool
             | Neg ->
-                constra.Add
+                constr.Add
                     { expect = Primitive(Int(true, I32))
                       actual = this.TypeOfExpr env u.expr
                       span = u.span }
@@ -335,7 +335,7 @@ type Context(moduleMap) =
             | Deref ->
                 let ptr = TVar { sym = ""; span = u.expr.span }
 
-                constra.Add
+                constr.Add
                     { expect = TRef ptr
                       actual = this.TypeOfExpr env u.expr
                       span = u.span }
@@ -346,27 +346,34 @@ type Context(moduleMap) =
             let key = f.prop.sym
 
             let rec findStruct env =
-                let last = tyMap |> Seq.map (|KeyValue|)
+                let last = Array.last env
+                let tySeq = last.ty |> Seq.map (|KeyValue|) |> Seq.rev
 
                 let find (_, ty) =
-                    match ty with
-                    | TStruct f ->
-                        match Map.tryFind key f.field with
-                        | Some t -> Some(t, Some(f))
-                        | None -> None
-                    | _ -> None
+                    if tyMap.ContainsKey ty then
+                        match tyMap[ty] with
+                        | TStruct f ->
+                            match Map.tryFind key f.field with
+                            | Some t -> Some(t, Some(f))
+                            | None -> None
+                        | _ -> None
+                    else
+                        None
 
-                match Seq.tryPick find last with
+                match Seq.tryPick find tySeq with
                 | Some s -> s
                 | None ->
-                    error.Add(UndefinedField(f.span, key))
-                    TNever, None
+                    if env.Length > 1 then
+                        findStruct env[.. env.Length - 2]
+                    else
+                        error.Add(UndefinedField(f.span, key))
+                        TNever, None
 
             let field, stru = findStruct env
 
             match stru with
             | Some s ->
-                constra.Add
+                constr.Add
                     { expect = TStruct s
                       actual = this.TypeOfExpr env f.receiver
                       span = f.span }
@@ -428,7 +435,7 @@ type Context(moduleMap) =
                     | IdPat i -> binding[i])
                 f.param
 
-        constra.Add
+        constr.Add
             { expect = TVar f.name
               actual = TFn { param = param; ret = ret }
               span = f.name.span }
@@ -481,8 +488,23 @@ type Context(moduleMap) =
 
         let rec unify c =
             match c.expect, c.actual with
+            | p1, p2 when p1 = p2 -> ()
             | TVar id, ty
-            | ty, TVar id -> mapping[id] <- resolve ty
+            | ty, TVar id ->
+                let ty = resolve ty
+
+                if mapping.ContainsKey id then
+                    let oldTy = mapping[id]
+
+                    unify
+                        { expect = ty
+                          actual = oldTy
+                          span = c.span }
+
+                    mapping[id] <- resolve oldTy
+                else
+                    mapping[id] <- ty
+
             | TFn t1, TFn t2 ->
                 if t1.param.Length <> t2.param.Length then
                     error.Add(TypeMismatch(c.expect, c.actual, c.span))
@@ -504,11 +526,9 @@ type Context(moduleMap) =
                       span = c.span }
             | TNever, _
             | _, TNever -> ()
-            | p1, p2 ->
-                if p1 <> p2 then
-                    error.Add(TypeMismatch(c.expect, c.actual, c.span))
+            | _, _ -> error.Add(TypeMismatch(c.expect, c.actual, c.span))
 
-        for c in constra do
+        for c in constr do
             unify c
 
         for id in mapping.Keys do

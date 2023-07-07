@@ -58,4 +58,13 @@ let Struct () =
     runInferFromExample "function/struct.adf" "Struct"
 
 // [<Fact>]
-// let Id () = runInfer "fn id(x) { x }" "Id"
+// let Poly () =
+//     runInfer
+//         "
+//     fn id(x) { x }
+
+//     fn foo() {
+//         if id(true) { id(2) } else { id(3) }
+//     }
+//     "
+//         "Poly"
