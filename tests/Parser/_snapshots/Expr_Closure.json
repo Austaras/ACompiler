@@ -75,7 +75,7 @@
                 }
               },
               "const_": false,
-              "bound": null,
+              "bound": [],
               "span": {
                 "first": 16,
                 "last": 16

@@ -12,6 +12,9 @@ let Fn () =
     (parseTest "|i32| -> |i32| -> i32").ShouldMatchChildSnapshot("Assoc")
     (parseTest "|| -> !").ShouldMatchChildSnapshot("Empty")
 
+    (parseTest "<T : Add + Sub>| T, T | -> T")
+        .ShouldMatchChildSnapshot("MultiBound")
+
 [<Fact>]
 let Inst () =
     (parseTest "std::collections::HashMap<i32, Vec<i32>>")

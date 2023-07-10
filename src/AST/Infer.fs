@@ -38,7 +38,7 @@ let internal primitive =
        F32
        F64 |]
 
-type Env =
+type Scope =
     { ty: Dictionary<string, Id>
       var: Dictionary<string, Id>
       mut: HashSet<string> }
@@ -98,8 +98,8 @@ type Context(moduleMap) =
             else
                 this.GetVarFromEnv id env[0 .. (Array.length env - 2)]
 
-    member internal this.ProcessTy (env: Env[]) ty =
-        let rec resolve id (e: Env[]) =
+    member internal this.ProcessTy (scope: Scope[]) ty =
+        let rec resolve id (e: Scope[]) =
             let len = e.Length
 
             if len = 0 then
@@ -111,7 +111,7 @@ type Context(moduleMap) =
                     let id = last.ty[id.sym]
 
                     // may recursive
-                    if e.Length = env.Length then
+                    if e.Length = scope.Length then
                         TVar last.ty[id.sym]
                     else
                         tyMap[id]
@@ -120,44 +120,44 @@ type Context(moduleMap) =
 
         match ty with
         | NeverType _ -> TNever
-        | TypeId i -> resolve i env
-        | TupleType t -> Tuple(Array.map (this.ProcessTy env) t.element)
-        | RefType r -> TRef(this.ProcessTy env r.ty)
+        | TypeId i -> resolve i scope
+        | TupleType t -> Tuple(Array.map (this.ProcessTy scope) t.element)
+        | RefType r -> TRef(this.ProcessTy scope r.ty)
         | LitType(_, _) -> failwith "Not Implemented"
         | ArrayType(_) -> failwith "Not Implemented"
         | InferedType(_) -> failwith "Not Implemented"
         | FnType(_) -> failwith "Not Implemented"
         | PathType(_) -> failwith "Not Implemented"
 
-    member internal this.HoistDeclName d (env: Env) =
+    member internal this.HoistDeclName (scope: Scope) d =
         match d with
         | Let _
         | Const _ -> ()
         | FnDecl f ->
-            if env.var.ContainsKey f.name.sym then
+            if scope.var.ContainsKey f.name.sym then
                 error.Add(DuplicateDefinition f.name)
 
-            env.AddVar f.name
+            scope.AddVar f.name
         | StructDecl s ->
-            if env.ty.ContainsKey s.name.sym then
+            if scope.ty.ContainsKey s.name.sym then
                 error.Add(DuplicateDefinition s.name)
 
-            env.AddTy s.name
+            scope.AddTy s.name
         | EnumDecl e ->
-            if env.ty.ContainsKey e.name.sym then
+            if scope.ty.ContainsKey e.name.sym then
                 error.Add(DuplicateDefinition e.name)
 
-            env.AddTy e.name
+            scope.AddTy e.name
         | TypeDecl t ->
-            if env.ty.ContainsKey t.name.sym then
+            if scope.ty.ContainsKey t.name.sym then
                 error.Add(DuplicateDefinition t.name)
 
-            env.AddTy t.name
+            scope.AddTy t.name
         | Use(_) -> failwith "Not Implemented"
         | Trait(_) -> failwith "Not Implemented"
         | Impl(_) -> failwith "Not Implemented"
 
-    member internal this.HoistDecl d env =
+    member internal this.HoistDecl scope d =
         match d with
         | Let _
         | Const _ -> ()
@@ -167,7 +167,7 @@ type Context(moduleMap) =
                 | IdPat i ->
                     match p.ty with
                     | Some ty ->
-                        let ty = this.ProcessTy env ty
+                        let ty = this.ProcessTy scope ty
                         binding[i] <- ty
 
                         constr.Add
@@ -188,7 +188,7 @@ type Context(moduleMap) =
             match f.retTy with
             | Some ty ->
                 constr.Add
-                    { expect = this.ProcessTy env ty
+                    { expect = this.ProcessTy scope ty
                       actual = ret
                       span = f.name.span }
             | None -> ()
@@ -205,7 +205,7 @@ type Context(moduleMap) =
                 if Map.containsKey name m then
                     error.Add(DuplicateField field.name)
 
-                Map.add name (this.ProcessTy env field.ty) m
+                Map.add name (this.ProcessTy scope field.ty) m
 
             let field = Array.fold processField Map.empty s.field
 
@@ -223,7 +223,7 @@ type Context(moduleMap) =
                 if Map.containsKey name m then
                     error.Add(DuplicateField variant.name)
 
-                let payload = Array.map (this.ProcessTy env) variant.payload
+                let payload = Array.map (this.ProcessTy scope) variant.payload
 
                 Map.add name payload m
 
@@ -233,17 +233,17 @@ type Context(moduleMap) =
 
             tyMap[e.name] <- TEnum enum
 
-        | TypeDecl t -> tyMap[t.name] <- this.ProcessTy env t.ty
+        | TypeDecl t -> tyMap[t.name] <- this.ProcessTy scope t.ty
 
         | Use(_) -> failwith "Not Implemented"
         | Trait(_) -> failwith "Not Implemented"
         | Impl(_) -> failwith "Not Implemented"
 
-    member internal this.TypeOfExpr env (e: Expr) =
+    member internal this.TypeOfExpr (scope: Scope[]) e =
         match e with
         | Binary b ->
-            let l = this.TypeOfExpr env b.left
-            let r = this.TypeOfExpr env b.right
+            let l = this.TypeOfExpr scope b.left
+            let r = this.TypeOfExpr scope b.right
 
             constr.Add
                 { expect = Primitive(Int(true, I32))
@@ -265,7 +265,7 @@ type Context(moduleMap) =
             | GtEq -> Primitive Bool
             | Pipe -> failwith "Not Implemented"
             | As -> failwith "Not Implemented"
-        | Id v -> this.GetVarFromEnv v env
+        | Id v -> this.GetVarFromEnv v scope
         | SelfExpr(_) -> failwith "Not Implemented"
         | LitExpr(l, _) ->
             match l with
@@ -278,7 +278,7 @@ type Context(moduleMap) =
         | If i ->
             let cond, span =
                 match i.cond with
-                | BoolCond b -> this.TypeOfExpr env b, b.span
+                | BoolCond b -> this.TypeOfExpr scope b, b.span
                 | LetCond(_) -> failwith "Not Implemented"
 
             constr.Add
@@ -286,11 +286,11 @@ type Context(moduleMap) =
                   actual = cond
                   span = span }
 
-            let then_ = this.InferBlock i.then_ env
+            let then_ = this.InferBlock i.then_ scope
 
             match i.else_ with
             | Some else_ ->
-                let else_ = this.InferBlock else_ env
+                let else_ = this.InferBlock else_ scope
 
                 constr.Add
                     { expect = then_
@@ -305,8 +305,8 @@ type Context(moduleMap) =
             then_
         | Block(_) -> failwith "Not Implemented"
         | Call c ->
-            let callee = this.TypeOfExpr env c.callee
-            let arg = Array.map (this.TypeOfExpr env) c.arg
+            let callee = this.TypeOfExpr scope c.callee
+            let arg = Array.map (this.TypeOfExpr scope) c.arg
             let ret = TVar { sym = ""; span = c.callee.span }
 
             constr.Add
@@ -320,24 +320,24 @@ type Context(moduleMap) =
             | Not ->
                 constr.Add
                     { expect = Primitive Bool
-                      actual = this.TypeOfExpr env u.expr
+                      actual = this.TypeOfExpr scope u.expr
                       span = u.span }
 
                 Primitive Bool
             | Neg ->
                 constr.Add
                     { expect = Primitive(Int(true, I32))
-                      actual = this.TypeOfExpr env u.expr
+                      actual = this.TypeOfExpr scope u.expr
                       span = u.span }
 
                 Primitive(Int(true, I32))
-            | Ref -> TRef(this.TypeOfExpr env u.expr)
+            | Ref -> TRef(this.TypeOfExpr scope u.expr)
             | Deref ->
                 let ptr = TVar { sym = ""; span = u.expr.span }
 
                 constr.Add
                     { expect = TRef ptr
-                      actual = this.TypeOfExpr env u.expr
+                      actual = this.TypeOfExpr scope u.expr
                       span = u.span }
 
                 ptr
@@ -369,13 +369,13 @@ type Context(moduleMap) =
                         error.Add(UndefinedField(f.span, key))
                         TNever, None
 
-            let field, stru = findStruct env
+            let field, stru = findStruct scope
 
             match stru with
             | Some s ->
                 constr.Add
                     { expect = TStruct s
-                      actual = this.TypeOfExpr env f.receiver
+                      actual = this.TypeOfExpr scope f.receiver
                       span = f.span }
             | None -> ()
 
@@ -405,8 +405,8 @@ type Context(moduleMap) =
 
         Array.fold typeof UnitType b.stmt
 
-    member internal this.InferFn (f: Fn) env =
-        let fnEnv = Env.Empty
+    member internal this.InferFn (scope: Scope[]) (f: Fn) =
+        let fnEnv = Scope.Empty
 
         for p in f.param do
             match p.pat with
@@ -424,7 +424,7 @@ type Context(moduleMap) =
             | RangePat(_) -> failwith "Not Implemented"
             | SelfPat(_) -> failwith "Not Implemented"
 
-        let env = Array.append env [| fnEnv |]
+        let env = Array.append scope [| fnEnv |]
 
         let ret = this.InferBlock f.body env
 
@@ -441,19 +441,19 @@ type Context(moduleMap) =
               span = f.name.span }
 
     member this.Infer m =
-        let topLevel = Env.Empty
+        let topLevel = Scope.Empty
 
         for { decl = decl } in m.item do
-            this.HoistDeclName decl topLevel
+            this.HoistDeclName topLevel decl
 
-        let env = [| Env.Prelude; topLevel |]
+        let scope = [| Scope.Prelude; topLevel |]
 
         for { decl = decl } in m.item do
-            this.HoistDecl decl env
+            this.HoistDecl scope decl
 
         for { decl = decl } in m.item do
             match decl with
-            | FnDecl f -> this.InferFn f env
+            | FnDecl f -> this.InferFn scope f
             | Let(_) -> failwith "Not Implemented"
             | Const(_) -> failwith "Not Implemented"
             | StructDecl(_)

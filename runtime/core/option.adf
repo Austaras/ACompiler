@@ -10,4 +10,11 @@ impl<T> Option<T> {
             None => false
         }
     }
+
+    pub fn is_none(self) -> bool {
+        match self {
+            Some(_) => false,
+            None => true
+        }
+    }
 }

@@ -63,8 +63,18 @@ let Struct () =
 //         "
 //     fn id(x) { x }
 
-//     fn foo() {
-//         if id(true) { id(2) } else { id(3) }
+//     fn main() {
+//         id(id)(id(0))
 //     }
 //     "
-//         "Poly"
+//         "Poly1"
+
+//     runInfer
+//         "
+//     fn one(x) { 1 }
+
+//     fn main() {
+//         one(one(one))
+//     }
+//     "
+//         "Poly2"

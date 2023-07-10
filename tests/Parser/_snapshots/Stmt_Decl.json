@@ -18,15 +18,25 @@
             }
           },
           "const_": false,
-          "bound": {
-            "TypeId": {
-              "sym": "Add",
+          "bound": [
+            {
+              "prefix": null,
+              "seg": [
+                {
+                  "sym": "Add",
+                  "span": {
+                    "first": 19,
+                    "last": 21
+                  }
+                }
+              ],
+              "typeArg": [],
               "span": {
                 "first": 19,
                 "last": 21
               }
             }
-          },
+          ],
           "span": {
             "first": 16,
             "last": 21
@@ -255,7 +265,7 @@
             }
           },
           "const_": false,
-          "bound": null,
+          "bound": [],
           "span": {
             "first": 21,
             "last": 21
@@ -321,7 +331,7 @@
             }
           },
           "const_": false,
-          "bound": null,
+          "bound": [],
           "span": {
             "first": 14,
             "last": 14

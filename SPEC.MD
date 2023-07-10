@@ -14,7 +14,6 @@
    - no auto boxing, provide generic reference type(s) tracked by GC
    - user can roll their own container as in Rust
    - impl block, but user need to import that module to work
-   - no internal module
 3. suffix is .adf which stands for Advanced Dominance Fighter
 4. Major TODO
    - [ ] f-string

@@ -114,7 +114,7 @@
                   }
                 },
                 "const_": false,
-                "bound": null,
+                "bound": [],
                 "span": {
                   "first": 15,
                   "last": 15

@@ -376,7 +376,114 @@ let internal parseId input msg =
     | Some(token, _) -> Error(UnexpectedToken(token, msg))
     | None -> Error(IncompleteAtEnd msg)
 
-let rec internal parseType ctx input =
+let rec internal parseTypePathSuffix (ctx: Context) (s: State<PathType>) =
+    let rec parsePath (s: State<PathType>) =
+        match parseId s.rest "path type" with
+        | Error e -> Error e
+        | Ok id ->
+            let newState =
+                { data =
+                    { s.data with
+                        seg = Array.append s.data.seg [| id.data |] }
+                  error = Array.append s.error id.error
+                  rest = id.rest }
+
+            match peek newState.rest with
+            | Some({ data = ColonColon }, i) ->
+                parsePath
+                    { newState with
+                        rest = newState.rest[i..] }
+            | _ -> Ok newState
+
+    let s = parsePath s
+
+    match s with
+    | Error e -> Error [| e |]
+    | Ok s ->
+        let path = s.data
+
+        let data, error =
+            if path.prefix = None && path.seg.Length = 1 then
+                let ty =
+                    if path.seg[0].sym = "_" then
+                        InferedType path.seg[0].span
+                    else
+                        TypeId path.seg[0]
+
+                ty, s.error
+            else
+                let isCatchAll id = id.sym = "_"
+                let toError (id: Id) = InvalidCatchAll id.span
+                PathType path, Array.append s.error (Array.filter isCatchAll path.seg |> Array.map toError)
+
+        let typeArg =
+            match peek s.rest with
+            | Some({ data = Operator(Lt | Arithmetic Shl) }, i) ->
+                let curr = s.rest[i - 1 ..]
+
+                let param = parseLtGt curr (parseType ctx.InTypeInst) "type instantiation"
+
+                match param with
+                | Ok(param) ->
+                    let data, span = param.data
+                    let error = Array.append s.error param.error
+
+                    let error =
+                        if data.Length = 0 then
+                            Array.append error [| EmptyTypeInst span |]
+                        else
+                            error
+
+                    Ok(
+                        Some
+                            { data = param.data
+                              error = error
+                              rest = param.rest }
+                    )
+                | Error e -> Error e
+            | _ -> Ok None
+
+        match typeArg with
+        | Error e -> Error(Array.append error e)
+        | Ok None ->
+            Ok
+                { data = data
+                  error = error
+                  rest = s.rest }
+        | Ok(Some ty) ->
+            let (arg, span) = ty.data
+            let error = Array.append error ty.error
+
+            match data with
+            | InferedType i ->
+                let error = Array.append error [| InvalidCatchAll i |]
+
+                Ok
+                    { data = data
+                      error = error
+                      rest = ty.rest }
+            | TypeId i ->
+                Ok
+                    { data =
+                        PathType
+                            { prefix = None
+                              seg = [| i |]
+                              typeArg = arg
+                              span = i.span.WithLast span.last }
+                      error = error
+                      rest = ty.rest }
+            | PathType p ->
+                Ok
+                    { data =
+                        PathType
+                            { p with
+                                typeArg = arg
+                                span = p.span.WithLast span.last }
+                      error = error
+                      rest = ty.rest }
+            | _ -> failwith "unreachable"
+
+and internal parseType ctx input =
     let normalCtx = { ctx with inTypeInst = false }
 
     let parseClosure typeParam (input: Token[]) =
@@ -424,121 +531,15 @@ let rec internal parseType ctx input =
             | None -> Error [| IncompleteAtEnd "function type" |]
         | Error e -> Error e
 
-    let parsePath (s: State<PathType>) =
-        let rec parsePath (s: State<PathType>) =
-            match parseId s.rest "path type" with
-            | Error e -> Error e
-            | Ok id ->
-                let newState =
-                    { data =
-                        { s.data with
-                            seg = Array.append s.data.seg [| id.data |] }
-                      error = Array.append s.error id.error
-                      rest = id.rest }
-
-                match peek newState.rest with
-                | Some({ data = ColonColon }, i) ->
-                    parsePath
-                        { newState with
-                            rest = newState.rest[i..] }
-                | _ -> Ok newState
-
-        let s = parsePath s
-
-        match s with
-        | Error e -> Error [| e |]
-        | Ok s ->
-            let path = s.data
-
-            let data, error =
-                if path.prefix = None && path.seg.Length = 1 then
-                    let ty =
-                        if path.seg[0].sym = "_" then
-                            InferedType path.seg[0].span
-                        else
-                            TypeId path.seg[0]
-
-                    ty, s.error
-                else
-                    let isCatchAll id = id.sym = "_"
-                    let toError (id: Id) = InvalidCatchAll id.span
-                    PathType path, Array.append s.error (Array.filter isCatchAll path.seg |> Array.map toError)
-
-            let typeArg =
-                match peek s.rest with
-                | Some({ data = Operator(Lt | Arithmetic Shl) }, i) ->
-                    let curr = s.rest[i - 1 ..]
-
-                    let param = parseLtGt curr (parseType ctx.InTypeInst) "type instantiation"
-
-                    match param with
-                    | Ok(param) ->
-                        let data, span = param.data
-                        let error = Array.append s.error param.error
-
-                        let error =
-                            if data.Length = 0 then
-                                Array.append error [| EmptyTypeInst span |]
-                            else
-                                error
-
-                        Ok(
-                            Some
-                                { data = param.data
-                                  error = error
-                                  rest = param.rest }
-                        )
-                    | Error e -> Error e
-                | _ -> Ok None
-
-            match typeArg with
-            | Error e -> Error(Array.append error e)
-            | Ok None ->
-                Ok
-                    { data = data
-                      error = error
-                      rest = s.rest }
-            | Ok(Some ty) ->
-                let (arg, span) = ty.data
-                let error = Array.append error ty.error
-
-                match data with
-                | InferedType i ->
-                    let error = Array.append error [| InvalidCatchAll i |]
-
-                    Ok
-                        { data = data
-                          error = error
-                          rest = ty.rest }
-                | TypeId i ->
-                    Ok
-                        { data =
-                            PathType
-                                { prefix = None
-                                  seg = [| i |]
-                                  typeArg = arg
-                                  span = i.span.WithLast span.last }
-                          error = error
-                          rest = ty.rest }
-                | PathType p ->
-                    Ok
-                        { data =
-                            PathType
-                                { p with
-                                    typeArg = arg
-                                    span = p.span.WithLast span.last }
-                          error = error
-                          rest = ty.rest }
-                | _ -> failwith "unreachable"
-
     match peek input with
-    | Some({ data = Reserved(PACKAGE | LOWSELF as kw)
+    | Some({ data = Reserved(PACKAGE | SELF as kw)
              span = span },
            i) ->
         let prefix, isSelf =
             match kw with
             | PACKAGE -> Package, false
-            | LOWSELF -> Self, true
+            | LOWSELF -> LowSelf, false
+            | SELF -> Self, true
             | _ -> failwith "unreachable"
 
         let path =
@@ -552,19 +553,16 @@ let rec internal parseType ctx input =
 
         match consume path.rest ColonColon "path type" with
         | Error _ ->
-            let error =
-                if isSelf then
-                    if ctx.inMethod then [||] else [| OutofMethod span |]
-                else
-                    [| IncompletePath span |]
+            let error = if not isSelf then [| IncompletePath span |] else [||]
 
             Ok
                 { data = PathType path.data
                   error = error
                   rest = path.rest }
-        | Ok(_, i) -> parsePath { path with rest = path.rest[i..] }
+        | Ok(_, i) -> parseTypePathSuffix ctx { path with rest = path.rest[i..] }
     | Some({ data = Identifier _; span = span }, _) ->
-        parsePath
+        parseTypePathSuffix
+            ctx
             { data =
                 { prefix = None
                   typeArg = [||]
@@ -572,11 +570,6 @@ let rec internal parseType ctx input =
                   span = span }
               error = [||]
               rest = input }
-    | Some({ data = Reserved SELF; span = span }, i) ->
-        Ok
-            { data = SelfType span
-              error = [||]
-              rest = input[i..] }
     | Some({ data = Operator(Arithmetic Sub)
              span = span },
            i) ->
@@ -717,6 +710,106 @@ let rec internal parseType ctx input =
 
     | Some(token, _) -> Error [| UnexpectedToken(token, "type") |]
     | None -> Error [| IncompleteAtEnd "type" |]
+
+and internal parseTypeBound ctx input =
+    let state =
+        { data = [||]
+          error = [||]
+          rest = input }
+
+    let parser input =
+        match peek input with
+        | Some({ data = Identifier _ }, _) ->
+            let data =
+                { prefix = None
+                  seg = [||]
+                  typeArg = [||]
+                  span = Span.dummy }
+
+            let state =
+                { data = data
+                  error = [||]
+                  rest = input }
+
+            parseTypePathSuffix ctx state
+        | Some({ data = Reserved(PACKAGE | SELF | LOWSELF as kw)
+                 span = span },
+               i) ->
+            let prefix, isSelf =
+                match kw with
+                | PACKAGE -> Package, false
+                | LOWSELF -> LowSelf, false
+                | SELF -> Self, true
+                | _ -> failwith "unreachable"
+
+            let path =
+                { data =
+                    { prefix = Some prefix
+                      seg = [||]
+                      typeArg = [||]
+                      span = span }
+                  error = [||]
+                  rest = input[i..] }
+
+            match consume path.rest ColonColon "path type" with
+            | Error _ ->
+                let error = if not isSelf then [| IncompletePath span |] else [||]
+
+                Ok
+                    { data = PathType path.data
+                      error = error
+                      rest = path.rest }
+            | Ok(_, i) -> parseTypePathSuffix ctx { path with rest = path.rest[i..] }
+        | Some(token, _) -> Error [| UnexpectedToken(token, "type bound") |]
+        | None -> Error [| IncompleteAtEnd("type bound") |]
+
+    let rec parseRecursive (state: State<_>) =
+        match parser state.rest with
+        | Error e -> state.MergeFatalError e
+        | Ok(newState: State<_>) ->
+            let data, extraError =
+                match newState.data with
+                | TypeId i ->
+                    { prefix = None
+                      seg = [| i |]
+                      typeArg = [||]
+                      span = i.span },
+                    [||]
+                | PathType t -> t, [||]
+                | InferedType s ->
+                    { prefix = None
+                      seg = [||]
+                      typeArg = [||]
+                      span = Span.dummy },
+                    [| UnexpectedToken({ data = Identifier "_"; span = s }, "type bound") |]
+                | _ -> failwith "unreachable"
+
+            let error = Array.append newState.error extraError
+
+            let newState =
+                { data = Array.append state.data [| data |]
+                  error = Array.append state.error error
+                  rest = newState.rest }
+
+            match peek newState.rest with
+            | Some({ data = Operator(Arithmetic Add) }, i) ->
+                parseRecursive (
+                    { newState with
+                        rest = newState.rest[i..] }
+                )
+            | _ -> Ok newState
+
+    match parseRecursive state with
+    | Ok s -> Ok s
+    | Error e ->
+        let last = e.Length - 1
+
+        match Array.last e with
+        | IncompleteAtEnd _ -> Array.set e last (IncompleteAtEnd "type bound")
+        | UnexpectedToken(t, _) -> Array.set e last (UnexpectedToken(t, "type bound"))
+        | _ -> ()
+
+        Error e
 
 and internal parsePatInner (ctx: Context) input =
     let childCtx = ctx.NotInDecl
@@ -914,13 +1007,14 @@ and internal parsePatInner (ctx: Context) input =
                   error = [||]
                   rest = input[i..] }
 
-        | Some({ data = Reserved(PACKAGE | SELF as kw)
+        | Some({ data = Reserved(PACKAGE | SELF | LOWSELF as kw)
                  span = span },
                i) ->
             let prefix, isSelf =
                 match kw with
                 | PACKAGE -> Package, false
                 | SELF -> Self, true
+                | LOWSELF -> LowSelf, true
                 | _ -> failwith "unreachable"
 
             let path: State<PathPat> =
@@ -935,10 +1029,10 @@ and internal parsePatInner (ctx: Context) input =
             | Ok(_, i) -> parsePath { path with rest = path.rest[i..] }
             | Error _ ->
                 let error =
-                    if isSelf then
-                        if ctx.inMethod then [||] else [| OutofMethod span |]
-                    else
-                        [| IncompletePath span |]
+                    match prefix with
+                    | Package -> [| IncompletePath span |]
+                    | LowSelf -> if ctx.inMethod then [||] else [| OutofMethod span |]
+                    | Self -> [||]
 
                 if isSelf then
                     let res =
@@ -1202,25 +1296,25 @@ and internal parseTypeParam ctx input =
         | Ok id ->
             match peek id.rest with
             | Some({ data = Colon }, i) ->
-                match parseType { ctx with inTypeInst = false } id.rest[i..] with
-                | Ok ty ->
+                match parseTypeBound { ctx with inTypeInst = false } id.rest[i..] with
+                | Ok bound ->
                     let param =
                         { id = id.data
                           const_ = true
-                          bound = Some ty.data
-                          span = ty.data.span.WithFirst span.first }
+                          bound = bound.data
+                          span = (Array.last bound.data).span.WithFirst span.first }
 
                     Ok
                         { data = param
-                          error = Array.append id.error ty.error
-                          rest = ty.rest }
+                          error = Array.append id.error bound.error
+                          rest = bound.rest }
                 | Error e -> Error e
             | _ ->
                 Ok
                     { data =
                         { id = id.data
                           const_ = true
-                          bound = None
+                          bound = [||]
                           span = id.data.span.WithFirst span.first }
                       error = id.error
                       rest = id.rest }
@@ -1230,25 +1324,25 @@ and internal parseTypeParam ctx input =
 
         match peek input[i..] with
         | Some({ data = Colon }, j) ->
-            match parseType { ctx with inTypeInst = false } input[i + j ..] with
-            | Ok ty ->
+            match parseTypeBound { ctx with inTypeInst = false } input[i + j ..] with
+            | Ok bound ->
                 let param =
                     { id = id
                       const_ = false
-                      bound = Some ty.data
-                      span = ty.data.span.WithFirst span.first }
+                      bound = bound.data
+                      span = (Array.last bound.data).span.WithFirst span.first }
 
                 Ok
                     { data = param
-                      error = ty.error
-                      rest = ty.rest }
+                      error = bound.error
+                      rest = bound.rest }
             | Error e -> Error e
         | _ ->
             Ok
                 { data =
                     { id = id
                       const_ = false
-                      bound = None
+                      bound = [||]
                       span = id.span }
                   error = [||]
                   rest = input[i..] }
@@ -1716,13 +1810,14 @@ let rec internal parseExpr (ctx: Context) input =
                     { o with
                         error = Array.append o.error [| IncompletePath span |] }
             | Ok o -> Ok o
-        | Some({ data = Reserved(PACKAGE | LOWSELF as kw)
+        | Some({ data = Reserved(PACKAGE | LOWSELF | SELF as kw)
                  span = span },
                i) ->
             let prefix, isSelf =
                 match kw with
                 | PACKAGE -> Package, false
-                | LOWSELF -> Self, true
+                | LOWSELF -> LowSelf, true
+                | SELF -> Self, false
                 | _ -> failwith "unreachable"
 
             let path =

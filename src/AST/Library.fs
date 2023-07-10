@@ -116,6 +116,7 @@ type Visibility =
     | Internal
 
 type PathPrefix =
+    | LowSelf
     | Self
     | Package
 
@@ -148,7 +149,7 @@ and PathType =
 and TypeParam =
     { id: Id
       const_: bool
-      bound: Option<Type>
+      bound: PathType[]
       span: Span }
 
 and Type =
@@ -161,7 +162,6 @@ and Type =
     | ArrayType of ArrayType
     | InferedType of Span
     | FnType of FnType
-    | SelfType of Span
 
     member this.span =
         match this with
@@ -174,7 +174,6 @@ and Type =
         | ArrayType a -> a.span
         | InferedType s -> s
         | FnType f -> f.span
-        | SelfType s -> s
 
 type SeqPat = { element: Pat[]; span: Span }
 

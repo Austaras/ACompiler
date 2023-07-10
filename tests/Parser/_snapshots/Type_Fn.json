@@ -63,5 +63,94 @@
         "last": 6
       }
     }
+  },
+  "MultiBound": {
+    "FnType": {
+      "param": [
+        {
+          "TypeId": {
+            "sym": "T",
+            "span": {
+              "first": 17,
+              "last": 17
+            }
+          }
+        },
+        {
+          "TypeId": {
+            "sym": "T",
+            "span": {
+              "first": 20,
+              "last": 20
+            }
+          }
+        }
+      ],
+      "typeParam": [
+        {
+          "id": {
+            "sym": "T",
+            "span": {
+              "first": 1,
+              "last": 1
+            }
+          },
+          "const_": false,
+          "bound": [
+            {
+              "prefix": null,
+              "seg": [
+                {
+                  "sym": "Add",
+                  "span": {
+                    "first": 5,
+                    "last": 7
+                  }
+                }
+              ],
+              "typeArg": [],
+              "span": {
+                "first": 5,
+                "last": 7
+              }
+            },
+            {
+              "prefix": null,
+              "seg": [
+                {
+                  "sym": "Sub",
+                  "span": {
+                    "first": 11,
+                    "last": 13
+                  }
+                }
+              ],
+              "typeArg": [],
+              "span": {
+                "first": 11,
+                "last": 13
+              }
+            }
+          ],
+          "span": {
+            "first": 1,
+            "last": 13
+          }
+        }
+      ],
+      "ret": {
+        "TypeId": {
+          "sym": "T",
+          "span": {
+            "first": 27,
+            "last": 27
+          }
+        }
+      },
+      "span": {
+        "first": 15,
+        "last": 27
+      }
+    }
   }
 }
