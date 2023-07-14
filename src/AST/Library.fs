@@ -271,7 +271,7 @@ and Cond =
     | LetCond of LetCond
 
 and Elseif =
-    { cond: Cond; value: Block; span: Span }
+    { cond: Cond; block: Block; span: Span }
 
 and If =
     { cond: Cond
@@ -283,7 +283,7 @@ and If =
 and Unary = { op: UnaryOp; expr: Expr; span: Span }
 
 and Assign =
-    { assignee: Expr
+    { place: Expr
       op: Option<ArithmeticOp>
       value: Expr
       span: Span }
@@ -358,11 +358,11 @@ and Closure =
 and MatchBranch =
     { pat: Pat
       guard: Option<Expr>
-      result: Expr
+      expr: Expr
       span: Span }
 
 and Match =
-    { value: Expr
+    { expr: Expr
       branch: MatchBranch[]
       span: Span }
 

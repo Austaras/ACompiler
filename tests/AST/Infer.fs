@@ -78,3 +78,11 @@ let Struct () =
 //     }
 //     "
 //         "Poly2"
+
+// [<Fact>]
+// let WeirdRec =
+//     runInfer
+//         "
+//     fn weird_rec(x) { weird_rec(1) }
+//     "
+//         "WeirdRec"

@@ -133,7 +133,7 @@
         },
         {
           "Assign": {
-            "assignee": {
+            "place": {
               "Id": {
                 "sym": "a",
                 "span": {

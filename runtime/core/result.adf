@@ -4,7 +4,7 @@ pub enum Result<T, E> {
 }
 
 impl<T, E> Resutl<T, E> {
-    pub ok(self) -> Option<T> {
+    pub fn ok(self) -> Option<T> {
         match self {
             Ok(T) => Some(T),
             Error(_) => None

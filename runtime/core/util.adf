@@ -1,0 +1,5 @@
+pub fn id<T>(value: T) -> T {
+    value
+}
+
+pub fn ignore<T>(value: T) { }

@@ -180,7 +180,7 @@
   },
   "Assign": {
     "Assign": {
-      "assignee": {
+      "place": {
         "Id": {
           "sym": "a",
           "span": {
@@ -227,7 +227,7 @@
   },
   "RightAssoc": {
     "Assign": {
-      "assignee": {
+      "place": {
         "Id": {
           "sym": "a",
           "span": {
@@ -239,7 +239,7 @@
       "op": null,
       "value": {
         "Assign": {
-          "assignee": {
+          "place": {
             "Id": {
               "sym": "b",
               "span": {
@@ -272,7 +272,7 @@
   },
   "AssignOp": {
     "Assign": {
-      "assignee": {
+      "place": {
         "Id": {
           "sym": "a",
           "span": {

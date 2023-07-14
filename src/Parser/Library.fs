@@ -1755,7 +1755,7 @@ let rec internal parseExpr (ctx: Context) input =
                         | Ok res ->
                             let branch =
                                 { pat = pat.data
-                                  result = res.data
+                                  expr = res.data
                                   guard = guard
                                   span = pat.data.span.WithLast res.data.span.last }
 
@@ -2049,7 +2049,7 @@ let rec internal parseExpr (ctx: Context) input =
                             | Ok(body: State<Block>) ->
                                 let elif_ =
                                     { cond = cond.data
-                                      value = body.data
+                                      block = body.data
                                       span = span.WithLast body.data.span.last }
 
                                 let newState =
@@ -2191,7 +2191,7 @@ let rec internal parseExpr (ctx: Context) input =
                     | Error e -> value.MergeFatalError e
                     | Ok(branch, last) ->
                         let expr =
-                            { value = value.data
+                            { expr = value.data
                               branch = branch.data
                               span = span.WithLast last.last }
 
@@ -2233,7 +2233,7 @@ let rec internal parseExpr (ctx: Context) input =
                 | Error e -> Error e
                 | Ok right ->
                     let expr =
-                        { assignee = state.data
+                        { place = state.data
                           op = op
                           value = right.data
                           span = Span.Make state.data.span.first right.data.span.last }
@@ -2443,6 +2443,49 @@ and internal parseFn ctx input span =
                                   error = Array.append retTy.error block.error
                                   rest = block.rest }
 
+and internal parseTypeAlias ctx input (span: Span) =
+    match parseId input "type alias name" with
+    | Error e -> Error [| e |]
+    | Ok id ->
+        match consume id.rest Eq "type alias" with
+        | Ok(_, i) ->
+            match parseType ctx id.rest[i..] with
+            | Error e -> Error e
+            | Ok ty ->
+                let decl =
+                    { name = id.data
+                      ty = ty.data
+                      span = span.WithLast ty.data.span.last }
+
+                Ok
+                    { data = decl
+                      error = Array.append id.error ty.error
+                      rest = ty.rest }
+
+        | Error e -> id.FatalError e
+
+and internal parseConst (ctx: Context) input (span: Span) =
+    match parseParam ctx.InDecl input with
+    | Error e -> Error e
+    | Ok param ->
+        match consume param.rest Eq "const declaration" with
+        | Ok(_, i) ->
+            match parseExpr ctx param.rest[i..] with
+            | Error e -> Error e
+            | Ok value ->
+                let decl =
+                    { pat = param.data.pat
+                      ty = param.data.ty
+                      value = value.data
+                      span = span.WithLast value.data.span.last }
+
+                Ok
+                    { data = decl
+                      error = Array.append param.error value.error
+                      rest = value.rest }
+
+        | Error e -> param.FatalError e
+
 and internal parseImplItem isForTrait input =
     let vis, visSpan, error, i =
         match peek input with
@@ -2494,11 +2537,11 @@ and internal parseImplItem isForTrait input =
                   error = Array.append error f.error
                   rest = f.rest }
     | Some({ data = Reserved TYPE; span = span }, i) ->
-        match parseFn { ctx with inMethod = true } input[i..] span with
+        match parseTypeAlias ctx input[i..] span with
         | Error e -> Error e
         | Ok f ->
             Ok
-                { data = makeItem (Method f.data)
+                { data = makeItem (AssocType f.data)
                   error = Array.append error f.error
                   rest = f.rest }
     | Some({ data = Reserved CONST; span = span }, i) ->
@@ -2553,26 +2596,13 @@ and internal parseDecl (ctx: Context) input =
             | Error e -> param.FatalError e
 
     | Some({ data = Reserved CONST; span = span }, i) ->
-        match parseParam ctx.InDecl input[i..] with
+        match parseConst ctx input[i..] span with
         | Error e -> Error e
-        | Ok param ->
-            match consume param.rest Eq "const declaration" with
-            | Ok(_, i) ->
-                match parseExpr ctx param.rest[i..] with
-                | Error e -> Error e
-                | Ok value ->
-                    let decl =
-                        { pat = param.data.pat
-                          ty = param.data.ty
-                          value = value.data
-                          span = span.WithLast value.data.span.last }
-
-                    Ok
-                        { data = Const decl
-                          error = Array.append param.error value.error
-                          rest = value.rest }
-
-            | Error e -> param.FatalError e
+        | Ok c ->
+            Ok
+                { data = Const c.data
+                  error = c.error
+                  rest = c.rest }
 
     | Some({ data = Reserved USE }, i) ->
         match peek input[i..] with
@@ -2582,25 +2612,13 @@ and internal parseDecl (ctx: Context) input =
         | _ -> Error [| UnexpectedToken(input[i], "identifier") |]
 
     | Some({ data = Reserved TYPE; span = span }, i) ->
-        match parseId input[i..] "type alias name" with
-        | Error e -> Error [| e |]
-        | Ok id ->
-            match consume id.rest Eq "type alias" with
-            | Ok(_, i) ->
-                match parseType ctx id.rest[i..] with
-                | Error e -> Error e
-                | Ok ty ->
-                    let decl =
-                        { name = id.data
-                          ty = ty.data
-                          span = span.WithLast ty.data.span.last }
-
-                    Ok
-                        { data = TypeDecl decl
-                          error = Array.append id.error ty.error
-                          rest = ty.rest }
-
-            | Error e -> id.FatalError e
+        match parseTypeAlias ctx input[i..] span with
+        | Error e -> Error e
+        | Ok ty ->
+            Ok
+                { data = TypeDecl ty.data
+                  error = ty.error
+                  rest = ty.rest }
 
     | Some({ data = Reserved STRUCT; span = span }, i) ->
         let parseStructField input =

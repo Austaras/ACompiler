@@ -11,18 +11,21 @@
    - HM type inference with trait and operator overloading
    - all functions are mutually recursive
    - internal mutable
-   - no auto boxing, provide generic reference type(s) tracked by GC
-   - user can roll their own container as in Rust
+   - no auto boxing, provide general reference type(s) tracked by GC
+   - user can roll their own container like in Rust
    - impl block, but user need to import that module to work
-3. suffix is .adf which stands for Advanced Dominance Fighter
-4. Major TODO
+3. Compiler Architecture
+   - Hand written recursive descendant parser
+4. suffix is .adf which stands for Advanced Dominance Fighter
+5. Major TODO
    - [ ] f-string
-   - [ ] effect systemd. Algebraic effect?
+   - [ ] effect system. Algebraic effect?
    - [ ] const generic
    - [ ] try trait
    - [ ] GC
    - [ ] macro
    - [ ] HKT
+   - [ ] curry and pipe
    - [ ] IR. How many? What kind?
 
 ### Syntax Construct

@@ -132,7 +132,7 @@
               }
             }
           },
-          "value": {
+          "block": {
             "stmt": [
               {
                 "ExprStmt": {
@@ -274,7 +274,7 @@
   },
   "Match": {
     "Match": {
-      "value": {
+      "expr": {
         "Id": {
           "sym": "a",
           "span": {
@@ -314,7 +314,7 @@
             }
           },
           "guard": null,
-          "result": {
+          "expr": {
             "Id": {
               "sym": "a",
               "span": {
@@ -339,7 +339,7 @@
             }
           },
           "guard": null,
-          "result": {
+          "expr": {
             "LitExpr": [
               {
                 "Int": 1
@@ -373,7 +373,7 @@
               }
             ]
           },
-          "result": {
+          "expr": {
             "LitExpr": [
               {
                 "Int": 3
