@@ -42,6 +42,12 @@ and Enum =
     { name: AST.Id
       variant: Map<string, Type[]> }
 
+and Var =
+    { scope: int
+      id: int
+      span: AST.Span
+      sym: Option<string> }
+
 and Type =
     | Primitive of Primitive
     | TStruct of Struct
@@ -49,7 +55,7 @@ and Type =
     | Tuple of Type[]
     | TFn of Function
     | TRef of Type
-    | TVar of AST.Id
+    | TVar of Var
     | TNever
 
     member this.ToString =
@@ -65,7 +71,7 @@ and Type =
 
             $"|{param}| -> {f.ret.ToString}"
         | TRef r -> $"&{r.ToString}"
-        | TVar v -> v.sym
+        | TVar v -> $"T{v.scope}{v.id}"
         | TNever -> "!"
 
 let UnitType = Tuple [||]

@@ -47,24 +47,41 @@ type internal Scope =
     { ty: Dictionary<string, Id>
       var: Dictionary<string, Id>
       mut: HashSet<string>
-      constr: ResizeArray<Constraint> }
+      constr: ResizeArray<Constraint>
+      id: int
+      mutable varId: int }
 
-    member this.AddTy id = this.ty[id.sym] <- id
+    member this.AddTy(id: Id) = this.ty[id.sym] <- id
 
-    member this.AddVar id = this.var[id.sym] <- id
+    member this.AddVar(id: Id) = this.var[id.sym] <- id
 
-    static member Empty =
+    member this.newTVar sym span =
+        let tvar =
+            { scope = this.id
+              id = this.varId
+              sym = sym
+              span = span }
+
+        this.varId <- this.varId + 1
+
+        tvar
+
+    static member Empty id =
         { ty = Dictionary()
           var = Dictionary()
           mut = HashSet()
-          constr = ResizeArray() }
+          constr = ResizeArray()
+          id = id
+          varId = 0 }
 
     static member Prelude =
         let env =
             { ty = Dictionary()
               var = Dictionary()
               mut = HashSet()
-              constr = ResizeArray() }
+              constr = ResizeArray()
+              id = 0
+              varId = 0 }
 
         for p in primitive do
             let name = p.str
@@ -73,6 +90,8 @@ type internal Scope =
         env
 
 type Context(moduleMap) =
+    let mutable scopeId = 0
+
     let tyMap =
         let ty = Dictionary<Id, Type>()
 
@@ -87,6 +106,10 @@ type Context(moduleMap) =
 
     let error = ResizeArray<Error>()
 
+    member internal this.newScope =
+        scopeId <- scopeId + 1
+        Scope.Empty scopeId
+
     member internal this.GetVarFromEnv id env =
         if Array.length env = 0 then
             error.Add(Undefined id)
@@ -100,7 +123,7 @@ type Context(moduleMap) =
                 this.GetVarFromEnv id env[0 .. (Array.length env - 2)]
 
     member internal this.ProcessTy (scope: Scope[]) ty =
-        let rec resolve id (e: Scope[]) =
+        let rec resolve (id: Id) (e: Scope[]) =
             let len = e.Length
 
             if len = 0 then
@@ -112,10 +135,7 @@ type Context(moduleMap) =
                     let id = last.ty[id.sym]
 
                     // may recursive
-                    if e.Length = scope.Length then
-                        TVar last.ty[id.sym]
-                    else
-                        tyMap[id]
+                    if e.Length = scope.Length then TNever else tyMap[id]
                 else
                     resolve id e[0 .. (len - 2)]
 
@@ -158,33 +178,38 @@ type Context(moduleMap) =
         | Trait(_) -> failwith "Not Implemented"
         | Impl(_) -> failwith "Not Implemented"
 
-    member internal this.HoistDecl scope d =
+    member internal this.HoistDecl (scope: Scope[]) d =
+        let currScope = Array.last scope
+
         match d with
         | Let _
         | Const _ -> ()
         | FnDecl f ->
             let paramTy (p: Param) =
-                match p.pat with
-                | IdPat i ->
-                    match p.ty with
-                    | Some ty ->
-                        let ty = this.ProcessTy scope ty
-                        binding[i] <- ty
+                let sym =
+                    match p.pat with
+                    | IdPat i -> Some(i.sym)
+                    | _ -> None
 
-                        scope[1].constr.Add
-                            { expect = ty
-                              actual = TVar i
-                              span = p.span }
+                let newTVar = currScope.newTVar sym p.span
 
-                    | None -> binding[i] <- TVar i
+                match p.ty with
+                | Some ty ->
+                    let ty = this.ProcessTy scope ty
 
-                    TVar i
-                | _ -> failwith "Not Implemented"
+                    scope[1].constr.Add
+                        { expect = ty
+                          actual = TVar newTVar
+                          span = p.span }
+
+                | None -> ()
+
+                TVar newTVar
 
             let param = Array.map paramTy f.param
 
             // fake ident for return type
-            let ret = TVar { sym = ""; span = f.name.span }
+            let ret = TVar(currScope.newTVar None f.span)
 
             match f.retTy with
             | Some ty ->
@@ -241,6 +266,8 @@ type Context(moduleMap) =
         | Impl(_) -> failwith "Not Implemented"
 
     member internal this.TypeOfExpr (scope: Scope[]) e =
+        let currScope = Array.last scope
+
         match e with
         | Binary b ->
             let l = this.TypeOfExpr scope b.left
@@ -326,7 +353,7 @@ type Context(moduleMap) =
         | Call c ->
             let callee = this.TypeOfExpr scope c.callee
             let arg = Array.map (this.TypeOfExpr scope) c.arg
-            let ret = TVar { sym = ""; span = c.callee.span }
+            let ret = TVar(currScope.newTVar None c.span)
 
             scope[1].constr.Add
                 { expect = TFn { param = arg; ret = ret }
@@ -352,7 +379,7 @@ type Context(moduleMap) =
                 Primitive(Int(true, I32))
             | Ref -> TRef(this.TypeOfExpr scope u.expr)
             | Deref ->
-                let ptr = TVar { sym = ""; span = u.expr.span }
+                let ptr = TVar(currScope.newTVar None u.expr.span)
 
                 scope[1].constr.Add
                     { expect = TRef ptr
@@ -425,11 +452,18 @@ type Context(moduleMap) =
         Array.fold typeof UnitType b.stmt
 
     member internal this.InferFn (scope: Scope[]) (f: Fn) =
-        let fnEnv = Scope.Empty
+        let fnScope = this.newScope
 
-        for p in f.param do
+        let fnTy =
+            match binding[f.name] with
+            | TFn f -> f
+            | _ -> failwith "Unreachable"
+
+        for (idx, p) in f.param |> Array.indexed do
             match p.pat with
-            | IdPat i -> fnEnv.var[i.sym] <- i
+            | IdPat i ->
+                fnScope.var[i.sym] <- i
+                binding[i] <- fnTy.param[idx]
             | LitPat(_, _) -> failwith "Not Implemented"
             | TuplePat(_) -> failwith "Not Implemented"
             | ArrayPat(_) -> failwith "Not Implemented"
@@ -442,25 +476,19 @@ type Context(moduleMap) =
             | CatchAllPat(_) -> failwith "Not Implemented"
             | RangePat(_) -> failwith "Not Implemented"
             | SelfPat(_) -> failwith "Not Implemented"
+            | RefSelfPat(_) -> failwith "Not Implemented"
 
-        let env = Array.append scope [| fnEnv |]
+        let newScope = Array.append scope [| fnScope |]
 
-        let ret = this.InferBlock f.body env
-
-        let param =
-            Array.map
-                (fun (p: Param) ->
-                    match p.pat with
-                    | IdPat i -> binding[i])
-                f.param
+        let ret = this.InferBlock f.body newScope
 
         scope[1].constr.Add
-            { expect = TVar f.name
-              actual = TFn { param = param; ret = ret }
+            { expect = fnTy.ret
+              actual = ret
               span = f.name.span }
 
     member this.Infer m =
-        let topLevel = Scope.Empty
+        let topLevel = this.newScope
 
         for { decl = decl } in m.item do
             this.HoistDeclName topLevel decl
@@ -484,12 +512,16 @@ type Context(moduleMap) =
 
         this.ResolveConstraint topLevel
 
-    member internal this.ResolveConstraint topLevel =
-        let mapping = Dictionary<Id, Type>()
+    member internal this.ResolveConstraint scope =
+        let mapping = Dictionary<Var, Type>()
 
         let rec resolve ty =
             match ty with
-            | TVar id -> if mapping.ContainsKey id then mapping[id] else TVar id
+            | TVar tvar ->
+                if mapping.ContainsKey tvar then
+                    resolve mapping[tvar]
+                else
+                    TVar tvar
             | TFn f ->
                 TFn
                     { param = Array.map resolve f.param
@@ -543,12 +575,11 @@ type Context(moduleMap) =
             | _, TNever -> ()
             | _, _ -> error.Add(TypeMismatch(c.expect, c.actual, c.span))
 
-        for c in topLevel.constr do
+        for c in scope.constr do
             unify c
 
-        for id in mapping.Keys do
-            if binding.ContainsKey id then
-                binding[id] <- resolve mapping[id]
+        for id in binding.Keys do
+            binding[id] <- resolve binding[id]
 
     member this.GetTypes = binding
 
