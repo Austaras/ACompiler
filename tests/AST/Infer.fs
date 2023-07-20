@@ -57,32 +57,28 @@ let Reference () =
 let Struct () =
     runInferFromExample "function/struct.adf" "Struct"
 
-// [<Fact>]
-// let Poly () =
-//     runInfer
-//         "
-//     fn id(x) { x }
+[<Fact>]
+let Poly () =
+    runInfer
+        "
+    fn id(x) { x }
 
-//     fn main() {
-//         id(id)(id(0))
-//     }
-//     "
-//         "Poly1"
+    fn main() {
+        id(id)(id(0))
+    }
+    "
+        "Poly1"
 
-//     runInfer
-//         "
-//     fn one(x) { 1 }
+    runInfer
+        "
+    fn one(x) { 1 }
 
-//     fn main() {
-//         one(one(one))
-//     }
-//     "
-//         "Poly2"
+    fn main() {
+        one(one(one))
+    }
+    "
+        "Poly2"
 
-// [<Fact>]
-// let WeirdRec =
-//     runInfer
-//         "
-//     fn weird_rec(x) { weird_rec(1) }
-//     "
-//         "WeirdRec"
+[<Fact>]
+let WeirdRec () =
+    runInfer "fn weird_rec(x) { weird_rec(1) }" "WeirdRec"

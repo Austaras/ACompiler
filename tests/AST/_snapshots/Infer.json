@@ -15,5 +15,19 @@
   "Struct": {
     "add": "|Point| -> i32",
     "p": "Point"
+  },
+  "Poly1": {
+    "id": "|Tx| -> Tx",
+    "main": "|| -> i32",
+    "x": "Tx"
+  },
+  "Poly2": {
+    "main": "|| -> i32",
+    "one": "|Tx| -> i32",
+    "x": "Tx"
+  },
+  "WeirdRec": {
+    "weird_rec": "|i32| -> T11",
+    "x": "i32"
   }
 }
