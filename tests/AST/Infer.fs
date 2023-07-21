@@ -58,6 +58,18 @@ let Struct () =
     runInferFromExample "function/struct.adf" "Struct"
 
 [<Fact>]
+let Return () =
+    runInfer
+        "fn foo(i) { 
+            if i == 0 {
+                return 0
+            }
+
+            i + 1
+        }"
+        "Return"
+
+[<Fact>]
 let Poly () =
     runInfer
         "

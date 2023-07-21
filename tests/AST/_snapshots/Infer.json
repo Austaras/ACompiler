@@ -1,4 +1,9 @@
 {
+  "MutualRec": {
+    "is_even": "|i32| -> bool",
+    "is_odd": "|i32| -> bool",
+    "n": "i32"
+  },
   "Closure": {
     "c": "|i32| -> i32",
     "call": "||i32| -> i32| -> i32"
@@ -7,14 +12,13 @@
     "a": "&i32",
     "deref": "|&i32| -> i32"
   },
-  "MutualRec": {
-    "is_even": "|i32| -> bool",
-    "is_odd": "|i32| -> bool",
-    "n": "i32"
-  },
   "Struct": {
     "add": "|Point| -> i32",
     "p": "Point"
+  },
+  "Return": {
+    "foo": "|i32| -> i32",
+    "i": "i32"
   },
   "Poly1": {
     "id": "|Tx| -> Tx",

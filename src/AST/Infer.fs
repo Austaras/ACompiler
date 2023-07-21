@@ -49,6 +49,7 @@ type internal Scope =
       mut: HashSet<string>
       constr: ResizeArray<Constraint>
       id: int
+      retTy: Option<Type>
       mutable varId: int }
 
     member this.AddTy(id: Id) = this.ty[id.sym] <- id
@@ -66,12 +67,13 @@ type internal Scope =
 
         tvar
 
-    static member Empty id =
+    static member Empty id retTy =
         { ty = Dictionary()
           var = Dictionary()
           mut = HashSet()
           constr = ResizeArray()
           id = id
+          retTy = retTy
           varId = 0 }
 
     static member Prelude =
@@ -81,6 +83,7 @@ type internal Scope =
               mut = HashSet()
               constr = ResizeArray()
               id = 0
+              retTy = None
               varId = 0 }
 
         for p in primitive do
@@ -108,9 +111,9 @@ type Context(moduleMap) =
 
     let error = ResizeArray<Error>()
 
-    member internal this.newScope =
+    member internal this.newScope retTy =
         scopeId <- scopeId + 1
-        Scope.Empty scopeId
+        Scope.Empty scopeId retTy
 
     member internal this.GetVarFromEnv id scope =
         if Array.length scope = 0 then
@@ -155,6 +158,77 @@ type Context(moduleMap) =
         | InferedType(_) -> failwith "Not Implemented"
         | FnType(_) -> failwith "Not Implemented"
         | PathType(_) -> failwith "Not Implemented"
+
+    member internal this.ResolveTy ty =
+        let onvar tvar =
+            if tVarMap.ContainsKey tvar then
+                this.ResolveTy tVarMap[tvar]
+            else
+                TVar tvar
+
+        ty.Walk onvar
+
+    member internal this.Unify scope =
+        let rec unify c =
+            let addMap v ty =
+                if tVarMap.ContainsKey v then
+                    let oldTy = tVarMap[v]
+
+                    unify
+                        { expect = ty
+                          actual = oldTy
+                          span = c.span }
+
+                    tVarMap[v] <- this.ResolveTy oldTy
+                else
+                    tVarMap[v] <- ty
+
+            match c.expect, c.actual with
+            | p1, p2 when p1 = p2 -> ()
+            | TVar v1, TVar v2 ->
+                if v1.scope > v2.scope then
+                    addMap v1 (TVar v2)
+                else if v1.scope = v2.scope then
+                    if v1.id > v2.id then
+                        addMap v1 (TVar v2)
+                    else
+                        addMap v2 (TVar v1)
+                else
+                    addMap v2 (TVar v1)
+            | TVar v, ty
+            | ty, TVar v ->
+                let ty = this.ResolveTy ty
+
+                addMap v ty
+
+            | TFn f1, TFn f2 ->
+                if f1.param.Length <> f2.param.Length then
+                    error.Add(TypeMismatch(c.expect, c.actual, c.span))
+                else
+                    for (idx, p1) in (Array.indexed f1.param) do
+                        unify
+                            { expect = p1
+                              actual = f2.param[idx]
+                              span = c.span }
+
+                    unify
+                        { expect = f1.ret
+                          actual = f2.ret
+                          span = c.span }
+            | TRef r1, TRef r2 ->
+                unify
+                    { expect = r1
+                      actual = r2
+                      span = c.span }
+            | TNever, _
+            | _, TNever -> ()
+            | _, _ -> error.Add(TypeMismatch(c.expect, c.actual, c.span))
+
+        for c in scope.constr do
+            unify c
+
+        for id in scope.var.Values do
+            binding[id] <- this.ResolveTy binding[id]
 
     member internal this.HoistDeclName (scope: Scope) d =
         match d with
@@ -446,7 +520,23 @@ type Context(moduleMap) =
         | Path(_) -> failwith "Not Implemented"
         | Break _ -> TNever
         | Continue _ -> TNever
-        | Return(_) -> failwith "Not Implemented"
+        | Return r ->
+            let retTy =
+                match (Array.last scope).retTy with
+                | Some retTy -> retTy
+                | None -> failwith "Unreachable"
+
+            let ty =
+                match r.value with
+                | Some v -> this.TypeOfExpr scope v
+                | None -> UnitType
+
+            currScope.constr.Add
+                { expect = retTy
+                  actual = ty
+                  span = r.span }
+
+            TNever
         | Range(_) -> failwith "Not Implemented"
         | For(_) -> failwith "Not Implemented"
         | While(_) -> failwith "Not Implemented"
@@ -462,12 +552,12 @@ type Context(moduleMap) =
         Array.fold typeof UnitType b.stmt
 
     member internal this.InferFn (scope: Scope[]) (f: Fn) =
-        let fnScope = this.newScope
-
         let fnTy =
             match binding[f.name] with
             | TFn f -> f
             | _ -> failwith "Unreachable"
+
+        let fnScope = this.newScope (Some fnTy.ret)
 
         for (idx, p) in f.param |> Array.indexed do
             match p.pat with
@@ -505,7 +595,7 @@ type Context(moduleMap) =
             | _ -> failwith "Unreachable"
 
     member this.Infer m =
-        let topLevel = this.newScope
+        let topLevel = this.newScope None
 
         for { decl = decl } in m.item do
             this.HoistDeclName topLevel decl
@@ -518,87 +608,16 @@ type Context(moduleMap) =
         for { decl = decl } in m.item do
             match decl with
             | FnDecl f -> this.InferFn scope f
-            | Let(_) -> failwith "Not Implemented"
-            | Const(_) -> failwith "Not Implemented"
-            | StructDecl(_)
-            | EnumDecl(_)
-            | TypeDecl(_) -> ()
-            | Use(_) -> failwith "Not Implemented"
-            | Trait(_) -> failwith "Not Implemented"
-            | Impl(_) -> failwith "Not Implemented"
+            | Let _ -> failwith "Not Implemented"
+            | Const _ -> failwith "Not Implemented"
+            | StructDecl _
+            | EnumDecl _
+            | TypeDecl _ -> ()
+            | Use _ -> failwith "Not Implemented"
+            | Trait _ -> failwith "Not Implemented"
+            | Impl _ -> failwith "Not Implemented"
 
         this.Unify topLevel
-
-    member internal this.ResolveTy ty =
-        let onvar tvar =
-            if tVarMap.ContainsKey tvar then
-                this.ResolveTy tVarMap[tvar]
-            else
-                TVar tvar
-
-        ty.Walk onvar
-
-    member internal this.Unify scope =
-        let rec unify c =
-            let addMap v ty =
-                if tVarMap.ContainsKey v then
-                    let oldTy = tVarMap[v]
-
-                    unify
-                        { expect = ty
-                          actual = oldTy
-                          span = c.span }
-
-                    tVarMap[v] <- this.ResolveTy oldTy
-                else
-                    tVarMap[v] <- ty
-
-            match c.expect, c.actual with
-            | p1, p2 when p1 = p2 -> ()
-            | TVar v1, TVar v2 ->
-                if v1.scope > v2.scope then
-                    addMap v1 (TVar v2)
-                else if v1.scope = v2.scope then
-                    if v1.id > v2.id then
-                        addMap v1 (TVar v2)
-                    else
-                        addMap v2 (TVar v1)
-                else
-                    addMap v2 (TVar v1)
-            | TVar v, ty
-            | ty, TVar v ->
-                let ty = this.ResolveTy ty
-
-                addMap v ty
-
-            | TFn f1, TFn f2 ->
-                if f1.param.Length <> f2.param.Length then
-                    error.Add(TypeMismatch(c.expect, c.actual, c.span))
-                else
-                    for (idx, p1) in (Array.indexed f1.param) do
-                        unify
-                            { expect = p1
-                              actual = f2.param[idx]
-                              span = c.span }
-
-                    unify
-                        { expect = f1.ret
-                          actual = f2.ret
-                          span = c.span }
-            | TRef r1, TRef r2 ->
-                unify
-                    { expect = r1
-                      actual = r2
-                      span = c.span }
-            | TNever, _
-            | _, TNever -> ()
-            | _, _ -> error.Add(TypeMismatch(c.expect, c.actual, c.span))
-
-        for c in scope.constr do
-            unify c
-
-        for id in scope.var.Values do
-            binding[id] <- this.ResolveTy binding[id]
 
     member this.GetTypes = binding
 
