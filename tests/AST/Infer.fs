@@ -60,7 +60,8 @@ let Struct () =
 [<Fact>]
 let Return () =
     runInfer
-        "fn foo(i) { 
+        "
+        fn foo(i) { 
             if i == 0 {
                 return 0
             }
@@ -94,3 +95,13 @@ let Poly () =
 [<Fact>]
 let WeirdRec () =
     runInfer "fn weird_rec(x) { weird_rec(1) }" "WeirdRec"
+
+[<Fact>]
+let Tuple () =
+    runInfer
+        "
+        fn foo((a, b, c)) {
+            a == 1 && b == 2 && c == 3
+        }
+    "
+        "Tuple"

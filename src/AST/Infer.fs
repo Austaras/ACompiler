@@ -5,7 +5,7 @@ open System.Collections.Generic
 // TODO: ADT
 // TODO: trait and type alias
 // TODO: operator overloading
-// TODO: pattern match and destructing
+// TODO: pattern match
 // TODO: closure
 
 open AST.AST
@@ -24,6 +24,7 @@ type Error =
     | ArgumentCountMismatch of int * int * Span
     | CalleeNotCallable of Type * Span
     | CannotAssign of Id * Span
+    | RefutablePat of Span
 
 let internal primitive =
     [| Int(true, I8)
@@ -106,9 +107,7 @@ type Context(moduleMap) =
         ty
 
     let tVarMap = Dictionary<Var, Type>()
-
     let binding = Dictionary<Id, Type>()
-
     let error = ResizeArray<Error>()
 
     member internal this.newScope retTy =
@@ -158,6 +157,42 @@ type Context(moduleMap) =
         | InferedType(_) -> failwith "Not Implemented"
         | FnType(_) -> failwith "Not Implemented"
         | PathType(_) -> failwith "Not Implemented"
+
+    member internal this.ProcessDeclPat scope pat ty =
+        match pat with
+        | IdPat i ->
+            scope.var[i.sym] <- i
+            binding[i] <- ty
+        | LitPat(_, span) -> error.Add(RefutablePat span)
+        | CatchAllPat _ -> ()
+        | TuplePat t ->
+            let addBinding pat =
+                let sym =
+                    match pat with
+                    | IdPat id -> Some id.sym
+                    | _ -> None
+
+                let newVar = scope.NewTVar sym pat.span |> TVar
+                this.ProcessDeclPat scope pat newVar
+
+                newVar
+
+            let patTy = Array.map addBinding t.element
+
+            scope.constr.Add
+                { actual = Tuple patTy
+                  expect = ty
+                  span = t.span }
+        | ArrayPat(_) -> failwith "Not Implemented"
+        | AsPat(_) -> failwith "Not Implemented"
+        | PathPat(_) -> failwith "Not Implemented"
+        | EnumPat(_) -> failwith "Not Implemented"
+        | StructPat(_) -> failwith "Not Implemented"
+        | OrPat(_) -> failwith "Not Implemented"
+        | RestPat(_) -> failwith "Not Implemented"
+        | RangePat(_) -> failwith "Not Implemented"
+        | SelfPat(_) -> failwith "Not Implemented"
+        | RefSelfPat(_) -> failwith "Not Implemented"
 
     member internal this.ResolveTy ty =
         let onvar tvar =
@@ -356,26 +391,46 @@ type Context(moduleMap) =
             let l = this.TypeOfExpr scope b.left
             let r = this.TypeOfExpr scope b.right
 
-            currScope.constr.Add
-                { expect = Primitive(Int(true, I32))
-                  actual = l
-                  span = b.left.span }
-
-            currScope.constr.Add
-                { expect = Primitive(Int(true, I32))
-                  actual = r
-                  span = b.right.span }
-
             match b.op with
-            | Arithmetic _ -> Primitive(Int(true, I32))
+            | Arithmetic(LogicalAnd | LogicalOr) ->
+                currScope.constr.Add
+                    { expect = Primitive Bool
+                      actual = l
+                      span = b.left.span }
+
+                currScope.constr.Add
+                    { expect = Primitive Bool
+                      actual = r
+                      span = b.right.span }
+
+                Primitive Bool
+            | Arithmetic _ ->
+                currScope.constr.Add
+                    { expect = Primitive(Int(true, I32))
+                      actual = l
+                      span = b.left.span }
+
+                currScope.constr.Add
+                    { expect = Primitive(Int(true, I32))
+                      actual = r
+                      span = b.right.span }
+
+                Primitive(Int(true, I32))
             | EqEq
             | NotEq
             | Lt
             | Gt
             | LtEq
-            | GtEq -> Primitive Bool
+            | GtEq ->
+                currScope.constr.Add
+                    { expect = l
+                      actual = r
+                      span = b.span }
+
+                Primitive Bool
             | Pipe -> failwith "Not Implemented"
             | As -> failwith "Not Implemented"
+
         | Id v -> this.GetVarFromEnv v scope
         | SelfExpr(_) -> failwith "Not Implemented"
         | LitExpr(l, _) ->
@@ -397,7 +452,7 @@ type Context(moduleMap) =
                   actual = cond
                   span = span }
 
-            let then_ = this.InferBlock i.then_ scope
+            let then_ = this.InferBlock scope i.then_
 
             for br in i.elseif do
                 let cond, span =
@@ -410,7 +465,7 @@ type Context(moduleMap) =
                       actual = cond
                       span = span }
 
-                let elseif = this.InferBlock br.block scope
+                let elseif = this.InferBlock scope br.block
 
                 currScope.constr.Add
                     { expect = then_
@@ -419,7 +474,7 @@ type Context(moduleMap) =
 
             match i.else_ with
             | Some else_ ->
-                let else_ = this.InferBlock else_ scope
+                let else_ = this.InferBlock scope else_
 
                 currScope.constr.Add
                     { expect = then_
@@ -515,7 +570,7 @@ type Context(moduleMap) =
         | Array(_) -> failwith "Not Implemented"
         | ArrayRepeat(_) -> failwith "Not Implemented"
         | StructLit(_) -> failwith "Not Implemented"
-        | AST.Tuple s -> Array.map (fun e -> this.TypeOfExpr scope e) s.element |> Tuple
+        | AST.Tuple s -> Array.map (this.TypeOfExpr scope) s.element |> Tuple
         | Closure(_) -> failwith "Not Implemented"
         | Path(_) -> failwith "Not Implemented"
         | Break _ -> TNever
@@ -543,13 +598,20 @@ type Context(moduleMap) =
         | TryReturn(_) -> failwith "Not Implemented"
         | Match(_) -> failwith "Not Implemented"
 
-    member internal this.InferBlock (b: Block) env =
+    member internal this.InferBlock (scope: Scope[]) (b: Block) =
+        let blockScope = this.newScope (Array.last scope).retTy
+        let scope = Array.append scope [| blockScope |]
+
         let typeof _ stmt =
             match stmt with
             | DeclStmt _ -> failwith "Not Implemented"
-            | ExprStmt e -> this.TypeOfExpr env e
+            | ExprStmt e -> this.TypeOfExpr scope e
 
-        Array.fold typeof UnitType b.stmt
+        let ty = Array.fold typeof UnitType b.stmt
+
+        this.Unify blockScope
+
+        this.ResolveTy ty
 
     member internal this.InferFn (scope: Scope[]) (f: Fn) =
         let fnTy =
@@ -560,27 +622,11 @@ type Context(moduleMap) =
         let fnScope = this.newScope (Some fnTy.ret)
 
         for (idx, p) in f.param |> Array.indexed do
-            match p.pat with
-            | IdPat i ->
-                fnScope.var[i.sym] <- i
-                binding[i] <- fnTy.param[idx]
-            | LitPat(_, _) -> failwith "Not Implemented"
-            | TuplePat(_) -> failwith "Not Implemented"
-            | ArrayPat(_) -> failwith "Not Implemented"
-            | AsPat(_) -> failwith "Not Implemented"
-            | PathPat(_) -> failwith "Not Implemented"
-            | EnumPat(_) -> failwith "Not Implemented"
-            | StructPat(_) -> failwith "Not Implemented"
-            | OrPat(_) -> failwith "Not Implemented"
-            | RestPat(_) -> failwith "Not Implemented"
-            | CatchAllPat(_) -> failwith "Not Implemented"
-            | RangePat(_) -> failwith "Not Implemented"
-            | SelfPat(_) -> failwith "Not Implemented"
-            | RefSelfPat(_) -> failwith "Not Implemented"
+            this.ProcessDeclPat fnScope p.pat fnTy.param[idx]
 
         let newScope = Array.append scope [| fnScope |]
 
-        let ret = this.InferBlock f.body newScope
+        let ret = this.InferBlock newScope f.body
 
         fnScope.constr.Add
             { expect = fnTy.ret

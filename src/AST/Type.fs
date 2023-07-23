@@ -43,8 +43,8 @@ type Function =
             | Primitive _ -> [||]
             | TVar v -> if v.scope = scopeId then [| v |] else [||]
             | TStruct s -> s.field |> Map.values |> Seq.map find |> Array.concat
-            | TEnum(_) -> failwith "Not Implemented"
-            | Tuple(_) -> failwith "Not Implemented"
+            | TEnum _ -> failwith "Not Implemented"
+            | Tuple t -> Array.map find t |> Array.concat
             | TFn f ->
                 let param = f.param |> Array.map find |> Array.concat
                 Array.append param (find f.ret)
@@ -97,15 +97,18 @@ and Type =
     | TNever
 
     member this.ToString =
+        let toString (t: Type) = t.ToString
+
         match this with
         | Primitive p -> p.str
         | TStruct s -> s.name.sym
-        | TEnum(_) -> failwith "Not Implemented"
-        | Tuple(_) -> failwith "Not Implemented"
-        | TFn f ->
-            let param = Array.map (fun (t: Type) -> t.ToString) f.param
+        | TEnum _ -> failwith "Not Implemented"
+        | Tuple t ->
+            let element = t |> Array.map toString |> String.concat ", "
 
-            let param = String.concat ", " param
+            $"({element})"
+        | TFn f ->
+            let param = f.param |> Array.map toString |> String.concat ", "
 
             $"|{param}| -> {f.ret.ToString}"
         | TRef r -> $"&{r.ToString}"
@@ -116,19 +119,24 @@ and Type =
               | None -> $"{v.scope}{v.id}"
         | TNever -> "!"
 
-    member this.Walk onvar =
+    member this.Walk onVar =
+        let walk (t: Type) = t.Walk onVar
+
         match this with
         | Primitive p -> Primitive p
-        | TStruct s -> TStruct s
+        | TStruct s ->
+            TStruct
+                { s with
+                    field = Map.map (fun _ t -> walk t) s.field }
         | TEnum(_) -> failwith "Not Implemented"
-        | Tuple(_) -> failwith "Not Implemented"
+        | Tuple t -> Array.map walk t |> Tuple
         | TFn f ->
-            let param = Array.map (fun (t: Type) -> t.Walk onvar) f.param
-            let ret = f.ret.Walk onvar
+            let param = Array.map walk f.param
+            let ret = f.ret.Walk onVar
 
             TFn { f with param = param; ret = ret }
-        | TRef r -> TRef(r.Walk onvar)
-        | TVar v -> onvar v
+        | TRef r -> TRef(r.Walk onVar)
+        | TVar v -> onVar v
         | TNever -> TNever
 
 let UnitType = Tuple [||]
