@@ -1,7 +1,9 @@
 module AST.Type
 
+open System.Collections.Generic
+
 // TODO: Array and String
-// TODO: generic
+// TODO: generic struct and enum
 
 type Integer =
     | I8
@@ -42,7 +44,8 @@ type Function =
             match ty with
             | Primitive _ -> [||]
             | TVar v -> if v.scope = scopeId then [| v |] else [||]
-            | TStruct s -> s.field |> Map.values |> Seq.map find |> Array.concat
+            | TStruct s -> [||]
+            // s.field |> Map.values |> Seq.map find |> Array.concat
             | TEnum _ -> failwith "Not Implemented"
             | Tuple t -> Array.map find t |> Array.concat
             | TFn f ->
@@ -86,10 +89,16 @@ and Var =
       span: AST.Span
       sym: Option<string> }
 
+and Binding =
+    { var: Dictionary<AST.Id, Type>
+      ty: Dictionary<AST.Id, Type>
+      stru: Dictionary<AST.Id, Struct>
+      enum: Dictionary<AST.Id, Enum> }
+
 and Type =
     | Primitive of Primitive
-    | TStruct of Struct
-    | TEnum of Enum
+    | TStruct of AST.Id
+    | TEnum of AST.Id
     | Tuple of Type[]
     | TFn of Function
     | TRef of Type
@@ -101,7 +110,7 @@ and Type =
 
         match this with
         | Primitive p -> p.str
-        | TStruct s -> s.name.sym
+        | TStruct s -> s.sym
         | TEnum _ -> failwith "Not Implemented"
         | Tuple t ->
             let element = t |> Array.map toString |> String.concat ", "
@@ -124,10 +133,7 @@ and Type =
 
         match this with
         | Primitive p -> Primitive p
-        | TStruct s ->
-            TStruct
-                { s with
-                    field = Map.map (fun _ t -> walk t) s.field }
+        | TStruct s -> TStruct s
         | TEnum(_) -> failwith "Not Implemented"
         | Tuple t -> Array.map walk t |> Tuple
         | TFn f ->

@@ -96,18 +96,21 @@ type internal Scope =
 type Context(moduleMap) =
     let mutable scopeId = 0
 
-    let tyMap =
-        let ty = Dictionary<Id, Type>()
+    let binding =
+        let binding =
+            { var = Dictionary()
+              ty = Dictionary()
+              stru = Dictionary()
+              enum = Dictionary() }
 
         for t in primitive do
             let id = { sym = t.str; span = Span.dummy }
 
-            ty[id] <- Primitive t
+            binding.ty[id] <- Primitive t
 
-        ty
+        binding
 
     let tVarMap = Dictionary<Var, Type>()
-    let binding = Dictionary<Id, Type>()
     let error = ResizeArray<Error>()
 
     member internal this.newScope retTy =
@@ -124,7 +127,7 @@ type Context(moduleMap) =
             if curr.var.ContainsKey id.sym then
                 let make () = curr.NewTVar None id.span
 
-                match binding[curr.var[id.sym]] with
+                match binding.var[curr.var[id.sym]] with
                 | TFn f -> TFn(f.Instantiate make)
                 | t -> t
             else
@@ -142,8 +145,7 @@ type Context(moduleMap) =
                 if last.ty.ContainsKey id.sym then
                     let id = last.ty[id.sym]
 
-                    // may recursive
-                    if e.Length = scope.Length then TNever else tyMap[id]
+                    binding.ty[id]
                 else
                     resolve id e[0 .. (len - 2)]
 
@@ -162,7 +164,7 @@ type Context(moduleMap) =
         match pat with
         | IdPat i ->
             scope.var[i.sym] <- i
-            binding[i] <- ty
+            binding.var[i] <- ty
         | LitPat(_, span) -> error.Add(RefutablePat span)
         | CatchAllPat _ -> ()
         | TuplePat t ->
@@ -263,7 +265,7 @@ type Context(moduleMap) =
             unify c
 
         for id in scope.var.Values do
-            binding[id] <- this.ResolveTy binding[id]
+            binding.var[id] <- this.ResolveTy binding.var[id]
 
     member internal this.HoistDeclName (scope: Scope) d =
         match d with
@@ -279,11 +281,13 @@ type Context(moduleMap) =
                 error.Add(DuplicateDefinition s.name)
 
             scope.AddTy s.name
+            binding.ty.Add(s.name, (TStruct s.name))
         | EnumDecl e ->
             if scope.ty.ContainsKey e.name.sym then
                 error.Add(DuplicateDefinition e.name)
 
             scope.AddTy e.name
+            binding.ty.Add(e.name, (TEnum e.name))
         | TypeDecl t ->
             if scope.ty.ContainsKey t.name.sym then
                 error.Add(DuplicateDefinition t.name)
@@ -333,7 +337,7 @@ type Context(moduleMap) =
                       span = f.name.span }
             | None -> ()
 
-            binding[f.name] <-
+            binding.var[f.name] <-
                 TFn
                     { param = param
                       ret = ret
@@ -353,9 +357,10 @@ type Context(moduleMap) =
 
             let field = Array.fold processField Map.empty s.field
 
-            let strct = { name = s.name; field = field }
+            let stru = { name = s.name; field = field }
 
-            tyMap[s.name] <- TStruct strct
+            binding.ty[s.name] <- TStruct s.name
+            binding.stru[s.name] <- stru
 
         | EnumDecl e ->
             if e.tyParam.Length > 0 then
@@ -375,9 +380,10 @@ type Context(moduleMap) =
 
             let enum = { name = e.name; variant = variant }
 
-            tyMap[e.name] <- TEnum enum
+            binding.ty[e.name] <- TEnum e.name
+            binding.enum[e.name] <- enum
 
-        | TypeDecl t -> tyMap[t.name] <- this.ProcessTy scope t.ty
+        | TypeDecl t -> binding.ty[t.name] <- this.ProcessTy scope t.ty
 
         | Use(_) -> failwith "Not Implemented"
         | Trait(_) -> failwith "Not Implemented"
@@ -535,13 +541,12 @@ type Context(moduleMap) =
                 let tySeq = last.ty |> Seq.map (|KeyValue|) |> Seq.rev
 
                 let find (_, ty) =
-                    if tyMap.ContainsKey ty then
-                        match tyMap[ty] with
-                        | TStruct f ->
-                            match Map.tryFind key f.field with
-                            | Some t -> Some(t, Some(f))
-                            | None -> None
-                        | _ -> None
+                    if binding.stru.ContainsKey ty then
+                        let stru = binding.stru[ty]
+
+                        match Map.tryFind key stru.field with
+                        | Some t -> Some(t, Some(stru))
+                        | None -> None
                     else
                         None
 
@@ -559,7 +564,7 @@ type Context(moduleMap) =
             match stru with
             | Some s ->
                 currScope.constr.Add
-                    { expect = TStruct s
+                    { expect = TStruct s.name
                       actual = this.TypeOfExpr scope f.receiver
                       span = f.span }
             | None -> ()
@@ -615,7 +620,7 @@ type Context(moduleMap) =
 
     member internal this.InferFn (scope: Scope[]) (f: Fn) =
         let fnTy =
-            match binding[f.name] with
+            match binding.var[f.name] with
             | TFn f -> f
             | _ -> failwith "Unreachable"
 
@@ -635,8 +640,8 @@ type Context(moduleMap) =
 
         this.Unify fnScope
 
-        binding[f.name] <-
-            match this.ResolveTy binding[f.name] with
+        binding.var[f.name] <-
+            match this.ResolveTy binding.var[f.name] with
             | TFn f -> TFn(f.Generalize (Array.last scope).id)
             | _ -> failwith "Unreachable"
 

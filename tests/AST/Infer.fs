@@ -30,7 +30,7 @@ let runInfer input name =
 
     let reform (key: AST.Id, value: Type.Type) = key.sym, value.ToString
 
-    (ctx.GetTypes
+    (ctx.GetTypes.var
      |> Seq.map (|KeyValue|)
      |> Seq.map reform
      |> Map.ofSeq
@@ -56,6 +56,23 @@ let Reference () =
 [<Fact>]
 let Struct () =
     runInferFromExample "function/struct.adf" "Struct"
+
+
+// runInfer
+//     "
+//     struct Foo {
+//         b: &Bar
+//     }
+
+//     struct Bar {
+//         f: &Foo
+//     }
+
+//     fn foo(f) {
+//         f.b.f
+//     }
+// "
+//     "RefField"
 
 [<Fact>]
 let Return () =
