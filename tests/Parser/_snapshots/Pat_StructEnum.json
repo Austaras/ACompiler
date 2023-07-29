@@ -2,35 +2,33 @@
   "Enum": {
     "EnumPat": {
       "name": {
-        "PathPat": {
-          "prefix": null,
-          "seg": [
-            {
-              "sym": "core",
-              "span": {
-                "first": 0,
-                "last": 3
-              }
-            },
-            {
-              "sym": "Option",
-              "span": {
-                "first": 6,
-                "last": 11
-              }
-            },
-            {
-              "sym": "Some",
-              "span": {
-                "first": 14,
-                "last": 17
-              }
+        "prefix": null,
+        "seg": [
+          {
+            "sym": "core",
+            "span": {
+              "first": 0,
+              "last": 3
             }
-          ],
-          "span": {
-            "first": 0,
-            "last": 17
+          },
+          {
+            "sym": "Option",
+            "span": {
+              "first": 6,
+              "last": 11
+            }
+          },
+          {
+            "sym": "Some",
+            "span": {
+              "first": 14,
+              "last": 17
+            }
           }
+        ],
+        "span": {
+          "first": 0,
+          "last": 17
         }
       },
       "content": [
@@ -150,12 +148,19 @@
             "pat": {
               "EnumPat": {
                 "name": {
-                  "IdPat": {
-                    "sym": "Some",
-                    "span": {
-                      "first": 22,
-                      "last": 25
+                  "prefix": null,
+                  "seg": [
+                    {
+                      "sym": "Some",
+                      "span": {
+                        "first": 22,
+                        "last": 25
+                      }
                     }
+                  ],
+                  "span": {
+                    "first": 22,
+                    "last": 25
                   }
                 },
                 "content": [

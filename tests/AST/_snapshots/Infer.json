@@ -20,14 +20,19 @@
     "foo": "|i32| -> i32",
     "i": "i32"
   },
-  "Poly1": {
+  "Poly": {
     "id": "|Tx| -> Tx",
     "main": "|| -> i32",
     "x": "Tx"
   },
-  "Poly2": {
+  "PolyOne": {
     "main": "|| -> i32",
     "one": "|Tx| -> i32",
+    "x": "Tx"
+  },
+  "PolyDouble": {
+    "double": "||Tx| -> Tx, Tx| -> Tx",
+    "f": "|Tx| -> Tx",
     "x": "Tx"
   },
   "WeirdRec": {
@@ -43,5 +48,11 @@
   "Fib": {
     "fib": "|i32| -> i32",
     "n": "i32"
+  },
+  "Enum": {
+    "e": "Either",
+    "f": "f64",
+    "i": "i32",
+    "is_zero": "|Either| -> bool"
   }
 }

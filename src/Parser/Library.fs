@@ -952,22 +952,17 @@ and internal parsePatInner (ctx: Context) input =
         | Ok s ->
             let path = s.data
 
-            let data, error =
+            let error =
                 if path.prefix = None && path.seg.Length = 1 then
-                    let pat =
-                        if path.seg[0].sym = "_" then
-                            CatchAllPat path.seg[0].span
-                        else
-                            IdPat path.seg[0]
-
-                    pat, s.error
+                    s.error
                 else
                     let isCatchAll id = id.sym = "_"
                     let toError (id: Id) = InvalidCatchAll id.span
-                    PathPat path, Array.append s.error (Array.filter isCatchAll path.seg |> Array.map toError)
+
+                    Array.append s.error (Array.filter isCatchAll path.seg |> Array.map toError)
 
             let state =
-                { data = data
+                { data = path
                   error = error
                   rest = s.rest }
 
@@ -995,7 +990,17 @@ and internal parsePatInner (ctx: Context) input =
                       error = state.error
                       rest = state.rest[i..] }
 
-            | _ -> Ok state
+            | _ ->
+                let data =
+                    if state.data.seg[0].sym = "_" then
+                        CatchAllPat state.data.seg[0].span
+                    else
+                        IdPat state.data.seg[0]
+
+                Ok
+                    { data = data
+                      error = state.error
+                      rest = state.rest }
 
     and parsePrefix input =
         match peek input with

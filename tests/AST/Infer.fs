@@ -96,7 +96,7 @@ let Poly () =
         id(id)(id(0))
     }
     "
-        "Poly1"
+        "Poly"
 
     runInfer
         "
@@ -106,7 +106,9 @@ let Poly () =
         one(one(one))
     }
     "
-        "Poly2"
+        "PolyOne"
+
+    runInfer "fn double(f, x) { f(f(x)) }" "PolyDouble"
 
 [<Fact>]
 let WeirdRec () =
@@ -125,3 +127,19 @@ let Tuple () =
 [<Fact>]
 let Match () =
     runInferFromExample "function/fib.adf" "Fib"
+
+    runInfer
+        "
+        enum Either {
+            L(i32),
+            R(f64)
+        }
+
+        fn is_zero(e: E) {
+            match e {
+                Either::L(i) => i == 0,
+                Either::R(f) => f == 0.0
+            }
+        }
+    "
+        "Enum"

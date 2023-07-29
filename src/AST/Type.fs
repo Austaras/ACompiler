@@ -42,7 +42,7 @@ type Function =
     member this.Generalize scopeId =
         let rec find ty =
             match ty with
-            | Primitive _ -> [||]
+            | TPrim _ -> [||]
             | TVar v -> if v.scope = scopeId then [| v |] else [||]
             | TStruct s -> [||]
             // s.field |> Map.values |> Seq.map find |> Array.concat
@@ -96,7 +96,7 @@ and Binding =
       enum: Dictionary<AST.Id, Enum> }
 
 and Type =
-    | Primitive of Primitive
+    | TPrim of Primitive
     | TStruct of AST.Id
     | TEnum of AST.Id
     | Tuple of Type[]
@@ -109,7 +109,7 @@ and Type =
         let toString (t: Type) = t.ToString
 
         match this with
-        | Primitive p -> p.str
+        | TPrim p -> p.str
         | TStruct s -> s.sym
         | TEnum _ -> failwith "Not Implemented"
         | Tuple t ->
@@ -132,9 +132,9 @@ and Type =
         let walk (t: Type) = t.Walk onVar
 
         match this with
-        | Primitive p -> Primitive p
+        | TPrim p -> TPrim p
         | TStruct s -> TStruct s
-        | TEnum(_) -> failwith "Not Implemented"
+        | TEnum e -> TStruct e
         | Tuple t -> Array.map walk t |> Tuple
         | TFn f ->
             let param = Array.map walk f.param

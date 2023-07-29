@@ -9,12 +9,19 @@
                 {
                   "EnumPat": {
                     "name": {
-                      "IdPat": {
-                        "sym": "L",
-                        "span": {
-                          "first": 7,
-                          "last": 7
+                      "prefix": null,
+                      "seg": [
+                        {
+                          "sym": "L",
+                          "span": {
+                            "first": 7,
+                            "last": 7
+                          }
                         }
+                      ],
+                      "span": {
+                        "first": 7,
+                        "last": 7
                       }
                     },
                     "content": [
@@ -34,12 +41,19 @@
                 {
                   "EnumPat": {
                     "name": {
-                      "IdPat": {
-                        "sym": "R",
-                        "span": {
-                          "first": 14,
-                          "last": 14
+                      "prefix": null,
+                      "seg": [
+                        {
+                          "sym": "R",
+                          "span": {
+                            "first": 14,
+                            "last": 14
+                          }
                         }
+                      ],
+                      "span": {
+                        "first": 14,
+                        "last": 14
                       }
                     },
                     "content": [
@@ -288,12 +302,19 @@
           "pat": {
             "EnumPat": {
               "name": {
-                "IdPat": {
-                  "sym": "Some",
-                  "span": {
-                    "first": 10,
-                    "last": 13
+                "prefix": null,
+                "seg": [
+                  {
+                    "sym": "Some",
+                    "span": {
+                      "first": 10,
+                      "last": 13
+                    }
                   }
+                ],
+                "span": {
+                  "first": 10,
+                  "last": 13
                 }
               },
               "content": [

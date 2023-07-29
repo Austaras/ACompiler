@@ -180,7 +180,7 @@ type SeqPat = { element: Pat[]; span: Span }
 and AsPat = { pat: Pat; id: Id; span: Span }
 
 and EnumPat =
-    { name: Pat
+    { name: PathPat
       content: Pat[]
       span: Span }
 

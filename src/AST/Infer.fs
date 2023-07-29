@@ -14,12 +14,14 @@ open AST.Type
 type Error =
     | Undefined of Id
     | UndefinedField of Span * string
-    | UndefinedVariant of Id * string
+    | UndefinedVariant of Id * Id
     | DuplicateDefinition of Id
     | DuplicateField of Id
     | DuplicateVariant of Id
     | LoopInDefintion of Id * Id
     | PrivateInPublic of Id * Id
+    | ExpectEnum of Id * Type
+    | PayloadNumMismatch of Span * Enum
     | TypeMismatch of Type * Type * Span
     | ArgumentCountMismatch of int * int * Span
     | CalleeNotCallable of Type * Span
@@ -106,7 +108,7 @@ type Context(moduleMap) =
         for t in primitive do
             let id = { sym = t.str; span = Span.dummy }
 
-            binding.ty[id] <- Primitive t
+            binding.ty[id] <- TPrim t
 
         binding
 
@@ -201,21 +203,23 @@ type Context(moduleMap) =
         | RefSelfPat(_) -> failwith "Not Implemented"
 
     member internal this.ProcessCondPat scope pat ty =
+        let currScope = Array.last scope
+
         match pat with
         | IdPat i ->
-            scope.var[i.sym] <- i
+            currScope.var[i.sym] <- i
             binding.var[i] <- ty
         | LitPat(l, span) ->
             let litTy =
                 match l with
-                | AST.Int _ -> Primitive(Int(true, I32))
-                | AST.Bool _ -> Primitive Bool
-                | AST.Char _ -> Primitive Char
-                | AST.Float _ -> Primitive F64
+                | AST.Int _ -> TPrim(Int(true, I32))
+                | AST.Bool _ -> TPrim Bool
+                | AST.Char _ -> TPrim Char
+                | AST.Float _ -> TPrim F64
                 | AST.String _ -> failwith "Not Implemented"
                 | AST.NegInt _ -> failwith "Unreachable"
 
-            scope.constr.Add
+            currScope.constr.Add
                 { actual = litTy
                   expect = ty
                   span = span }
@@ -228,25 +232,76 @@ type Context(moduleMap) =
                     | IdPat id -> Some id.sym
                     | _ -> None
 
-                let newVar = scope.NewTVar sym pat.span |> TVar
-                this.ProcessDeclPat scope pat newVar
+                let newVar = currScope.NewTVar sym pat.span |> TVar
+                this.ProcessCondPat scope pat newVar
 
                 newVar
 
             let patTy = Array.map addBinding t.element
 
-            scope.constr.Add
+            currScope.constr.Add
                 { actual = Tuple patTy
                   expect = ty
                   span = t.span }
         | AsPat a ->
-            scope.var[a.id.sym] <- a.id
+            currScope.var[a.id.sym] <- a.id
             binding.var[a.id] <- ty
 
-            this.ProcessDeclPat scope a.pat ty
+            this.ProcessCondPat scope a.pat ty
         | ArrayPat(_) -> failwith "Not Implemented"
         | PathPat(_) -> failwith "Not Implemented"
-        | EnumPat(_) -> failwith "Not Implemented"
+        | EnumPat e ->
+            if e.name.prefix <> None || e.name.seg.Length <> 2 then
+                failwith "Not Implemented"
+
+            let enumId = e.name.seg[0]
+            let variant = e.name.seg[1]
+
+            let rec findEnum scope =
+                let last = Array.last scope
+
+                if last.ty.ContainsKey enumId.sym then
+                    let id = last.ty[enumId.sym]
+                    binding.ty[id]
+                else if scope.Length > 1 then
+                    findEnum scope[.. scope.Length - 2]
+                else
+                    error.Add(Undefined enumId)
+                    TNever
+
+            let enumTy = findEnum scope
+
+            currScope.constr.Add
+                { expect = enumTy
+                  actual = ty
+                  span = e.span }
+
+            match enumTy with
+            | TEnum enum ->
+                let enumData = binding.enum[enum]
+
+                if enumData.variant.ContainsKey variant.sym then
+                    let payload = enumData.variant[variant.sym]
+
+                    if payload.Length <> e.content.Length then
+                        error.Add(PayloadNumMismatch(e.span, enumData))
+
+                    for idx, c in e.content |> Array.indexed do
+                        let payload = if idx < payload.Length then payload[idx] else TNever
+
+                        this.ProcessCondPat scope c payload
+                else
+                    error.Add(UndefinedVariant(enumId, variant))
+
+                    for c in e.content do
+                        this.ProcessCondPat scope c TNever
+
+            | ty ->
+                error.Add(ExpectEnum(enumId, ty))
+
+                for c in e.content do
+                    this.ProcessCondPat scope c TNever
+
         | StructPat(_) -> failwith "Not Implemented"
         | OrPat(_) -> failwith "Not Implemented"
         | RestPat(_) -> failwith "Not Implemented"
@@ -457,28 +512,28 @@ type Context(moduleMap) =
             match b.op with
             | Arithmetic(LogicalAnd | LogicalOr) ->
                 currScope.constr.Add
-                    { expect = Primitive Bool
+                    { expect = TPrim Bool
                       actual = l
                       span = b.left.span }
 
                 currScope.constr.Add
-                    { expect = Primitive Bool
+                    { expect = TPrim Bool
                       actual = r
                       span = b.right.span }
 
-                Primitive Bool
+                TPrim Bool
             | Arithmetic _ ->
                 currScope.constr.Add
-                    { expect = Primitive(Int(true, I32))
+                    { expect = TPrim(Int(true, I32))
                       actual = l
                       span = b.left.span }
 
                 currScope.constr.Add
-                    { expect = Primitive(Int(true, I32))
+                    { expect = TPrim(Int(true, I32))
                       actual = r
                       span = b.right.span }
 
-                Primitive(Int(true, I32))
+                TPrim(Int(true, I32))
             | EqEq
             | NotEq
             | Lt
@@ -490,7 +545,7 @@ type Context(moduleMap) =
                       actual = r
                       span = b.span }
 
-                Primitive Bool
+                TPrim Bool
             | Pipe -> failwith "Not Implemented"
             | As -> failwith "Not Implemented"
 
@@ -498,10 +553,10 @@ type Context(moduleMap) =
         | SelfExpr(_) -> failwith "Not Implemented"
         | LitExpr(l, _) ->
             match l with
-            | AST.Int _ -> Primitive(Int(true, I32))
-            | AST.Bool _ -> Primitive Bool
-            | AST.Char _ -> Primitive Char
-            | AST.Float _ -> Primitive F64
+            | AST.Int _ -> TPrim(Int(true, I32))
+            | AST.Bool _ -> TPrim Bool
+            | AST.Char _ -> TPrim Char
+            | AST.Float _ -> TPrim F64
             | AST.String _ -> failwith "Not Implemented"
             | AST.NegInt _ -> failwith "Unreachable"
 
@@ -509,9 +564,9 @@ type Context(moduleMap) =
             let processLetCond (c: LetCond) block =
                 let value = this.TypeOfExpr scope c.value
                 let newScope = this.NewScope None
-                this.ProcessCondPat newScope c.pat value
-
                 let scope = Array.append scope [| newScope |]
+
+                this.ProcessCondPat scope c.pat value
                 let ty = this.InferBlock scope block
 
                 this.Unify newScope
@@ -521,7 +576,7 @@ type Context(moduleMap) =
                 match i.cond with
                 | BoolCond b ->
                     currScope.constr.Add
-                        { expect = Primitive Bool
+                        { expect = TPrim Bool
                           actual = this.TypeOfExpr scope b
                           span = b.span }
 
@@ -533,7 +588,7 @@ type Context(moduleMap) =
                     match br.cond with
                     | BoolCond b ->
                         currScope.constr.Add
-                            { expect = Primitive Bool
+                            { expect = TPrim Bool
                               actual = this.TypeOfExpr scope b
                               span = b.span }
 
@@ -565,16 +620,15 @@ type Context(moduleMap) =
 
             let typeOfBranch (br: MatchBranch) =
                 let newScope = this.NewScope None
-
-                this.ProcessCondPat newScope br.pat value
-
                 let scope = Array.append scope [| newScope |]
+
+                this.ProcessCondPat scope br.pat value
 
                 match br.guard with
                 | Some g ->
                     newScope.constr.Add
                         { actual = this.TypeOfExpr scope g
-                          expect = Primitive Bool
+                          expect = TPrim Bool
                           span = g.span }
                 | None -> ()
 
@@ -616,18 +670,18 @@ type Context(moduleMap) =
             match u.op with
             | Not ->
                 currScope.constr.Add
-                    { expect = Primitive Bool
+                    { expect = TPrim Bool
                       actual = this.TypeOfExpr scope u.expr
                       span = u.span }
 
-                Primitive Bool
+                TPrim Bool
             | Neg ->
                 currScope.constr.Add
-                    { expect = Primitive(Int(true, I32))
+                    { expect = TPrim(Int(true, I32))
                       actual = this.TypeOfExpr scope u.expr
                       span = u.span }
 
-                Primitive(Int(true, I32))
+                TPrim(Int(true, I32))
             | Ref -> TRef(this.TypeOfExpr scope u.expr)
             | Deref ->
                 let ptr = TVar(currScope.NewTVar None u.expr.span)
@@ -642,8 +696,8 @@ type Context(moduleMap) =
         | Field f ->
             let key = f.prop.sym
 
-            let rec findStruct env =
-                let last = Array.last env
+            let rec findStruct scope =
+                let last = Array.last scope
                 let tySeq = last.ty |> Seq.map (|KeyValue|) |> Seq.rev
 
                 let find (_, ty) =
@@ -659,8 +713,8 @@ type Context(moduleMap) =
                 match Seq.tryPick find tySeq with
                 | Some s -> s
                 | None ->
-                    if env.Length > 1 then
-                        findStruct env[.. env.Length - 2]
+                    if scope.Length > 1 then
+                        findStruct scope[.. scope.Length - 2]
                     else
                         error.Add(UndefinedField(f.span, key))
                         TNever, None
