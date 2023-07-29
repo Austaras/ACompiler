@@ -113,7 +113,7 @@ type Context(moduleMap) =
     let tVarMap = Dictionary<Var, Type>()
     let error = ResizeArray<Error>()
 
-    member internal this.newScope retTy =
+    member internal this.NewScope retTy =
         scopeId <- scopeId + 1
         Scope.Empty scopeId retTy
 
@@ -165,7 +165,8 @@ type Context(moduleMap) =
         | IdPat i ->
             scope.var[i.sym] <- i
             binding.var[i] <- ty
-        | LitPat(_, span) -> error.Add(RefutablePat span)
+        | LitPat(_, span)
+        | RangePat { span = span } -> error.Add(RefutablePat span)
         | CatchAllPat _ -> ()
         | TuplePat t ->
             let addBinding pat =
@@ -185,14 +186,70 @@ type Context(moduleMap) =
                 { actual = Tuple patTy
                   expect = ty
                   span = t.span }
+        | AsPat a ->
+            scope.var[a.id.sym] <- a.id
+            binding.var[a.id] <- ty
+
+            this.ProcessDeclPat scope a.pat ty
         | ArrayPat(_) -> failwith "Not Implemented"
-        | AsPat(_) -> failwith "Not Implemented"
         | PathPat(_) -> failwith "Not Implemented"
         | EnumPat(_) -> failwith "Not Implemented"
         | StructPat(_) -> failwith "Not Implemented"
         | OrPat(_) -> failwith "Not Implemented"
         | RestPat(_) -> failwith "Not Implemented"
-        | RangePat(_) -> failwith "Not Implemented"
+        | SelfPat(_) -> failwith "Not Implemented"
+        | RefSelfPat(_) -> failwith "Not Implemented"
+
+    member internal this.ProcessCondPat scope pat ty =
+        match pat with
+        | IdPat i ->
+            scope.var[i.sym] <- i
+            binding.var[i] <- ty
+        | LitPat(l, span) ->
+            let litTy =
+                match l with
+                | AST.Int _ -> Primitive(Int(true, I32))
+                | AST.Bool _ -> Primitive Bool
+                | AST.Char _ -> Primitive Char
+                | AST.Float _ -> Primitive F64
+                | AST.String _ -> failwith "Not Implemented"
+                | AST.NegInt _ -> failwith "Unreachable"
+
+            scope.constr.Add
+                { actual = litTy
+                  expect = ty
+                  span = span }
+        | RangePat _ -> failwith "Not Implemented"
+        | CatchAllPat _ -> ()
+        | TuplePat t ->
+            let addBinding pat =
+                let sym =
+                    match pat with
+                    | IdPat id -> Some id.sym
+                    | _ -> None
+
+                let newVar = scope.NewTVar sym pat.span |> TVar
+                this.ProcessDeclPat scope pat newVar
+
+                newVar
+
+            let patTy = Array.map addBinding t.element
+
+            scope.constr.Add
+                { actual = Tuple patTy
+                  expect = ty
+                  span = t.span }
+        | AsPat a ->
+            scope.var[a.id.sym] <- a.id
+            binding.var[a.id] <- ty
+
+            this.ProcessDeclPat scope a.pat ty
+        | ArrayPat(_) -> failwith "Not Implemented"
+        | PathPat(_) -> failwith "Not Implemented"
+        | EnumPat(_) -> failwith "Not Implemented"
+        | StructPat(_) -> failwith "Not Implemented"
+        | OrPat(_) -> failwith "Not Implemented"
+        | RestPat(_) -> failwith "Not Implemented"
         | SelfPat(_) -> failwith "Not Implemented"
         | RefSelfPat(_) -> failwith "Not Implemented"
 
@@ -447,31 +504,41 @@ type Context(moduleMap) =
             | AST.Float _ -> Primitive F64
             | AST.String _ -> failwith "Not Implemented"
             | AST.NegInt _ -> failwith "Unreachable"
+
         | If i ->
-            let cond, span =
+            let processLetCond (c: LetCond) block =
+                let value = this.TypeOfExpr scope c.value
+                let newScope = this.NewScope None
+                this.ProcessCondPat newScope c.pat value
+
+                let scope = Array.append scope [| newScope |]
+                let ty = this.InferBlock scope block
+
+                this.Unify newScope
+                this.ResolveTy ty
+
+            let then_ =
                 match i.cond with
-                | BoolCond b -> this.TypeOfExpr scope b, b.span
-                | LetCond(_) -> failwith "Not Implemented"
+                | BoolCond b ->
+                    currScope.constr.Add
+                        { expect = Primitive Bool
+                          actual = this.TypeOfExpr scope b
+                          span = b.span }
 
-            currScope.constr.Add
-                { expect = Primitive Bool
-                  actual = cond
-                  span = span }
-
-            let then_ = this.InferBlock scope i.then_
+                    this.InferBlock scope i.then_
+                | LetCond c -> processLetCond c i.then_
 
             for br in i.elseif do
-                let cond, span =
-                    match i.cond with
-                    | BoolCond b -> this.TypeOfExpr scope b, b.span
-                    | LetCond(_) -> failwith "Not Implemented"
+                let elseif =
+                    match br.cond with
+                    | BoolCond b ->
+                        currScope.constr.Add
+                            { expect = Primitive Bool
+                              actual = this.TypeOfExpr scope b
+                              span = b.span }
 
-                currScope.constr.Add
-                    { expect = Primitive Bool
-                      actual = cond
-                      span = span }
-
-                let elseif = this.InferBlock scope br.block
+                        this.InferBlock scope br.block
+                    | LetCond c -> processLetCond c br.block
 
                 currScope.constr.Add
                     { expect = then_
@@ -493,7 +560,46 @@ type Context(moduleMap) =
                       span = i.span }
 
             then_
-        | Block(_) -> failwith "Not Implemented"
+        | Match m ->
+            let value = this.TypeOfExpr scope m.expr
+
+            let typeOfBranch (br: MatchBranch) =
+                let newScope = this.NewScope None
+
+                this.ProcessCondPat newScope br.pat value
+
+                let scope = Array.append scope [| newScope |]
+
+                match br.guard with
+                | Some g ->
+                    newScope.constr.Add
+                        { actual = this.TypeOfExpr scope g
+                          expect = Primitive Bool
+                          span = g.span }
+                | None -> ()
+
+                let brTy = this.TypeOfExpr scope br.expr
+
+                this.Unify newScope
+
+                this.ResolveTy brTy
+
+            if Array.length m.branch = 0 then
+                UnitType
+            else
+                let first = typeOfBranch m.branch[0]
+
+                for br in m.branch[1..] do
+                    let brTy = typeOfBranch br
+
+                    currScope.constr.Add
+                        { expect = first
+                          actual = brTy
+                          span = br.span }
+
+                first
+
+        | Block b -> this.InferBlock scope b
         | Call c ->
             let callee = this.TypeOfExpr scope c.callee
 
@@ -601,10 +707,9 @@ type Context(moduleMap) =
         | For(_) -> failwith "Not Implemented"
         | While(_) -> failwith "Not Implemented"
         | TryReturn(_) -> failwith "Not Implemented"
-        | Match(_) -> failwith "Not Implemented"
 
     member internal this.InferBlock (scope: Scope[]) (b: Block) =
-        let blockScope = this.newScope (Array.last scope).retTy
+        let blockScope = this.NewScope (Array.last scope).retTy
         let scope = Array.append scope [| blockScope |]
 
         let typeof _ stmt =
@@ -624,7 +729,7 @@ type Context(moduleMap) =
             | TFn f -> f
             | _ -> failwith "Unreachable"
 
-        let fnScope = this.newScope (Some fnTy.ret)
+        let fnScope = this.NewScope(Some fnTy.ret)
 
         for (idx, p) in f.param |> Array.indexed do
             this.ProcessDeclPat fnScope p.pat fnTy.param[idx]
@@ -646,7 +751,7 @@ type Context(moduleMap) =
             | _ -> failwith "Unreachable"
 
     member this.Infer m =
-        let topLevel = this.newScope None
+        let topLevel = this.NewScope None
 
         for { decl = decl } in m.item do
             this.HoistDeclName topLevel decl

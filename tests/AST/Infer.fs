@@ -57,7 +57,6 @@ let Reference () =
 let Struct () =
     runInferFromExample "function/struct.adf" "Struct"
 
-
 // runInfer
 //     "
 //     struct Foo {
@@ -72,7 +71,7 @@ let Struct () =
 //         f.b.f
 //     }
 // "
-//     "RefField"
+//     "AutoDeref"
 
 [<Fact>]
 let Return () =
@@ -122,3 +121,7 @@ let Tuple () =
         }
     "
         "Tuple"
+
+[<Fact>]
+let Match () =
+    runInferFromExample "function/fib.adf" "Fib"
