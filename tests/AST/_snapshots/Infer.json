@@ -8,9 +8,19 @@
     "c": "|i32| -> i32",
     "call": "||i32| -> i32| -> i32"
   },
+  "Curry": {
+    "equal": "|Tx| -> |Tx| -> bool",
+    "equal1": "|Tx| -> bool",
+    "x": "Tx",
+    "y": "Tx"
+  },
   "Reference": {
     "a": "&i32",
     "deref": "|&i32| -> i32"
+  },
+  "RefField": {
+    "f": "Foo",
+    "get_f": "|Foo| -> &usize"
   },
   "Struct": {
     "add": "|Point| -> i32",
@@ -22,18 +32,23 @@
   },
   "Poly": {
     "id": "|Tx| -> Tx",
-    "main": "|| -> i32",
+    "main": "|| -> ()",
     "x": "Tx"
   },
-  "PolyOne": {
-    "main": "|| -> i32",
-    "one": "|Tx| -> i32",
-    "x": "Tx"
+  "HoistedMono": {
+    "main": "|| -> ()",
+    "one": "|i32| -> i32",
+    "x": "i32"
   },
   "PolyDouble": {
     "double": "||Tx| -> Tx, Tx| -> Tx",
     "f": "|Tx| -> Tx",
     "x": "Tx"
+  },
+  "PolyRec": {
+    "bar": "|i32| -> i32",
+    "foo": "|Tx| -> Tx",
+    "x": "i32"
   },
   "WeirdRec": {
     "weird_rec": "|i32| -> T11",

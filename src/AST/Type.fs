@@ -40,24 +40,9 @@ type Function =
       ret: Type }
 
     member this.Generalize scopeId =
-        let rec find ty =
-            match ty with
-            | TPrim _ -> [||]
-            | TVar v -> if v.scope = scopeId then [| v |] else [||]
-            | TStruct s -> [||]
-            // s.field |> Map.values |> Seq.map find |> Array.concat
-            | TEnum _ -> failwith "Not Implemented"
-            | Tuple t -> Array.map find t |> Array.concat
-            | TFn f ->
-                let param = f.param |> Array.map find |> Array.concat
-                Array.append param (find f.ret)
-            | TRef r -> find r
-            | TNever -> [||]
+        let ofScope (v: Var) = v.scope = scopeId
 
-        let findTVar acc ty = Array.append acc (find ty)
-
-        let tvar = Array.fold findTVar [||] this.param
-        let tvar = Array.append tvar (find this.ret)
+        let tvar = (TFn this).FindTVar |> Seq.filter ofScope |> Array.ofSeq
 
         { this with tvar = tvar }
 
@@ -89,7 +74,7 @@ and Var =
       span: AST.Span
       sym: Option<string> }
 
-and Binding =
+and Symbol =
     { var: Dictionary<AST.Id, Type>
       ty: Dictionary<AST.Id, Type>
       stru: Dictionary<AST.Id, Struct>
@@ -105,13 +90,33 @@ and Type =
     | TVar of Var
     | TNever
 
+    member this.FindTVar =
+        seq {
+            match this with
+            | TPrim _ -> ()
+            | TVar v -> yield v
+            | TStruct s -> ()
+            // s.field |> Map.values |> Seq.map find |> Array.concat
+            | TEnum e -> ()
+            | Tuple t ->
+                for t in t do
+                    yield! t.FindTVar
+            | TFn f ->
+                for p in f.param do
+                    yield! p.FindTVar
+
+                yield! f.ret.FindTVar
+            | TRef r -> yield! r.FindTVar
+            | TNever -> ()
+        }
+
     member this.ToString =
         let toString (t: Type) = t.ToString
 
         match this with
         | TPrim p -> p.str
         | TStruct s -> s.sym
-        | TEnum _ -> failwith "Not Implemented"
+        | TEnum e -> e.sym
         | Tuple t ->
             let element = t |> Array.map toString |> String.concat ", "
 
@@ -134,7 +139,7 @@ and Type =
         match this with
         | TPrim p -> TPrim p
         | TStruct s -> TStruct s
-        | TEnum e -> TStruct e
+        | TEnum e -> TEnum e
         | Tuple t -> Array.map walk t |> Tuple
         | TFn f ->
             let param = Array.map walk f.param
@@ -144,6 +149,14 @@ and Type =
         | TRef r -> TRef(r.Walk onVar)
         | TVar v -> onVar v
         | TNever -> TNever
+
+    member this.StripRef =
+        let rec stripRef ty n =
+            match ty with
+            | TRef t -> stripRef t (n + 1)
+            | _ -> ty
+
+        stripRef this 0
 
 let UnitType = Tuple [||]
 

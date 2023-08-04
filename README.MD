@@ -15,7 +15,7 @@ Test out various compiler technology with a toy compiler for a toy language **in
    - .\_0 for tuple access
 2. ML semantic with Rust characteristics
    - HM type inference with trait and operator overloading
-   - all functions are mutually recursive
+   - c style function declaration that are hoisted and can only refer to values in outer scope
    - internal mutable
    - no auto boxing, provide general reference type(s) tracked by GC
    - user can roll their own container like in Rust

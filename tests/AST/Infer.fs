@@ -30,7 +30,7 @@ let runInfer input name =
 
     let reform (key: AST.Id, value: Type.Type) = key.sym, value.ToString
 
-    (ctx.GetTypes.var
+    (ctx.GetSymbol.var
      |> Seq.map (|KeyValue|)
      |> Seq.map reform
      |> Map.ofSeq
@@ -49,9 +49,31 @@ let MutualRec () =
 let Closure () =
     runInfer "fn call(c) { c(0) + 1 }" "Closure"
 
+    runInfer
+        "
+    fn equal(x) {
+        fn equal1(y) {
+            x == y
+        }
+
+        equal1
+    }
+    "
+        "Curry"
+
 [<Fact>]
 let Reference () =
     runInfer "fn deref(a) { *a + 1 }" "Reference"
+
+    runInfer
+        "
+    struct Foo {
+        f: usize
+    }
+
+    fn get_f(f) { &f.f }
+    "
+        "RefField"
 
 [<Fact>]
 let Struct () =
@@ -94,24 +116,36 @@ let Poly () =
 
     fn main() {
         id(id)(id(0))
+        ()
     }
     "
         "Poly"
 
     runInfer
         "
-    fn one(x) { 1 }
-
     fn main() {
-        one(one(one))
+        one(1)
+        ()
     }
+
+    fn one(x) { 1 }
     "
-        "PolyOne"
+        "HoistedMono"
 
     runInfer "fn double(f, x) { f(f(x)) }" "PolyDouble"
 
-[<Fact>]
-let WeirdRec () =
+    runInfer
+        "
+    fn foo(x) {
+        bar(1)
+        x
+    }
+    fn bar(x) {
+        foo(1)
+    }
+    "
+        "PolyRec"
+
     runInfer "fn weird_rec(x) { weird_rec(1) }" "WeirdRec"
 
 [<Fact>]
@@ -135,7 +169,7 @@ let Match () =
             R(f64)
         }
 
-        fn is_zero(e: E) {
+        fn is_zero(e) {
             match e {
                 Either::L(i) => i == 0,
                 Either::R(f) => f == 0.0
