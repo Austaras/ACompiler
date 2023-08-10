@@ -27,5 +27,6 @@
     <ProjectReference Include="..\..\src\AST\AST.fsproj" />
     <ProjectReference Include="..\..\src\Lexer\Lexer.fsproj" />
     <ProjectReference Include="..\..\src\Parser\Parser.fsproj" />
+    <ProjectReference Include="..\..\src\Type\Type.fsproj" />
   </ItemGroup>
 </Project>

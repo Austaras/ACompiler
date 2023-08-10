@@ -88,6 +88,8 @@ let Closure () =
 
     (parseTest "|x| |y| x + y").ShouldMatchChildSnapshot("Curry")
 
+    (parseTest "true ||x| x").ShouldMatchChildSnapshot("NotClosure")
+
 [<Fact>]
 let Control () =
     (parseTest "if let L(_) | R(_) = a { 1 } else if a <= 3 { 2 } else { 3 }")

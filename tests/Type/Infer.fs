@@ -1,13 +1,15 @@
-module AST.Tests
+module Type.Tests.Infer
 
 open FSharp.Json
 open Snapper
 open System
 open Xunit
 
+open AST
 open Lexer
 open Parser
-open AST.TypeInfer
+open Type
+open Type.Infer
 
 let settings = SnapshotSettings.New().SnapshotFileName("Infer")
 

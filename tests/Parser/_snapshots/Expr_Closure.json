@@ -261,5 +261,56 @@
         "last": 12
       }
     }
+  },
+  "NotClosure": {
+    "Binary": {
+      "left": {
+        "LitExpr": [
+          {
+            "Bool": true
+          },
+          {
+            "first": 0,
+            "last": 3
+          }
+        ]
+      },
+      "op": {
+        "Arithmetic": "LogicalOr"
+      },
+      "right": {
+        "Binary": {
+          "left": {
+            "Id": {
+              "sym": "x",
+              "span": {
+                "first": 7,
+                "last": 7
+              }
+            }
+          },
+          "op": {
+            "Arithmetic": "BitOr"
+          },
+          "right": {
+            "Id": {
+              "sym": "x",
+              "span": {
+                "first": 10,
+                "last": 10
+              }
+            }
+          },
+          "span": {
+            "first": 7,
+            "last": 10
+          }
+        }
+      },
+      "span": {
+        "first": 0,
+        "last": 10
+      }
+    }
   }
 }

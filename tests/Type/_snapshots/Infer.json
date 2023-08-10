@@ -1,9 +1,4 @@
 {
-  "MutualRec": {
-    "is_even": "|i32| -> bool",
-    "is_odd": "|i32| -> bool",
-    "n": "i32"
-  },
   "Closure": {
     "c": "|i32| -> i32",
     "call": "||i32| -> i32| -> i32"
@@ -14,6 +9,20 @@
     "x": "Tx",
     "y": "Tx"
   },
+  "Return": {
+    "foo": "|i32| -> i32",
+    "i": "i32"
+  },
+  "Tuple": {
+    "a": "i32",
+    "b": "i32",
+    "c": "i32",
+    "foo": "|(i32, i32, i32)| -> bool"
+  },
+  "Struct": {
+    "add": "|Point| -> i32",
+    "p": "Point"
+  },
   "Reference": {
     "a": "&i32",
     "deref": "|&i32| -> i32"
@@ -22,13 +31,20 @@
     "f": "Foo",
     "get_f": "|Foo| -> &usize"
   },
-  "Struct": {
-    "add": "|Point| -> i32",
-    "p": "Point"
+  "Fib": {
+    "fib": "|i32| -> i32",
+    "n": "i32"
   },
-  "Return": {
-    "foo": "|i32| -> i32",
-    "i": "i32"
+  "Enum": {
+    "e": "Either",
+    "f": "f64",
+    "i": "i32",
+    "is_zero": "|Either| -> bool"
+  },
+  "MutualRec": {
+    "is_even": "|i32| -> bool",
+    "is_odd": "|i32| -> bool",
+    "n": "i32"
   },
   "Poly": {
     "id": "|Tx| -> Tx",
@@ -53,21 +69,5 @@
   "WeirdRec": {
     "weird_rec": "|i32| -> T11",
     "x": "i32"
-  },
-  "Tuple": {
-    "a": "i32",
-    "b": "i32",
-    "c": "i32",
-    "foo": "|(i32, i32, i32)| -> bool"
-  },
-  "Fib": {
-    "fib": "|i32| -> i32",
-    "n": "i32"
-  },
-  "Enum": {
-    "e": "Either",
-    "f": "f64",
-    "i": "i32",
-    "is_zero": "|Either| -> bool"
   }
 }
