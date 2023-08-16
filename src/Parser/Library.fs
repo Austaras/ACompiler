@@ -2610,11 +2610,109 @@ and internal parseDecl (ctx: Context) input =
                   rest = c.rest }
 
     | Some({ data = Reserved USE }, i) ->
-        match peek input[i..] with
-        | Some({ data = Identifier id; span = span }, i) ->
-            let id = { sym = id; span = span }
-            failwith "123"
-        | _ -> Error [| UnexpectedToken(input[i], "identifier") |]
+        let path =
+            match peek input[i..] with
+            | Some({ data = Identifier id; span = span }, j) ->
+                let id = { sym = id; span = span }
+
+                let data =
+                    { prefix = None
+                      seg = [| id |]
+                      item = [||]
+                      span = span }
+
+                Ok
+                    { data = data
+                      error = [||]
+                      rest = input[i + j ..] }
+            | Some({ data = Reserved(LOWSELF | PACKAGE as kw)
+                     span = span },
+                   j) ->
+                let prefix =
+                    match kw with
+                    | LOWSELF -> LowSelf
+                    | PACKAGE -> Package
+                    | _ -> failwith "unreachable"
+
+                let data =
+                    { prefix = Some prefix
+                      seg = [||]
+                      item = [||]
+                      span = span }
+
+                Ok
+                    { data = data
+                      error = [||]
+                      rest = input[i + j ..] }
+            | Some(token, _) -> Error [| UnexpectedToken(token, "identifier") |]
+            | None -> Error [| IncompleteAtEnd "use item" |]
+
+        match path with
+        | Error e -> Error e
+        | Ok p ->
+            let rec parseSeg (state: State<Use>) =
+                match peek state.rest with
+                | Some({ data = ColonColon }, i) ->
+                    match peek state.rest[i..] with
+                    | Some({ data = Identifier sym; span = span }, j) ->
+                        let id = { sym = sym; span = span }
+
+                        let data =
+                            { state.data with
+                                seg = Array.append state.data.seg [| id |]
+                                span = state.data.span.WithLast span.last }
+
+                        let newState =
+                            { state with
+                                data = data
+                                rest = state.rest[i + j ..] }
+
+                        parseSeg newState
+                    | Some({ data = Operator(Arithmetic Mul)
+                             span = span },
+                           j) ->
+                        let data =
+                            { state.data with
+                                item = [| UseAll span |]
+                                span = state.data.span.WithLast span.last }
+
+                        let newState =
+                            { state with
+                                data = data
+                                rest = state.rest[i + j ..] }
+
+                        Ok newState
+                    | Some(token, _) -> Error [| UnexpectedToken(token, "identifier") |]
+                    | None -> Error [| IncompleteAtEnd "use item" |]
+                | _ -> Ok state
+
+            let path = parseSeg p
+
+            match path with
+            | Error e -> Error e
+            | Ok p ->
+                let data = p.data
+
+                let data =
+                    if Array.isEmpty data.item && not (Array.isEmpty data.seg) then
+                        let last = Array.length data.seg - 1
+
+                        { data with
+                            seg = data.seg[.. last - 1]
+                            item = [| UseItem data.seg[last] |] }
+                    else
+                        data
+
+                let error =
+                    if data.prefix <> None && Array.isEmpty data.item then
+                        Array.append p.error [| IncompletePath data.span |]
+                    else
+                        p.error
+
+                Ok
+                    { data = Use data
+                      error = error
+                      rest = p.rest }
 
     | Some({ data = Reserved TYPE; span = span }, i) ->
         match parseTypeAlias ctx input[i..] span with

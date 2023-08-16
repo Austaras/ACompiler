@@ -2,7 +2,7 @@ module Type.Tests.Infer
 
 open FSharp.Json
 open Snapper
-open System
+open System.IO
 open Xunit
 
 open AST
@@ -40,8 +40,7 @@ let runInfer input name =
         .ShouldMatchChildSnapshot(name, settings)
 
 let runInferFromExample path =
-    IO.File.ReadAllText(__SOURCE_DIRECTORY__ + "/../../examples/" + path)
-    |> runInfer
+    File.ReadAllText(__SOURCE_DIRECTORY__ + "/../../examples/" + path) |> runInfer
 
 [<Fact>]
 let MutualRec () =

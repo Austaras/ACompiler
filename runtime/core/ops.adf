@@ -10,6 +10,18 @@ pub trait IndexAssign<Idx>: Index<Idx> {
     fn index(&self, index: Idx, value: Value)
 }
 
+pub trait PartialEq {
+    // Required method
+    fn eq(&self, other: &Self) -> bool;
+
+    // Provided method
+    fn ne(&self, other: &Self) -> bool { 
+        !self.eq(other)
+     }
+}
+
+pub trait Eq: PartialEq { }
+
 pub trait Add {
     fn add(self, rhs: Self) -> Self
 }

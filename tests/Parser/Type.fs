@@ -22,11 +22,9 @@ let Inst () =
 
     (parseTest "pak::vec::Vec<<T>|T|->i32>").ShouldMatchChildSnapshot("Shl")
 
+    (parseTest "Container<-1>").ShouldMatchChildSnapshot("Const")
+
 [<Fact>]
 let Arr () =
     (parseTest "&[&[i32];4]").ShouldMatchChildSnapshot("Slice")
     (parseTest "&&[usize]").ShouldMatchChildSnapshot("Ref")
-
-[<Fact>]
-let Const () =
-    (parseTest "Container<-1>").ShouldMatchChildSnapshot("Neg")

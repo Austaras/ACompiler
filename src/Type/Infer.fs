@@ -448,16 +448,30 @@ type Context(moduleMap) =
             this.InferFn scope f
 
     member internal this.ProcessDecl (scope: Scope[]) d =
+        let currScope = Array.last scope
+
         match d with
-        | Let _ -> failwith "Not Implemented"
+        | Let l ->
+            let value = this.TypeOfExpr scope l.value
+
+            match l.ty with
+            | Some ty ->
+                currScope.constr.Add
+                    { expect = this.ProcessTy scope ty
+                      actual = value
+                      span = l.span }
+            | None -> ()
+
+            this.ProcessDeclPat (Array.last scope) l.pat value l.mut
+
         | Const _ -> failwith "Not Implemented"
+        | Use _ -> failwith "Not Implemented"
         | FnDecl _
         | StructDecl _
         | EnumDecl _
-        | TypeDecl _ -> ()
-        | Use _ -> failwith "Not Implemented"
-        | Trait _ -> failwith "Not Implemented"
-        | Impl _ -> failwith "Not Implemented"
+        | TypeDecl _
+        | Trait _
+        | Impl _ -> ()
 
     member internal this.TypeOfExpr (scope: Scope[]) e =
         let currScope = Array.last scope

@@ -142,5 +142,36 @@
         "last": 26
       }
     }
+  },
+  "Const": {
+    "PathType": {
+      "prefix": null,
+      "seg": [
+        {
+          "sym": "Container",
+          "span": {
+            "first": 0,
+            "last": 8
+          }
+        }
+      ],
+      "typeArg": [
+        {
+          "LitType": [
+            {
+              "NegInt": 1
+            },
+            {
+              "first": 10,
+              "last": 11
+            }
+          ]
+        }
+      ],
+      "span": {
+        "first": 0,
+        "last": 13
+      }
+    }
   }
 }

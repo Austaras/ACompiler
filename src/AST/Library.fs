@@ -45,10 +45,6 @@ type Lit =
 
 type Id = { sym: string; span: Span }
 
-type UseItem =
-    | All of Span
-    | Item of Id[]
-
 type UnaryOp =
     | Neg
     | Not
@@ -445,11 +441,20 @@ and Fn =
       body: Block
       span: Span }
 
+and UsePath =
+    { span: Span; seg: Id[]; item: UseItem }
+
+and UseItem =
+    | UseAll of Span
+    | UseSelf of Span
+    | UseItem of Id
+    | UsePath of UsePath[]
+
 and Use =
     { span: Span
       prefix: Option<PathPrefix>
       seg: Id[]
-      item: UseItem }
+      item: UseItem[] }
 
 and TypeDecl = { name: Id; ty: Type; span: Span }
 
