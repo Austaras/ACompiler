@@ -16,7 +16,8 @@ let parseModuleOk path =
         | Error(error, _) -> Array.map Util.ParseError error
         | Ok _ -> [||]
 
-
 [<Fact>]
 let Example () =
     Assert.Empty(parseModuleOk "example.adf")
+
+    Assert.Empty(parseModuleOk "type/tree.adf")
