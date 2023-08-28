@@ -12,7 +12,6 @@ type ErrorData =
 exception CustomError of ErrorData[]
 
 let internal makeTest t =
-
     let test input =
         match Lexer.lex 0 input with
         | Ok token ->

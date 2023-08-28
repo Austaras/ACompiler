@@ -1,10 +1,14 @@
 pub struct Span<T> {
-    pub ptr: Ptr<T>
+    pub ptr: NonZeroUsize
     pub len: usize
 }
 
 pub struct RawArray<T> {
-    pub ptr: Ptr<T>,
+    pub ptr: NonZeroUsize,
     pub len: usize,
     pub cap: usize
+}
+
+pub struct FixedArray<const LEN: NonZeroUsize> {
+    pub ptr: NonZeroUsize
 }

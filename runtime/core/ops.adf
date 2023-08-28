@@ -5,9 +5,7 @@ pub trait Index<Idx> {
 }
 
 pub trait IndexAssign<Idx>: Index<Idx> {
-    type Value
-
-    fn index(&self, index: Idx, value: Value)
+    fn index_assign(&self, index: Idx, value: Self::Output)
 }
 
 pub trait PartialEq {

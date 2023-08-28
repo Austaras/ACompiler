@@ -1,3 +1,7 @@
 pub struct String {
     inner: Span<u8>
 }
+
+pub struct StringBuilder {
+    inner: Array<u8>
+}

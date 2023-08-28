@@ -385,7 +385,7 @@ type Context(moduleMap) =
                     let name = variant.name.sym
 
                     if Map.containsKey name m then
-                        error.Add(DuplicateField variant.name)
+                        error.Add(DuplicateVariant variant.name)
 
                     let payload = Array.map (this.ProcessTy scope) variant.payload
 

@@ -1,17 +1,17 @@
 pub struct Array<T> {
-    inner: &RawArray<T>
+    inner: RawArray<T>
 }
 
 impl<T> Array<T> {
     pub fn new() {
         Self {
-            inner: &RawArray::malloc(0)
+            inner: RawArray::malloc(0)
         }
     }
 
     pub fn with_capacity(n: usize) {
         Self {
-            inner: &RawArray::malloc(n)
+            inner: RawArray::malloc(n)
         }
     }
 

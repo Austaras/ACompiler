@@ -146,10 +146,10 @@ let internal isIdContinue c =
 
 type internal State =
     { i: int
-      data: Token[]
+      data: ResizeArray<Token>
       error: Error[] }
 
-let lex offset (input: string) =
+let internal lex_inner offset (input: string) =
     let len = input.Length
     let makeSpan i j = AST.Span.Make (offset + i) (offset + j)
 
@@ -159,10 +159,9 @@ let lex offset (input: string) =
         let withNewToken token j =
             let span = makeSpan i (j - 1)
 
-            let newState =
-                { state with
-                    i = j
-                    data = Array.append state.data [| Token.Make token span |] }
+            state.data.Add(Token.Make token span)
+
+            let newState = { state with i = j }
 
             lex newState
 
@@ -550,4 +549,12 @@ let lex offset (input: string) =
 
                 Error error
 
-    lex { i = 0; data = [||]; error = [||] }
+    lex
+        { i = 0
+          data = ResizeArray()
+          error = [||] }
+
+let lex offset input =
+    match lex_inner offset input with
+    | Ok o -> Ok(o.ToArray())
+    | Error e -> Error e

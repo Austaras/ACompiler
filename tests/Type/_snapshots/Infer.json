@@ -20,8 +20,8 @@
     "foo": "|(i32, i32, i32)| -> bool"
   },
   "Struct": {
-    "add": "|Point| -> i32",
-    "p": "Point"
+    "add": "|Point3D| -> i32",
+    "p": "Point3D"
   },
   "Reference": {
     "a": "&i32",

@@ -3,6 +3,12 @@ struct Point {
     y: i32
 }
 
+struct Point3D {
+    x: i32,
+    y: i32,
+    z: i32
+}
+
 fn add(p) {
-    p.x + p.y
+    p.x + p.y + p.z
 }
