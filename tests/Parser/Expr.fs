@@ -1,6 +1,6 @@
 module Parser.Tests.Expr
 
-open Parser.Parser
+open Parser.Expr
 
 open Snapper
 open Xunit

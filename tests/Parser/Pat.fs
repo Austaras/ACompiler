@@ -1,6 +1,6 @@
 module Parser.Tests.Pat
 
-open Parser.Parser
+open Parser.Pat
 
 open Snapper
 open Xunit

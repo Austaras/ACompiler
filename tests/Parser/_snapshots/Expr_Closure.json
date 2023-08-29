@@ -112,24 +112,26 @@
             "PathType": {
               "prefix": null,
               "seg": [
-                {
-                  "sym": "Option",
-                  "span": {
-                    "first": 28,
-                    "last": 33
-                  }
-                }
-              ],
-              "typeArg": [
-                {
-                  "TypeId": {
-                    "sym": "T",
+                [
+                  {
+                    "sym": "Option",
                     "span": {
-                      "first": 35,
-                      "last": 35
+                      "first": 28,
+                      "last": 33
                     }
-                  }
-                }
+                  },
+                  [
+                    {
+                      "TypeId": {
+                        "sym": "T",
+                        "span": {
+                          "first": 35,
+                          "last": 35
+                        }
+                      }
+                    }
+                  ]
+                ]
               ],
               "span": {
                 "first": 28,

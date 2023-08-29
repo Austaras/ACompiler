@@ -141,11 +141,11 @@ type Context(moduleMap) =
         | TypeId i -> resolve scope i
         | TupleType t -> Tuple(Array.map (this.ProcessTy scope) t.element)
         | RefType r -> TRef(this.ProcessTy scope r.ty)
-        | LitType(_, _) -> failwith "Not Implemented"
-        | ArrayType(_) -> failwith "Not Implemented"
-        | InferedType(_) -> failwith "Not Implemented"
-        | FnType(_) -> failwith "Not Implemented"
-        | PathType(_) -> failwith "Not Implemented"
+        | LitType _ -> failwith "Not Implemented"
+        | ArrayType _ -> failwith "Not Implemented"
+        | InferedType _ -> failwith "Not Implemented"
+        | FnType _ -> failwith "Not Implemented"
+        | PathType _ -> failwith "Not Implemented"
 
     member internal this.ProcessDeclPat scope pat ty mut =
         match pat with

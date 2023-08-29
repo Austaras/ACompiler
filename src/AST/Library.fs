@@ -112,8 +112,8 @@ type Visibility =
     | Internal
 
 type PathPrefix =
-    | LowSelf
     | Self
+    | LowSelf
     | Package
 
 type PathPat =
@@ -121,7 +121,12 @@ type PathPat =
       seg: Id[]
       span: Span }
 
-type FnType =
+type Path =
+    { prefix: Option<PathPrefix>
+      seg: (Id * Type[])[]
+      span: Span }
+
+and FnType =
     { param: Type[]
       typeParam: TypeParam[]
       ret: Type
@@ -136,21 +141,15 @@ and ArrayType =
 
 and TupleType = { element: Type[]; span: Span }
 
-and PathType =
-    { prefix: Option<PathPrefix>
-      seg: Id[]
-      typeArg: Type[]
-      span: Span }
-
 and TypeParam =
     { id: Id
       const_: bool
-      bound: PathType[]
+      bound: Path[]
       span: Span }
 
 and Type =
     | TypeId of Id
-    | PathType of PathType
+    | PathType of Path
     | TupleType of TupleType
     | LitType of Lit * Span
     | NeverType of Span
@@ -245,11 +244,6 @@ type Param =
       ty: Option<Type>
       span: Span }
 
-type PathExpr =
-    { prefix: Option<PathPrefix>
-      seg: (Id * Type[])[]
-      span: Span }
-
 type Call =
     { callee: Expr
       arg: Expr[]
@@ -330,7 +324,7 @@ and StructField =
         | RestField(s, _) -> s
 
 and StructLit =
-    { ty: PathExpr
+    { ty: Path
       field: StructField[]
       span: Span }
 
@@ -381,7 +375,7 @@ and Expr =
     | StructLit of StructLit
     | Tuple of Seq
     | Closure of Closure
-    | Path of PathExpr
+    | Path of Path
     | Break of Span
     | Continue of Span
     | Return of Return
@@ -419,6 +413,14 @@ and Expr =
         | While w -> w.span
         | TryReturn t -> t.span
         | Match m -> m.span
+
+    member this.IsPlace =
+        match this with
+        | Id _
+        | Field _
+        | Unary { op = Deref }
+        | Index _ -> true
+        | _ -> false
 
 and Let =
     { pat: Pat
@@ -528,7 +530,7 @@ and ImplItem =
       span: Span }
 
 and Impl =
-    { trait_: Option<PathType>
+    { trait_: Option<Path>
       typeParam: TypeParam[]
       type_: Type
       item: ImplItem[]

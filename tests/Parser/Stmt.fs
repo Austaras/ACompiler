@@ -1,11 +1,9 @@
 module Parser.Tests.Stmt
 
-open Parser.Parser
+open Parser.Stmt
 
 open Snapper
 open Xunit
-
-exception CustomError of Error[]
 
 let parseTest = Util.makeTest parseDecl
 
@@ -45,3 +43,11 @@ let Decl () =
         }
     ")
         .ShouldMatchChildSnapshot("Impl")
+
+// (parseTest
+//     "
+//     trait Add {
+//         fn add(self, rhs: Self) -> Self
+//     }
+//     ")
+//     .ShouldMatchInlineSnapshot("Trait")

@@ -22,15 +22,17 @@
             {
               "prefix": null,
               "seg": [
-                {
-                  "sym": "Add",
-                  "span": {
-                    "first": 19,
-                    "last": 21
-                  }
-                }
+                [
+                  {
+                    "sym": "Add",
+                    "span": {
+                      "first": 19,
+                      "last": 21
+                    }
+                  },
+                  []
+                ]
               ],
-              "typeArg": [],
               "span": {
                 "first": 19,
                 "last": 21
@@ -342,24 +344,26 @@
         "PathType": {
           "prefix": null,
           "seg": [
-            {
-              "sym": "Vec",
-              "span": {
-                "first": 17,
-                "last": 19
-              }
-            }
-          ],
-          "typeArg": [
-            {
-              "TypeId": {
-                "sym": "T",
+            [
+              {
+                "sym": "Vec",
                 "span": {
-                  "first": 21,
-                  "last": 21
+                  "first": 17,
+                  "last": 19
                 }
-              }
-            }
+              },
+              [
+                {
+                  "TypeId": {
+                    "sym": "T",
+                    "span": {
+                      "first": 21,
+                      "last": 21
+                    }
+                  }
+                }
+              ]
+            ]
           ],
           "span": {
             "first": 17,

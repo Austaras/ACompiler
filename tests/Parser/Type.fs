@@ -1,6 +1,7 @@
 module Parser.Tests.Type
 
-open Parser.Parser
+open Parser.Type
+open Parser.Stmt
 
 open Snapper
 open Xunit
@@ -16,13 +17,15 @@ let Fn () =
         .ShouldMatchChildSnapshot("MultiBound")
 
 [<Fact>]
-let Inst () =
+let Path () =
     (parseTest "std::collections::HashMap<i32, Vec<i32>>")
         .ShouldMatchChildSnapshot("Shr")
 
     (parseTest "pak::vec::Vec<<T>|T|->i32>").ShouldMatchChildSnapshot("Shl")
 
     (parseTest "Container<-1>").ShouldMatchChildSnapshot("Const")
+
+    (parseTest "Self::Output").ShouldMatchChildSnapshot("Self")
 
 [<Fact>]
 let Arr () =

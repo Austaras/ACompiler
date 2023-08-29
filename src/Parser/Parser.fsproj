@@ -1,23 +1,23 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
-
+<Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
     <TargetFramework>net7.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
-
   <ItemGroup>
+    <Compile Include="Common.fs" />
+    <Compile Include="Pat.fs" />
+    <Compile Include="Type.fs" />
+    <Compile Include="Expr.fs" />
+    <Compile Include="Stmt.fs" />
     <Compile Include="Library.fs" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\AST\AST.fsproj" />
     <ProjectReference Include="..\Lexer\Lexer.fsproj" />
   </ItemGroup>
-
   <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">
       <_Parameter1>$(AssemblyName).Tests</_Parameter1>
     </AssemblyAttribute>
   </ItemGroup>
-
 </Project>

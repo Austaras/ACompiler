@@ -71,24 +71,26 @@
                   "PathType": {
                     "prefix": null,
                     "seg": [
-                      {
-                        "sym": "Vec",
-                        "span": {
-                          "first": 6,
-                          "last": 8
-                        }
-                      }
-                    ],
-                    "typeArg": [
-                      {
-                        "TypeId": {
-                          "sym": "i32",
+                      [
+                        {
+                          "sym": "Vec",
                           "span": {
-                            "first": 10,
-                            "last": 12
+                            "first": 6,
+                            "last": 8
                           }
-                        }
-                      }
+                        },
+                        [
+                          {
+                            "TypeId": {
+                              "sym": "i32",
+                              "span": {
+                                "first": 10,
+                                "last": 12
+                              }
+                            }
+                          }
+                        ]
+                      ]
                     ],
                     "span": {
                       "first": 6,
@@ -151,24 +153,26 @@
                 "PathType": {
                   "prefix": null,
                   "seg": [
-                    {
-                      "sym": "Vec",
-                      "span": {
-                        "first": 11,
-                        "last": 13
-                      }
-                    }
-                  ],
-                  "typeArg": [
-                    {
-                      "TypeId": {
-                        "sym": "i32",
+                    [
+                      {
+                        "sym": "Vec",
                         "span": {
-                          "first": 15,
-                          "last": 17
+                          "first": 11,
+                          "last": 13
                         }
-                      }
-                    }
+                      },
+                      [
+                        {
+                          "TypeId": {
+                            "sym": "i32",
+                            "span": {
+                              "first": 15,
+                              "last": 17
+                            }
+                          }
+                        }
+                      ]
+                    ]
                   ],
                   "span": {
                     "first": 11,
