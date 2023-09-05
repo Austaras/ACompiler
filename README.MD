@@ -4,15 +4,13 @@ Test out various compiler technology with a toy compiler for a toy language **in
 - _Engineering a Compiler_
 - _OCaml Programming: Correct + Efficient + Beautiful_
 
-### Design Decision
+### Design Decisions
 
 1. ML syntax with Rust characteristics
    - That means, {} for block, => for pattern match, fn for function, () for function call, = for assign, == for equal, != for not equal, |a, b| a + b for closure
-   - not whitespace sensitive, but without mandatory semicolons
+   - not whitespace sensitive, but without mandatory semicolons; if there's ambiguity, **prefer line break**
    - variant has their own namespace
-   - also break/continue/return
-   - struct/enum keyword
-   - .\_0 for tuple access
+   - break/continue/return/struct/enum keyword
 2. ML semantic with Rust characteristics
    - HM type inference with trait and operator overloading
    - c style function declaration that are hoisted and can only refer to values in outer scope
@@ -20,12 +18,22 @@ Test out various compiler technology with a toy compiler for a toy language **in
    - no auto boxing, provide general reference type(s) tracked by GC
    - user can roll their own container like in Rust
    - impl block, but user need to import that module to work
-3. Compiler Architecture
-   - Hand written recursive descendant parser
-4. suffix is .adf which stands for Advanced Dominance Fighter
-5. Major TODO
+3. Pratically functional
+   - provide immutable std lib and tail call optimization
+   - but also mutable std lib and for loop with control keyword
+4. Compiler Architecture
+   - hand written recursive descendant parser
+   - HM type inference with trait
+   - FLIR, which stands for First Low-level Intermediate Representation
+      - eliminates struct field, operator overloading and pattern
+      - monotyped
+      - basic block
+5. suffix is .adf which stands for Advanced Dominance Functional language
+6. Major TODO
    - [ ] f-string
+   - [ ] optional and position argument
    - [ ] effect system. Algebraic effect?
+   - [ ] generator
    - [ ] const generic
    - [ ] try trait
    - [ ] GC

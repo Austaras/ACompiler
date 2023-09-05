@@ -6,8 +6,8 @@ open Parser.Parser
 open System.IO
 open Xunit
 
-let parseModuleOk path =
-    let content = File.ReadAllText(__SOURCE_DIRECTORY__ + "/../../examples/" + path)
+let parseModuleOk prefix path =
+    let content = File.ReadAllText(__SOURCE_DIRECTORY__ + "/../../" + prefix + path)
 
     match Lexer.lex 0 content with
     | Error error -> Array.map Util.LexError error
@@ -18,6 +18,12 @@ let parseModuleOk path =
 
 [<Fact>]
 let Example () =
-    Assert.Empty(parseModuleOk "example.adf")
+    let parse = parseModuleOk "examples/"
+    Assert.Empty(parse "example.adf")
 
-    Assert.Empty(parseModuleOk "type/tree.adf")
+    Assert.Empty(parse "type/tree.adf")
+
+[<Fact>]
+let Std () =
+    let parse = parseModuleOk "runtime/"
+    Assert.Empty(parse "core/util.adf")

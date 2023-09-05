@@ -36,8 +36,8 @@ pub trait Div {
     fn div(self, rhs: Self) -> Self
 }
 
-pub trait Mod {
-    fn add(self, rhs: Self) -> Self
+pub trait Rem {
+    fn rem(self, rhs: Self) -> Self
 }
 
-pub trait Num: Add + Sub + Mul + Div + Mod {}
+pub trait Num: Add + Sub + Mul + Div + Rem {}

@@ -3,3 +3,9 @@ pub fn id<T>(value: T) -> T {
 }
 
 pub fn ignore<T>(value: T) { }
+
+pub fn swap<T1, T2>(t: (T1, T2)) -> (T2, T1) {
+    let (fst, snd) = t
+
+    (snd, fst)
+}

@@ -725,7 +725,7 @@ let rec internal parseModuleItem (input: Token[]) =
             let error =
                 match d with
                 | FnDecl f when vis = Public ->
-                    let needTy = Array.filter (fun (p: Param) -> p.ty <> None) f.param
+                    let needTy = Array.filter (fun (p: Param) -> p.ty = None) f.param
                     let needTy = Array.map (fun (p: Param) -> PubTypeAnnotation p.span) needTy
 
                     Array.append s.error needTy

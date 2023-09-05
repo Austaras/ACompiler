@@ -1,0 +1,11 @@
+fn fib_better(n) {
+    fn aux(n, acc1, acc2) {
+        match n {
+            0 => acc1,
+            1 => acc2,
+            _ => aux(n - 1, acc2, acc1 + acc2)
+        }
+    }
+
+    aux(n, 0, 1)
+}

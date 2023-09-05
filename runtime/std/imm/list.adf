@@ -1,0 +1,17 @@
+pub enum List<T> {
+    Empty,
+    Cons(T, List<T>)
+}
+
+impl<T> List<T> {
+    pub fn len(&self) -> usize {
+        fn aux(list, len) {
+            match list {
+                Empty => len,
+                Cons(_, list) => aux(list, len + 1)
+            }
+        }
+
+        aux(self, 0)
+    }
+}

@@ -2,3 +2,21 @@
 struct NonZeroUSize {
     inner: usize
 }
+
+impl NonZeroUSize {
+    pub fn new_unchecked(i: usize) -> Self {
+        Self {
+            inner: i
+        }
+    }
+
+    pub fn add(self, count: usize) -> Self {
+        Self {
+            inner: self.inner + count
+        }
+    }
+
+    pub fn unsafe_as_ref<T>(self) -> &T {
+        self.inner as &T
+    }
+}

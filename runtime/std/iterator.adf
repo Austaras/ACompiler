@@ -1,5 +1,19 @@
 pub trait Iterator {
-    type Item;
+    type Item
 
-    fn next(&mut self) -> Option<Self::Item>;
+    fn next(&self) -> Option<Self::Item>
+}
+
+pub trait DoubleEndedIterator: Iterator {
+    // Required method
+    fn next_back(&self) -> Option<Self::Item>
+}
+
+pub trait ExactSizeIterator: Iterator {
+    // Required methods
+    fn len(&self) -> usize
+
+    fn is_empty(&self) -> bool { 
+        self.len == 0
+     }
 }

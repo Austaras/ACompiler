@@ -26,7 +26,7 @@ type Error =
     | FailToUnify of Type * Type * Span
     | ArgumentCountMismatch of int * int * Span
     | CalleeNotCallable of Type * Span
-    | CannotAssign of Id * Span
+    | AssignImmutable of Id * Span
     | RefutablePat of Span
 
 let internal primitive =
@@ -42,15 +42,18 @@ let internal primitive =
        F32
        F64 |]
 
-type internal Constraint =
+type internal NormalConstraint =
     { expect: Type
       actual: Type
       span: Span }
 
+type internal Constraint = CNormal of NormalConstraint
+
+type internal VarInfo = { mut: bool; id: Id }
+
 type internal Scope =
     { ty: Dictionary<string, Id>
-      var: Dictionary<string, Id>
-      mut: HashSet<string>
+      var: Dictionary<string, VarInfo>
       constr: ResizeArray<Constraint>
       id: int
       retTy: Option<Type>
@@ -58,7 +61,7 @@ type internal Scope =
 
     member this.AddTy(id: Id) = this.ty[id.sym] <- id
 
-    member this.AddVar(id: Id) = this.var[id.sym] <- id
+    member this.AddVar(info: VarInfo) = this.var[info.id.sym] <- info
 
     member this.NewTVar sym span =
         let tvar =
@@ -74,7 +77,6 @@ type internal Scope =
     static member Empty id retTy =
         { ty = Dictionary()
           var = Dictionary()
-          mut = HashSet()
           constr = ResizeArray()
           id = id
           retTy = retTy
@@ -84,7 +86,6 @@ type internal Scope =
         let env =
             { ty = Dictionary()
               var = Dictionary()
-              mut = HashSet()
               constr = ResizeArray()
               id = 0
               retTy = None
@@ -153,10 +154,7 @@ type Context(moduleMap) =
             if scope.var.ContainsKey i.sym then
                 error.Add(DuplicateDefinition i)
 
-            scope.var[i.sym] <- i
-
-            if mut then
-                scope.mut.Add i.sym |> ignore
+            scope.AddVar { mut = mut; id = i }
 
             symbol.var[i] <- ty
         | LitPat(_, span)
@@ -176,15 +174,17 @@ type Context(moduleMap) =
 
             let patTy = Array.map addBinding t.element
 
-            scope.constr.Add
-                { actual = Tuple patTy
-                  expect = ty
-                  span = t.span }
+            scope.constr.Add(
+                CNormal
+                    { actual = Tuple patTy
+                      expect = ty
+                      span = t.span }
+            )
         | AsPat a ->
             if scope.var.ContainsKey a.id.sym then
                 error.Add(DuplicateDefinition a.id)
 
-            scope.var[a.id.sym] <- a.id
+            scope.AddVar { mut = mut; id = a.id }
             symbol.var[a.id] <- ty
 
             this.ProcessDeclPat scope a.pat ty mut
@@ -205,7 +205,7 @@ type Context(moduleMap) =
             if currScope.var.ContainsKey i.sym then
                 error.Add(DuplicateDefinition i)
 
-            currScope.var[i.sym] <- i
+            currScope.AddVar { mut = true; id = i }
             symbol.var[i] <- ty
         | LitPat(l, span) ->
             let litTy =
@@ -217,10 +217,12 @@ type Context(moduleMap) =
                 | AST.String _ -> failwith "Not Implemented"
                 | AST.NegInt _ -> failwith "Unreachable"
 
-            currScope.constr.Add
-                { actual = litTy
-                  expect = ty
-                  span = span }
+            currScope.constr.Add(
+                CNormal
+                    { actual = litTy
+                      expect = ty
+                      span = span }
+            )
         | RangePat _ -> failwith "Not Implemented"
         | CatchAllPat _ -> ()
         | TuplePat t ->
@@ -237,15 +239,17 @@ type Context(moduleMap) =
 
             let patTy = Array.map addBinding t.element
 
-            currScope.constr.Add
-                { actual = Tuple patTy
-                  expect = ty
-                  span = t.span }
+            currScope.constr.Add(
+                CNormal
+                    { actual = Tuple patTy
+                      expect = ty
+                      span = t.span }
+            )
         | AsPat a ->
             if currScope.var.ContainsKey a.id.sym then
                 error.Add(DuplicateDefinition a.id)
 
-            currScope.var[a.id.sym] <- a.id
+            currScope.AddVar { mut = true; id = a.id }
             symbol.var[a.id] <- ty
 
             this.ProcessCondPat scope a.pat ty
@@ -272,10 +276,12 @@ type Context(moduleMap) =
 
             let enumTy = findEnum scope
 
-            currScope.constr.Add
-                { expect = enumTy
-                  actual = ty
-                  span = e.span }
+            currScope.constr.Add(
+                CNormal
+                    { expect = enumTy
+                      actual = ty
+                      span = e.span }
+            )
 
             match enumTy with
             | TEnum enum ->
@@ -318,6 +324,30 @@ type Context(moduleMap) =
 
         ty.Walk onvar
 
+    member internal this.ResolveVar scope id =
+        let rec resolve scope id =
+            let len = Array.length scope
+
+            if len = 0 then
+                error.Add(Undefined id)
+                None
+            else
+                let curr = Array.last scope
+
+                if curr.var.ContainsKey id.sym then
+                    Some curr.var[id.sym]
+                else
+                    resolve scope[0 .. (len - 2)] id
+
+        resolve scope id
+
+    member internal this.ResolveVarTy (scope: Scope) (id: Id) span =
+        let make () = scope.NewTVar None span
+
+        match symbol.var[id] with
+        | TFn f -> TFn(f.Instantiate make)
+        | t -> t
+
     member internal this.ProcessHoistedDecl (scope: Scope[]) (decl: seq<Decl>) =
         let currScope = Array.last scope
 
@@ -329,7 +359,7 @@ type Context(moduleMap) =
                 if currScope.var.ContainsKey f.name.sym then
                     error.Add(DuplicateDefinition f.name)
 
-                currScope.AddVar f.name
+                currScope.AddVar { mut = false; id = f.name }
             | StructDecl s ->
                 if currScope.ty.ContainsKey s.name.sym then
                     error.Add(DuplicateDefinition s.name)
@@ -417,10 +447,12 @@ type Context(moduleMap) =
                 | Some ty ->
                     let ty = this.ProcessTy scope ty
 
-                    currScope.constr.Add
-                        { expect = ty
-                          actual = TVar newTVar
-                          span = p.span }
+                    currScope.constr.Add(
+                        CNormal
+                            { expect = ty
+                              actual = TVar newTVar
+                              span = p.span }
+                    )
 
                 | None -> ()
 
@@ -432,10 +464,12 @@ type Context(moduleMap) =
 
             match f.retTy with
             | Some ty ->
-                currScope.constr.Add
-                    { expect = this.ProcessTy scope ty
-                      actual = ret
-                      span = f.name.span }
+                currScope.constr.Add(
+                    CNormal
+                        { expect = this.ProcessTy scope ty
+                          actual = ret
+                          span = f.name.span }
+                )
             | None -> ()
 
             symbol.var[f.name] <-
@@ -456,10 +490,12 @@ type Context(moduleMap) =
 
             match l.ty with
             | Some ty ->
-                currScope.constr.Add
-                    { expect = this.ProcessTy scope ty
-                      actual = value
-                      span = l.span }
+                currScope.constr.Add(
+                    CNormal
+                        { expect = this.ProcessTy scope ty
+                          actual = value
+                          span = l.span }
+                )
             | None -> ()
 
             this.ProcessDeclPat (Array.last scope) l.pat value l.mut
@@ -477,33 +513,46 @@ type Context(moduleMap) =
         let currScope = Array.last scope
 
         match e with
+        | Id id ->
+            match this.ResolveVar scope id with
+            | None -> TNever
+            | Some var -> this.ResolveVarTy currScope var.id id.span
+
         | Binary b ->
             let l = this.TypeOfExpr scope b.left
             let r = this.TypeOfExpr scope b.right
 
             match b.op with
             | Arithmetic(LogicalAnd | LogicalOr) ->
-                currScope.constr.Add
-                    { expect = TPrim Bool
-                      actual = l
-                      span = b.left.span }
+                currScope.constr.Add(
+                    CNormal
+                        { expect = TPrim Bool
+                          actual = l
+                          span = b.left.span }
+                )
 
-                currScope.constr.Add
-                    { expect = TPrim Bool
-                      actual = r
-                      span = b.right.span }
+                currScope.constr.Add(
+                    CNormal
+                        { expect = TPrim Bool
+                          actual = r
+                          span = b.right.span }
+                )
 
                 TPrim Bool
             | Arithmetic _ ->
-                currScope.constr.Add
-                    { expect = TPrim(Int(true, I32))
-                      actual = l
-                      span = b.left.span }
+                currScope.constr.Add(
+                    CNormal
+                        { expect = TPrim(Int(true, I32))
+                          actual = l
+                          span = b.left.span }
+                )
 
-                currScope.constr.Add
-                    { expect = TPrim(Int(true, I32))
-                      actual = r
-                      span = b.right.span }
+                currScope.constr.Add(
+                    CNormal
+                        { expect = TPrim(Int(true, I32))
+                          actual = r
+                          span = b.right.span }
+                )
 
                 TPrim(Int(true, I32))
             | EqEq
@@ -512,37 +561,17 @@ type Context(moduleMap) =
             | Gt
             | LtEq
             | GtEq ->
-                currScope.constr.Add
-                    { expect = l
-                      actual = r
-                      span = b.span }
+                currScope.constr.Add(
+                    CNormal
+                        { expect = l
+                          actual = r
+                          span = b.span }
+                )
 
                 TPrim Bool
             | Pipe -> failwith "Not Implemented"
             | As -> failwith "Not Implemented"
 
-        | Id v ->
-            let rec resolve scope id =
-                let len = Array.length scope
-
-                if len = 0 then
-                    error.Add(Undefined id)
-                    TNever
-                else
-                    let curr = Array.last scope
-
-                    if curr.var.ContainsKey id.sym then
-                        let defId = curr.var[id.sym]
-
-                        let make () = curr.NewTVar None id.span
-
-                        match symbol.var[defId] with
-                        | TFn f -> TFn(f.Instantiate make)
-                        | t -> t
-                    else
-                        resolve scope[0 .. (len - 2)] id
-
-            resolve scope v
         | SelfExpr(_) -> failwith "Not Implemented"
         | LitExpr(l, _) ->
             match l with
@@ -568,10 +597,12 @@ type Context(moduleMap) =
             let then_ =
                 match i.cond with
                 | BoolCond b ->
-                    currScope.constr.Add
-                        { expect = TPrim Bool
-                          actual = this.TypeOfExpr scope b
-                          span = b.span }
+                    currScope.constr.Add(
+                        CNormal
+                            { expect = TPrim Bool
+                              actual = this.TypeOfExpr scope b
+                              span = b.span }
+                    )
 
                     this.InferBlock scope i.then_
                 | LetCond c -> processLetCond c i.then_
@@ -580,32 +611,40 @@ type Context(moduleMap) =
                 let elseif =
                     match br.cond with
                     | BoolCond b ->
-                        currScope.constr.Add
-                            { expect = TPrim Bool
-                              actual = this.TypeOfExpr scope b
-                              span = b.span }
+                        currScope.constr.Add(
+                            CNormal
+                                { expect = TPrim Bool
+                                  actual = this.TypeOfExpr scope b
+                                  span = b.span }
+                        )
 
                         this.InferBlock scope br.block
                     | LetCond c -> processLetCond c br.block
 
-                currScope.constr.Add
-                    { expect = then_
-                      actual = elseif
-                      span = i.span }
+                currScope.constr.Add(
+                    CNormal
+                        { expect = then_
+                          actual = elseif
+                          span = i.span }
+                )
 
             match i.else_ with
             | Some else_ ->
                 let else_ = this.InferBlock scope else_
 
-                currScope.constr.Add
-                    { expect = then_
-                      actual = else_
-                      span = i.span }
+                currScope.constr.Add(
+                    CNormal
+                        { expect = then_
+                          actual = else_
+                          span = i.span }
+                )
             | None ->
-                currScope.constr.Add
-                    { expect = then_
-                      actual = UnitType
-                      span = i.span }
+                currScope.constr.Add(
+                    CNormal
+                        { expect = then_
+                          actual = UnitType
+                          span = i.span }
+                )
 
             then_
         | Match m ->
@@ -619,10 +658,12 @@ type Context(moduleMap) =
 
                 match br.guard with
                 | Some g ->
-                    newScope.constr.Add
-                        { actual = this.TypeOfExpr scope g
-                          expect = TPrim Bool
-                          span = g.span }
+                    newScope.constr.Add(
+                        CNormal
+                            { actual = this.TypeOfExpr scope g
+                              expect = TPrim Bool
+                              span = g.span }
+                    )
                 | None -> ()
 
                 let brTy = this.TypeOfExpr scope br.expr
@@ -639,10 +680,12 @@ type Context(moduleMap) =
                 for br in m.branch[1..] do
                     let brTy = typeOfBranch br
 
-                    currScope.constr.Add
-                        { expect = first
-                          actual = brTy
-                          span = br.span }
+                    currScope.constr.Add(
+                        CNormal
+                            { expect = first
+                              actual = brTy
+                              span = br.span }
+                    )
 
                 first
 
@@ -653,39 +696,73 @@ type Context(moduleMap) =
             let arg = Array.map (this.TypeOfExpr scope) c.arg
             let ret = TVar(currScope.NewTVar None c.span)
 
-            currScope.constr.Add
-                { expect = TFn { param = arg; ret = ret; tvar = [||] }
-                  actual = callee
-                  span = c.span }
+            currScope.constr.Add(
+                CNormal
+                    { expect = TFn { param = arg; ret = ret; tvar = [||] }
+                      actual = callee
+                      span = c.span }
+            )
 
             ret
         | Unary u ->
             match u.op with
             | Not ->
-                currScope.constr.Add
-                    { expect = TPrim Bool
-                      actual = this.TypeOfExpr scope u.expr
-                      span = u.span }
+                currScope.constr.Add(
+                    CNormal
+                        { expect = TPrim Bool
+                          actual = this.TypeOfExpr scope u.expr
+                          span = u.span }
+                )
 
                 TPrim Bool
             | Neg ->
-                currScope.constr.Add
-                    { expect = TPrim(Int(true, I32))
-                      actual = this.TypeOfExpr scope u.expr
-                      span = u.span }
+                currScope.constr.Add(
+                    CNormal
+                        { expect = TPrim(Int(true, I32))
+                          actual = this.TypeOfExpr scope u.expr
+                          span = u.span }
+                )
 
                 TPrim(Int(true, I32))
             | Ref -> TRef(this.TypeOfExpr scope u.expr)
             | Deref ->
                 let ptr = TVar(currScope.NewTVar None u.expr.span)
 
-                currScope.constr.Add
-                    { expect = TRef ptr
-                      actual = this.TypeOfExpr scope u.expr
-                      span = u.span }
+                currScope.constr.Add(
+                    CNormal
+                        { expect = TRef ptr
+                          actual = this.TypeOfExpr scope u.expr
+                          span = u.span }
+                )
 
                 ptr
-        | Assign(_) -> failwith "Not Implemented"
+        | Assign a ->
+            let value = this.TypeOfExpr scope a.value
+
+            match a.place with
+            | Id i ->
+                let span = a.place.span
+                let var = this.ResolveVar scope i
+
+                match var with
+                | Some var ->
+                    if not var.mut then
+                        error.Add(AssignImmutable(var.id, span))
+
+                    let ty = this.ResolveVarTy currScope var.id span
+
+                    currScope.constr.Add(
+                        CNormal
+                            { expect = ty
+                              actual = value
+                              span = a.span }
+                    )
+
+                    ()
+                | None -> ()
+            | _ -> failwith "Not Implemented"
+
+            UnitType
         | Field f ->
             let key = f.prop.sym
 
@@ -716,10 +793,12 @@ type Context(moduleMap) =
 
             match stru with
             | Some s ->
-                currScope.constr.Add
-                    { expect = TStruct s.name
-                      actual = this.TypeOfExpr scope f.receiver
-                      span = f.span }
+                currScope.constr.Add(
+                    CNormal
+                        { expect = TStruct s.name
+                          actual = this.TypeOfExpr scope f.receiver
+                          span = f.span }
+                )
             | None -> ()
 
             field
@@ -744,10 +823,12 @@ type Context(moduleMap) =
                 | Some v -> this.TypeOfExpr scope v
                 | None -> UnitType
 
-            currScope.constr.Add
-                { expect = retTy
-                  actual = ty
-                  span = r.span }
+            currScope.constr.Add(
+                CNormal
+                    { expect = retTy
+                      actual = ty
+                      span = r.span }
+            )
 
             TNever
         | Range(_) -> failwith "Not Implemented"
@@ -798,10 +879,12 @@ type Context(moduleMap) =
 
         let ret = this.InferBlock newScope f.body
 
-        fnScope.constr.Add
-            { expect = fnTy.ret
-              actual = ret
-              span = f.name.span }
+        fnScope.constr.Add(
+            CNormal
+                { expect = fnTy.ret
+                  actual = ret
+                  span = f.name.span }
+        )
 
         this.Unify fnScope
 
@@ -812,66 +895,76 @@ type Context(moduleMap) =
 
     member internal this.Unify scope =
         let rec unify c =
-            let addMap v ty =
-                if tVarMap.ContainsKey v then
-                    let oldTy = tVarMap[v]
+            match c with
+            | CNormal c ->
+                let addMap v ty =
+                    if tVarMap.ContainsKey v then
+                        let oldTy = tVarMap[v]
 
-                    unify
-                        { expect = ty
-                          actual = oldTy
-                          span = c.span }
+                        unify (
+                            CNormal
+                                { expect = ty
+                                  actual = oldTy
+                                  span = c.span }
+                        )
 
-                    tVarMap[v] <- this.ResolveTy oldTy
-                else
-                    tVarMap[v] <- ty
+                        tVarMap[v] <- this.ResolveTy oldTy
+                    else
+                        tVarMap[v] <- ty
 
-            match c.expect, c.actual with
-            | p1, p2 when p1 = p2 -> ()
-            | TVar v1, TVar v2 ->
-                if v1.scope > v2.scope then
-                    addMap v1 (TVar v2)
-                else if v1.scope = v2.scope then
-                    if v1.id > v2.id then
+                match c.expect, c.actual with
+                | p1, p2 when p1 = p2 -> ()
+                | TVar v1, TVar v2 ->
+                    if v1.scope > v2.scope then
                         addMap v1 (TVar v2)
+                    else if v1.scope = v2.scope then
+                        if v1.id > v2.id then
+                            addMap v1 (TVar v2)
+                        else
+                            addMap v2 (TVar v1)
                     else
                         addMap v2 (TVar v1)
-                else
-                    addMap v2 (TVar v1)
-            | TVar v, ty
-            | ty, TVar v ->
-                let ty = this.ResolveTy ty
+                | TVar v, ty
+                | ty, TVar v ->
+                    let ty = this.ResolveTy ty
 
-                match ty.FindTVar |> Seq.tryFind ((=) v) with
-                | Some _ -> error.Add(FailToUnify(c.expect, c.actual, c.span))
-                | None -> addMap v ty
+                    match ty.FindTVar |> Seq.tryFind ((=) v) with
+                    | Some _ -> error.Add(FailToUnify(c.expect, c.actual, c.span))
+                    | None -> addMap v ty
 
-            | TFn f1, TFn f2 ->
-                if f1.param.Length <> f2.param.Length then
-                    error.Add(TypeMismatch(c.expect, c.actual, c.span))
-                else
-                    for (idx, p1) in (Array.indexed f1.param) do
-                        unify
-                            { expect = p1
-                              actual = f2.param[idx]
+                | TFn f1, TFn f2 ->
+                    if f1.param.Length <> f2.param.Length then
+                        error.Add(TypeMismatch(c.expect, c.actual, c.span))
+                    else
+                        for (idx, p1) in (Array.indexed f1.param) do
+                            unify (
+                                CNormal
+                                    { expect = p1
+                                      actual = f2.param[idx]
+                                      span = c.span }
+                            )
+
+                        unify (
+                            CNormal
+                                { expect = f1.ret
+                                  actual = f2.ret
+                                  span = c.span }
+                        )
+                | TRef r1, TRef r2 ->
+                    unify (
+                        CNormal
+                            { expect = r1
+                              actual = r2
                               span = c.span }
-
-                    unify
-                        { expect = f1.ret
-                          actual = f2.ret
-                          span = c.span }
-            | TRef r1, TRef r2 ->
-                unify
-                    { expect = r1
-                      actual = r2
-                      span = c.span }
-            | TNever, _
-            | _, TNever -> ()
-            | _, _ -> error.Add(TypeMismatch(c.expect, c.actual, c.span))
+                    )
+                | TNever, _
+                | _, TNever -> ()
+                | _, _ -> error.Add(TypeMismatch(c.expect, c.actual, c.span))
 
         for c in scope.constr do
             unify c
 
-        for id in scope.var.Values do
+        for { id = id } in scope.var.Values do
             symbol.var[id] <- this.ResolveTy symbol.var[id]
 
     member this.Infer m =

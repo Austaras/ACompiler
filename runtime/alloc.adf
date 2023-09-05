@@ -1,0 +1,49 @@
+#[compiler_builtin]
+pub fn size_of<T>() -> usize {}
+
+#[compiler_builtin]
+pub fn alloc<T>(len: usize) -> NonZeroUsize {}
+
+#[compiler_builtin]
+pub fn realloc<T>(ptr: NonZeroUsize, len: usize) -> NonZeroUsize {}
+
+pub struct Ptr<T> {
+    pub inner: NonZeroUSize
+}
+
+pub struct Span<T> {
+    pub ptr: NonZeroUsize
+    pub len: usize
+}
+
+pub struct RawArray<T> {
+    pub ptr: NonZeroUsize,
+    pub len: usize,
+    pub cap: usize
+}
+
+impl<T> RawArray<T> {
+    fn malloc(size: usize) -> Self<T> {
+        Self {
+            ptr: alloc::<T>(size),
+            len: 0,
+            cap
+        }
+    }
+
+    fn realloc(&self, size: usize) {
+        let new_ptr = realloc::<T>(self.ptr, size)
+
+        self.ptr = new_ptr
+
+        self.cap = cap
+
+        if self.len > cap {
+            self.len = cap
+        }
+    }
+}
+
+pub struct FixedArray<const LEN: NonZeroUsize> {
+    pub ptr: NonZeroUsize
+}
