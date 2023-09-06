@@ -4,8 +4,11 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Type/Library.fs" />
+    <Compile Include="Type/Infer.fs" />
+    <Compile Include="Capture.fs" />
+    <Compile Include="Escape.fs" />
     <Compile Include="Library.fs" />
-    <Compile Include="Infer.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\AST\AST.fsproj" />

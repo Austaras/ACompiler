@@ -1,4 +1,4 @@
-module Type.Tests.Infer
+module Semantic.Tests.Type
 
 open FSharp.Json
 open Snapper
@@ -6,21 +6,21 @@ open System.IO
 open Xunit
 
 open AST
-open Lexer
-open Parser
-open Type
-open Type.Infer
+open Parser.Lexer
+open Parser.Parser
+open Semantic.Type.Type
+open Semantic.Type.Infer
 
 let settings = SnapshotSettings.New().SnapshotFileName("Infer")
 
 let runInfer input name =
     let token =
-        match Lexer.lex 0 input with
+        match lex 0 input with
         | Ok tok -> tok
         | Error e -> failwithf "lex error %A" e
 
     let m =
-        match Parser.parse token with
+        match parse token with
         | Ok m -> m
         | Error(e, _) -> failwithf "parse error %A" e
 
@@ -30,7 +30,7 @@ let runInfer input name =
 
     Assert.Empty ctx.GetError
 
-    let reform (key: AST.Id, value: Type.Type) = key.sym, value.ToString
+    let reform (key: AST.Id, value: Type) = key.sym, value.ToString
 
     (ctx.GetSymbol.var
      |> Seq.map (|KeyValue|)

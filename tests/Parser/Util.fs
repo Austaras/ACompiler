@@ -1,7 +1,7 @@
 module Parser.Tests.Util
 
-open Lexer
-open Parser.Parser
+open Parser
+open Parser
 open Parser.Common
 
 open FSharp.Json

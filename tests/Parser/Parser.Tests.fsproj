@@ -5,6 +5,7 @@
     <GenerateProgramFile>false</GenerateProgramFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Lexer.fs" />
     <Compile Include="Util.fs" />
     <Compile Include="Stmt.fs" />
     <Compile Include="Expr.fs" />
@@ -30,6 +31,5 @@
   <ItemGroup>
     <ProjectReference Include="..\..\src\Parser\Parser.fsproj" />
     <ProjectReference Include="..\..\src\AST\AST.fsproj" />
-    <ProjectReference Include="..\..\src\Lexer\Lexer.fsproj" />
   </ItemGroup>
 </Project>

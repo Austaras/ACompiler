@@ -1,4 +1,4 @@
-module Type.Infer
+module Semantic.Type.Infer
 
 open System.Collections.Generic
 // TODO: module system
@@ -9,7 +9,7 @@ open System.Collections.Generic
 
 open AST
 open AST
-open Type
+open Semantic.Type.Type
 
 type Error =
     | Undefined of Id
@@ -19,7 +19,7 @@ type Error =
     | DuplicateField of Id
     | DuplicateVariant of Id
     | LoopInDefintion of Id * Id
-    | PrivateInPublic of Id * Id
+    | PrivatecInPublic of Id * Id
     | ExpectEnum of Id * Type
     | PayloadNumMismatch of Span * Enum
     | TypeMismatch of Type * Type * Span

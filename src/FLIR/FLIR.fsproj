@@ -9,6 +9,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\AST\AST.fsproj" />
-    <ProjectReference Include="..\Type\Type.fsproj" />
+    <ProjectReference Include="..\Semantic\Semantic.fsproj" />
   </ItemGroup>
 </Project>

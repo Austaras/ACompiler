@@ -1,5 +1,6 @@
-﻿// TODO: table driven lexer
-module Lexer.Lexer
+module Parser.Lexer
+
+// TODO: table driven lexer
 
 open System.Globalization
 open AST
@@ -144,7 +145,7 @@ let internal isIdContinue c =
        | UnicodeCategory.Format -> true
        | _ -> false
 
-type internal State =
+type private State =
     { i: int
       data: ResizeArray<Token>
       error: Error[] }

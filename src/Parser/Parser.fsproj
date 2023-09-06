@@ -4,6 +4,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Lexer.fs" />
     <Compile Include="Common.fs" />
     <Compile Include="Pat.fs" />
     <Compile Include="Type.fs" />
@@ -13,7 +14,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\AST\AST.fsproj" />
-    <ProjectReference Include="..\Lexer\Lexer.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">

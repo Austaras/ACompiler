@@ -1,7 +1,7 @@
 module Parser.Pat
 
 open AST.AST
-open Lexer.Lexer
+open Lexer
 open Parser.Common
 
 let rec internal parsePatInner (ctx: Context) input =

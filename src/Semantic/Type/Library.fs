@@ -1,4 +1,4 @@
-﻿module Type.Type
+module Semantic.Type.Type
 
 open System.Collections.Generic
 

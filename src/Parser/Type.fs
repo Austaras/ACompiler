@@ -1,7 +1,7 @@
 module Parser.Type
 
 open AST.AST
-open Lexer.Lexer
+open Lexer
 
 open Parser.Common
 open Parser.Pat

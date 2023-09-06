@@ -1,7 +1,7 @@
 module Parser.Common
 
 open AST.AST
-open Lexer.Lexer
+open Lexer
 
 type Error =
     | UnexpectedToken of Token * string
