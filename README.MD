@@ -25,7 +25,7 @@ Test out various compiler technology with a toy compiler for a toy language **in
    - hand written recursive descendant parser
    - HM type inference with trait
    - FLIR, which stands for First Low-level Intermediate Representation
-      - eliminates struct field, operator overloading and pattern
+      - eliminates ADT, operator overloading, closure and pattern
       - monotyped
       - basic block
 5. suffix is .adf which stands for Advanced Dominance Functional language

@@ -19,10 +19,6 @@
     "c": "i32",
     "foo": "|(i32, i32, i32)| -> bool"
   },
-  "Struct": {
-    "add": "|Point3D| -> i32",
-    "p": "Point3D"
-  },
   "Reference": {
     "a": "&i32",
     "deref": "|&i32| -> i32"
@@ -30,6 +26,19 @@
   "RefField": {
     "f": "Foo",
     "get_f": "|Foo| -> &usize"
+  },
+  "Struct": {
+    "add": "|Point3D| -> i32",
+    "p": "Point3D"
+  },
+  "AutoDeref": {
+    "f": "Foo",
+    "foo": "|Foo| -> &Foo"
+  },
+  "DerefParam": {
+    "f": "Foo",
+    "f_v": "|Foo| -> usize",
+    "foo": "|&Foo| -> usize"
   },
   "Fib": {
     "fib": "|i32| -> i32",

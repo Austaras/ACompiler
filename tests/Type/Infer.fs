@@ -80,21 +80,37 @@ let Reference () =
 let Struct () =
     runInferFromExample "function/struct.adf" "Struct"
 
-// runInfer
-//     "
-//     struct Foo {
-//         b: &Bar
-//     }
+    runInfer
+        "
+        struct Foo {
+            b: &Bar
+        }
 
-//     struct Bar {
-//         f: &Foo
-//     }
+        struct Bar {
+            f: &Foo
+        }
 
-//     fn foo(f) {
-//         f.b.f
-//     }
-// "
-//     "AutoDeref"
+        fn foo(f) {
+            f.b.f
+        }
+        "
+        "AutoDeref"
+
+    runInfer
+        "
+        struct Foo {
+            b: usize
+        }
+
+        fn foo(f: &Foo) {
+            f.b
+        }
+
+        fn f_v(f: Foo) {
+            foo(f)
+        }
+        "
+        "DerefParam"
 
 [<Fact>]
 let Return () =

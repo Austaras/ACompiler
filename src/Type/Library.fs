@@ -152,12 +152,12 @@ and Type =
         | TNever -> TNever
 
     member this.StripRef =
-        let rec stripRef ty n =
+        let rec stripRef ty =
             match ty with
-            | TRef t -> stripRef t (n + 1)
+            | TRef t -> stripRef t
             | _ -> ty
 
-        stripRef this 0
+        stripRef this
 
 let UnitType = Tuple [||]
 

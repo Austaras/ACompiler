@@ -11,6 +11,10 @@ pub struct Ptr<T> {
     pub inner: NonZeroUSize
 }
 
+pub struct WeakPtr<T> {
+    pub inner: NonZeroUSize
+}
+
 pub struct Span<T> {
     pub ptr: NonZeroUsize
     pub len: usize

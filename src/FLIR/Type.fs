@@ -1,27 +1,22 @@
 module FLIR.Type
 
-open AST
-
 type Integer =
+    | I1
     | I8
     | I32
     | I64
     | ISize
 
 type Primitive =
-    /// bool signs if it's signed
-    | Int of bool * Integer
-    | Bool
+    | Int of Integer
     | F32
     | F64
-    | Char
 
 type Function = { param: Type[]; ret: Type }
 
 and Type =
     | TPrim of Primitive
-    | TEnum of AST.Id
-    | Tuple of Type[]
+    | TMany of Type[]
     | TFn of Function
     | TRef of Type
     | TNever

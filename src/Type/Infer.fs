@@ -47,7 +47,9 @@ type internal NormalConstraint =
       actual: Type
       span: Span }
 
-type internal Constraint = CNormal of NormalConstraint
+type internal Constraint =
+    | CNormal of NormalConstraint
+    | CDeref of NormalConstraint
 
 type internal VarInfo = { mut: bool; id: Id }
 
@@ -441,22 +443,12 @@ type Context(moduleMap) =
                     | IdPat i -> Some(i.sym)
                     | _ -> None
 
-                let newTVar = currScope.NewTVar sym p.span
-
                 match p.ty with
-                | Some ty ->
-                    let ty = this.ProcessTy scope ty
+                | Some ty -> this.ProcessTy scope ty
+                | None ->
+                    let newTVar = currScope.NewTVar sym p.span
 
-                    currScope.constr.Add(
-                        CNormal
-                            { expect = ty
-                              actual = TVar newTVar
-                              span = p.span }
-                    )
-
-                | None -> ()
-
-                TVar newTVar
+                    TVar newTVar
 
             let param = Array.map paramTy f.param
 
@@ -697,7 +689,7 @@ type Context(moduleMap) =
             let ret = TVar(currScope.NewTVar None c.span)
 
             currScope.constr.Add(
-                CNormal
+                CDeref
                     { expect = TFn { param = arg; ret = ret; tvar = [||] }
                       actual = callee
                       span = c.span }
@@ -794,7 +786,7 @@ type Context(moduleMap) =
             match stru with
             | Some s ->
                 currScope.constr.Add(
-                    CNormal
+                    CDeref
                         { expect = TStruct s.name
                           actual = this.TypeOfExpr scope f.receiver
                           span = f.span }
@@ -894,75 +886,80 @@ type Context(moduleMap) =
             | _ -> failwith "Unreachable"
 
     member internal this.Unify scope =
-        let rec unify c =
-            match c with
-            | CNormal c ->
-                let addMap v ty =
-                    if tVarMap.ContainsKey v then
-                        let oldTy = tVarMap[v]
+        let rec unify_normal c may_deref =
+            let addMap v ty =
+                if tVarMap.ContainsKey v then
+                    let oldTy = tVarMap[v]
 
-                        unify (
-                            CNormal
-                                { expect = ty
-                                  actual = oldTy
-                                  span = c.span }
-                        )
+                    unify_normal
+                        { expect = ty
+                          actual = oldTy
+                          span = c.span }
+                        may_deref
 
-                        tVarMap[v] <- this.ResolveTy oldTy
-                    else
-                        tVarMap[v] <- ty
+                    tVarMap[v] <- this.ResolveTy oldTy
+                else
+                    tVarMap[v] <- ty
 
-                match c.expect, c.actual with
-                | p1, p2 when p1 = p2 -> ()
-                | TVar v1, TVar v2 ->
-                    if v1.scope > v2.scope then
+            match c.expect, c.actual with
+            | p1, p2 when p1 = p2 -> ()
+            | TVar v1, TVar v2 ->
+                if v1.scope > v2.scope then
+                    addMap v1 (TVar v2)
+                else if v1.scope = v2.scope then
+                    if v1.id > v2.id then
                         addMap v1 (TVar v2)
-                    else if v1.scope = v2.scope then
-                        if v1.id > v2.id then
-                            addMap v1 (TVar v2)
-                        else
-                            addMap v2 (TVar v1)
                     else
                         addMap v2 (TVar v1)
-                | TVar v, ty
-                | ty, TVar v ->
-                    let ty = this.ResolveTy ty
+                else
+                    addMap v2 (TVar v1)
+            | TVar v, ty
+            | ty, TVar v ->
+                let ty = this.ResolveTy ty
 
-                    match ty.FindTVar |> Seq.tryFind ((=) v) with
-                    | Some _ -> error.Add(FailToUnify(c.expect, c.actual, c.span))
-                    | None -> addMap v ty
+                match ty.FindTVar |> Seq.tryFind ((=) v) with
+                | Some _ -> error.Add(FailToUnify(c.expect, c.actual, c.span))
+                | None -> addMap v ty
 
-                | TFn f1, TFn f2 ->
-                    if f1.param.Length <> f2.param.Length then
-                        error.Add(TypeMismatch(c.expect, c.actual, c.span))
-                    else
-                        for (idx, p1) in (Array.indexed f1.param) do
-                            unify (
-                                CNormal
-                                    { expect = p1
-                                      actual = f2.param[idx]
-                                      span = c.span }
-                            )
-
-                        unify (
-                            CNormal
-                                { expect = f1.ret
-                                  actual = f2.ret
-                                  span = c.span }
-                        )
-                | TRef r1, TRef r2 ->
-                    unify (
-                        CNormal
-                            { expect = r1
-                              actual = r2
+            | TFn f1, TFn f2 ->
+                if f1.param.Length <> f2.param.Length then
+                    error.Add(TypeMismatch(c.expect, c.actual, c.span))
+                else
+                    for (p1, p2) in (Array.zip f1.param f2.param) do
+                        unify_normal
+                            { expect = p1
+                              actual = p2
                               span = c.span }
-                    )
-                | TNever, _
-                | _, TNever -> ()
-                | _, _ -> error.Add(TypeMismatch(c.expect, c.actual, c.span))
+                            may_deref
+
+                    unify_normal
+                        { expect = f1.ret
+                          actual = f2.ret
+                          span = c.span }
+                        false
+
+            | TRef r1, TRef r2 ->
+                unify_normal
+                    { expect = r1
+                      actual = r2
+                      span = c.span }
+                    false
+
+            | TRef r, t
+            | t, TRef r when may_deref ->
+                unify_normal
+                    { expect = r.StripRef
+                      actual = t
+                      span = c.span }
+                    false
+            | TNever, _
+            | _, TNever -> ()
+            | _, _ -> error.Add(TypeMismatch(c.expect, c.actual, c.span))
 
         for c in scope.constr do
-            unify c
+            match c with
+            | CNormal c -> unify_normal c false
+            | CDeref c -> unify_normal c true
 
         for { id = id } in scope.var.Values do
             symbol.var[id] <- this.ResolveTy symbol.var[id]
