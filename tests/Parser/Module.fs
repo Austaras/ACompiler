@@ -2,6 +2,7 @@ module Parser.Tests.Module
 
 open Parser.Lexer
 open Parser.Parser
+open Parser.Common
 
 open System.IO
 open Xunit
@@ -10,10 +11,10 @@ let parseModuleOk prefix path =
     let content = File.ReadAllText(__SOURCE_DIRECTORY__ + "/../../" + prefix + path)
 
     match lex 0 content with
-    | Error error -> Array.map Util.LexError error
+    | Error error -> Array.map LexerError error
     | Ok token ->
         match parse token with
-        | Error(error, _) -> Array.map Util.ParseError error
+        | Error(error, _) -> error
         | Ok _ -> [||]
 
 [<Fact>]
@@ -23,7 +24,6 @@ let Example () =
 
     Assert.Empty(parse "type/tree.adf")
 
-[<Fact>]
-let Std () =
     let parse = parseModuleOk "runtime/"
+
     Assert.Empty(parse "core/util.adf")

@@ -4,10 +4,10 @@
     "n": "i32"
   },
   "Enum": {
-    "e": "Either",
+    "e": "Either<i32,f64>",
     "f": "f64",
     "i": "i32",
-    "is_zero": "|Either| -> bool"
+    "is_zero": "|Either<i32,f64>| -> bool"
   },
   "Tuple": {
     "a": "i32",
@@ -15,13 +15,17 @@
     "c": "i32",
     "foo": "|(i32, i32, i32)| -> bool"
   },
+  "InferedType": {
+    "f": "Foo<usize>",
+    "foo": "|Foo<usize>| -> usize"
+  },
   "MutualRec": {
     "is_even": "|i32| -> bool",
     "is_odd": "|i32| -> bool",
     "n": "i32"
   },
   "Poly": {
-    "id": "|Tx| -> Tx",
+    "id": "<Tx>|Tx| -> Tx",
     "main": "|| -> ()",
     "x": "Tx"
   },
@@ -31,17 +35,17 @@
     "x": "i32"
   },
   "PolyDouble": {
-    "double": "||Tx| -> Tx, Tx| -> Tx",
+    "double": "<Tx>||Tx| -> Tx, Tx| -> Tx",
     "f": "|Tx| -> Tx",
     "x": "Tx"
   },
   "PolyRec": {
     "bar": "|i32| -> i32",
-    "foo": "|Tx| -> Tx",
+    "foo": "<Tx>|Tx| -> Tx",
     "x": "i32"
   },
   "WeirdRec": {
-    "weird_rec": "|i32| -> T11",
+    "weird_rec": "<T11>|i32| -> T11",
     "x": "i32"
   },
   "Reference": {
@@ -61,8 +65,7 @@
     "foo": "|Foo| -> &Foo"
   },
   "DerefParam": {
-    "f": "Foo",
-    "f_v": "|Foo| -> usize",
+    "f": "&Foo",
     "foo": "|&Foo| -> usize"
   },
   "Return": {
@@ -74,9 +77,14 @@
     "call": "||i32| -> i32| -> i32"
   },
   "Curry": {
-    "equal": "|Tx| -> |Tx| -> bool",
+    "equal": "<Tx>|Tx| -> |Tx| -> bool",
     "equal1": "|Tx| -> bool",
     "x": "Tx",
     "y": "Tx"
+  },
+  "MonoClosure": {
+    "id": "|i32| -> i32",
+    "main": "|| -> ()",
+    "x": "Tx"
   }
 }

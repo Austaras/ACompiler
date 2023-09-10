@@ -1,16 +1,11 @@
 module Parser.Tests.Util
 
 open Parser
-open Parser
 open Parser.Common
 
 open FSharp.Json
 
-type ErrorData =
-    | ParseError of Error
-    | LexError of Lexer.Error
-
-exception CustomError of ErrorData[]
+exception CustomError of Error[]
 
 let internal makeTest t =
     let test input =
@@ -18,7 +13,7 @@ let internal makeTest t =
         | Ok token ->
             match t Context.Normal token with
             | Ok ast -> Json.serialize ast.data
-            | Error e -> raise (CustomError(Array.map ParseError e))
-        | Error e -> raise (CustomError(Array.map LexError e))
+            | Error e -> raise (CustomError e)
+        | Error e -> raise (CustomError(Array.map LexerError e))
 
     test

@@ -23,6 +23,7 @@ Test out various compiler technology with a toy compiler for a toy language **in
    - but also mutable std lib and for loop with control keyword
 4. Compiler Architecture
    - hand written recursive descendant parser
+   - plain ADT for AST
    - HM type inference with trait
    - FLIR, which stands for First Low-level Intermediate Representation
       - eliminates ADT, operator overloading, closure and pattern

@@ -62,6 +62,16 @@ let Closure () =
     "
         "Curry"
 
+    runInfer
+        "
+    fn main() {
+        let id = |x| x
+
+        let _ = id(1)
+    }
+    "
+        "MonoClosure"
+
 [<Fact>]
 let Reference () =
     runInfer "fn deref(a) { *a + 1 }" "Reference"
@@ -77,7 +87,7 @@ let Reference () =
         "RefField"
 
 [<Fact>]
-let Struct () =
+let ADT () =
     runInferFromExample "function/struct.adf" "Struct"
 
     runInfer
@@ -105,12 +115,28 @@ let Struct () =
         fn foo(f: &Foo) {
             f.b
         }
-
-        fn f_v(f: Foo) {
-            foo(f)
-        }
         "
         "DerefParam"
+
+    runInfer
+        "
+        fn foo((a, b, c)) {
+            a == 1 && b == 2 && c == 3
+        }
+    "
+        "Tuple"
+
+    runInfer
+        "
+    struct Foo<T> {
+        f: T
+    }
+    
+    fn foo(f: Foo<_>) -> usize {
+        f.f
+    }
+    "
+        "InferedType"
 
 [<Fact>]
 let Return () =
@@ -166,24 +192,14 @@ let Poly () =
     runInfer "fn weird_rec(x) { weird_rec(1) }" "WeirdRec"
 
 [<Fact>]
-let Tuple () =
-    runInfer
-        "
-        fn foo((a, b, c)) {
-            a == 1 && b == 2 && c == 3
-        }
-    "
-        "Tuple"
-
-[<Fact>]
 let Match () =
     runInferFromExample "function/fib.adf" "Fib"
 
     runInfer
         "
-        enum Either {
-            L(i32),
-            R(f64)
+        enum Either<L, R> {
+            L(L),
+            R(R)
         }
 
         fn is_zero(e) {

@@ -4,8 +4,6 @@ open System.Collections.Generic
 // TODO: module system
 // TODO: trait and type alias
 // TODO: operator overloading
-// TODO: pattern match
-// TODO: closure
 
 open AST
 open AST
@@ -21,10 +19,10 @@ type Error =
     | LoopInDefintion of Id * Id
     | PrivatecInPublic of Id * Id
     | ExpectEnum of Id * Type
-    | PayloadNumMismatch of Span * Enum
+    | PayloadMismatch of Span * Enum
     | TypeMismatch of Type * Type * Span
+    | GenericMismatch of Type * Type[] * Span
     | FailToUnify of Type * Type * Span
-    | ArgumentCountMismatch of int * int * Span
     | CalleeNotCallable of Type * Span
     | AssignImmutable of Id * Span
     | RefutablePat of Span
@@ -128,6 +126,7 @@ type Context(moduleMap) =
             let len = e.Length
 
             if len = 0 then
+                error.Add(Undefined id)
                 TNever
             else
                 let last = e[len - 1]
@@ -142,13 +141,32 @@ type Context(moduleMap) =
         match ty with
         | NeverType _ -> TNever
         | TypeId i -> resolve scope i
+        | PathType p ->
+            if p.prefix <> None || p.seg.Length > 1 then
+                failwith "Not Implemented"
+
+            let id, ty = p.seg[0]
+
+            let instType = Array.map (this.ProcessTy scope) ty
+
+            let container = resolve scope id
+
+            match container with
+            | TStruct(id, gen) when gen.Length = instType.Length -> TStruct(id, instType)
+            | TEnum(id, gen) when gen.Length = instType.Length -> TEnum(id, instType)
+            | _ ->
+                error.Add(GenericMismatch(container, instType, p.span))
+
+                TNever
         | TupleType t -> Tuple(Array.map (this.ProcessTy scope) t.element)
         | RefType r -> TRef(this.ProcessTy scope r.ty)
+        | InferedType span ->
+            let newTVar = (Array.last scope).NewTVar None span
+
+            TVar newTVar
         | LitType _ -> failwith "Not Implemented"
         | ArrayType _ -> failwith "Not Implemented"
-        | InferedType _ -> failwith "Not Implemented"
         | FnType _ -> failwith "Not Implemented"
-        | PathType _ -> failwith "Not Implemented"
 
     member internal this.ProcessDeclPat scope pat ty mut =
         match pat with
@@ -278,27 +296,33 @@ type Context(moduleMap) =
 
             let enumTy = findEnum scope
 
-            currScope.constr.Add(
-                CNormal
-                    { expect = enumTy
-                      actual = ty
-                      span = e.span }
-            )
-
             match enumTy with
-            | TEnum enum ->
+            | TEnum(enum, v) ->
                 let enumData = symbol.enum[enum]
+                let inst = Array.map (fun _ -> TVar(currScope.NewTVar None e.span)) v
 
                 if enumData.variant.ContainsKey variant.sym then
                     let payload = enumData.variant[variant.sym]
 
                     if payload.Length <> e.content.Length then
-                        error.Add(PayloadNumMismatch(e.span, enumData))
+                        error.Add(PayloadMismatch(e.span, enumData))
 
-                    for idx, c in e.content |> Array.indexed do
-                        let payload = if idx < payload.Length then payload[idx] else TNever
+                    for idx, c in Array.indexed e.content do
+                        let payload =
+                            if idx < payload.Length then
+                                payload[idx].Instantiate enumData.tvar inst
+                            else
+                                TNever
 
                         this.ProcessCondPat scope c payload
+
+
+                    currScope.constr.Add(
+                        CNormal
+                            { expect = TEnum(enum, inst)
+                              actual = ty
+                              span = e.span }
+                    )
                 else
                     error.Add(UndefinedVariant(enumId, variant))
 
@@ -326,7 +350,7 @@ type Context(moduleMap) =
 
         ty.Walk onvar
 
-    member internal this.ResolveVar scope id =
+    member internal _.ResolveVar scope id =
         let rec resolve scope id =
             let len = Array.length scope
 
@@ -343,17 +367,24 @@ type Context(moduleMap) =
 
         resolve scope id
 
-    member internal this.ResolveVarTy (scope: Scope) (id: Id) span =
-        let make () = scope.NewTVar None span
-
+    member internal _.ResolveVarTy (scope: Scope) (id: Id) span =
         match symbol.var[id] with
-        | TFn f -> TFn(f.Instantiate make)
+        | TFn f ->
+            let newTVar = Array.map (fun _ -> scope.NewTVar None span) f.tvar
+            TFn(f.Instantiate newTVar)
         | t -> t
 
     member internal this.ProcessHoistedDecl (scope: Scope[]) (decl: seq<Decl>) =
         let currScope = Array.last scope
 
         for d in decl do
+            let dummyTVar _ =
+                TVar
+                    { scope = 0
+                      id = 0
+                      sym = None
+                      span = Span.dummy }
+
             match d with
             | Let _
             | Const _ -> ()
@@ -367,21 +398,23 @@ type Context(moduleMap) =
                     error.Add(DuplicateDefinition s.name)
 
                 currScope.AddTy s.name
-                symbol.ty.Add(s.name, (TStruct s.name))
+                let tvar = Array.map dummyTVar s.tyParam
+                symbol.ty.Add(s.name, TStruct(s.name, tvar))
             | EnumDecl e ->
                 if currScope.ty.ContainsKey e.name.sym then
                     error.Add(DuplicateDefinition e.name)
 
                 currScope.AddTy e.name
-                symbol.ty.Add(e.name, (TEnum e.name))
+                let tvar = Array.map dummyTVar e.tyParam
+                symbol.ty.Add(e.name, TEnum(e.name, tvar))
             | TypeDecl t ->
                 if currScope.ty.ContainsKey t.name.sym then
                     error.Add(DuplicateDefinition t.name)
 
                 currScope.AddTy t.name
-            | Use(_) -> failwith "Not Implemented"
-            | Trait(_) -> failwith "Not Implemented"
-            | Impl(_) -> failwith "Not Implemented"
+            | Use _ -> failwith "Not Implemented"
+            | Trait _ -> failwith "Not Implemented"
+            | Impl _ -> failwith "Not Implemented"
 
         let fn = ResizeArray()
 
@@ -391,8 +424,21 @@ type Context(moduleMap) =
             | Const _ -> ()
             | FnDecl f -> fn.Add f
             | StructDecl s ->
-                if s.tyParam.Length > 0 then
-                    failwith "Not Implemented"
+                let scope, tvar =
+                    if s.tyParam.Length > 0 then
+                        let newScope = this.NewScope None
+
+                        let processParam (param: TypeParam) =
+                            let newTVar = newScope.NewTVar None param.id.span
+
+                            symbol.ty.Add(param.id, TVar newTVar)
+                            newScope.ty.Add(param.id.sym, param.id)
+
+                            newTVar
+
+                        Array.append scope [| newScope |], Array.map processParam s.tyParam
+                    else
+                        scope, [||]
 
                 let processField m (field: StructFieldDef) =
                     let name = field.name.sym
@@ -404,14 +450,29 @@ type Context(moduleMap) =
 
                 let field = Array.fold processField Map.empty s.field
 
-                let stru = { name = s.name; field = field }
+                let stru =
+                    { name = s.name
+                      field = field
+                      tvar = tvar }
 
-                symbol.ty[s.name] <- TStruct s.name
                 symbol.stru[s.name] <- stru
 
             | EnumDecl e ->
-                if e.tyParam.Length > 0 then
-                    failwith "Not Implemented"
+                let scope, tvar =
+                    if e.tyParam.Length > 0 then
+                        let newScope = this.NewScope None
+
+                        let processParam (param: TypeParam) =
+                            let newTVar = newScope.NewTVar None param.id.span
+
+                            symbol.ty.Add(param.id, TVar newTVar)
+                            newScope.ty.Add(param.id.sym, param.id)
+
+                            newTVar
+
+                        Array.append scope [| newScope |], Array.map processParam e.tyParam
+                    else
+                        scope, [||]
 
                 let processVariant m (variant: EnumVariantDef) =
                     let name = variant.name.sym
@@ -425,9 +486,11 @@ type Context(moduleMap) =
 
                 let variant = Array.fold processVariant Map.empty e.variant
 
-                let enum = { name = e.name; variant = variant }
+                let enum =
+                    { name = e.name
+                      variant = variant
+                      tvar = tvar }
 
-                symbol.ty[e.name] <- TEnum e.name
                 symbol.enum[e.name] <- enum
 
             | TypeDecl t -> symbol.ty[t.name] <- this.ProcessTy scope t.ty
@@ -438,31 +501,24 @@ type Context(moduleMap) =
 
         for f in fn do
             let paramTy (p: Param) =
-                let sym =
-                    match p.pat with
-                    | IdPat i -> Some(i.sym)
-                    | _ -> None
-
                 match p.ty with
                 | Some ty -> this.ProcessTy scope ty
                 | None ->
+                    let sym =
+                        match p.pat with
+                        | IdPat i -> Some(i.sym)
+                        | _ -> None
+
                     let newTVar = currScope.NewTVar sym p.span
 
                     TVar newTVar
 
             let param = Array.map paramTy f.param
 
-            let ret = TVar(currScope.NewTVar None f.span)
-
-            match f.retTy with
-            | Some ty ->
-                currScope.constr.Add(
-                    CNormal
-                        { expect = this.ProcessTy scope ty
-                          actual = ret
-                          span = f.name.span }
-                )
-            | None -> ()
+            let ret =
+                match f.retTy with
+                | Some ty -> this.ProcessTy scope ty
+                | None -> TVar(currScope.NewTVar None f.span)
 
             symbol.var[f.name] <-
                 TFn
@@ -689,7 +745,7 @@ type Context(moduleMap) =
             let ret = TVar(currScope.NewTVar None c.span)
 
             currScope.constr.Add(
-                CDeref
+                CNormal
                     { expect = TFn { param = arg; ret = ret; tvar = [||] }
                       actual = callee
                       span = c.span }
@@ -756,51 +812,108 @@ type Context(moduleMap) =
 
             UnitType
         | Field f ->
+            let receiver = this.TypeOfExpr scope f.receiver
             let key = f.prop.sym
 
-            let rec findStruct scope =
-                let last = Array.last scope
-                let tySeq = last.ty |> Seq.map (|KeyValue|) |> Seq.rev
+            match receiver with
+            | TStruct(i, inst) ->
+                let stru = symbol.stru[i]
 
-                let find (_, ty) =
-                    if symbol.stru.ContainsKey ty then
-                        let stru = symbol.stru[ty]
-
-                        match Map.tryFind key stru.field with
-                        | Some t -> Some(t, Some(stru))
-                        | None -> None
-                    else
-                        None
-
-                match Seq.tryPick find tySeq with
-                | Some s -> s
+                match Map.tryFind key stru.field with
+                | Some f -> f.Instantiate stru.tvar inst
                 | None ->
-                    if scope.Length > 1 then
-                        findStruct scope[.. scope.Length - 2]
-                    else
-                        error.Add(UndefinedField(f.span, key))
-                        TNever, None
+                    error.Add(UndefinedField(f.span, key))
 
-            let field, stru = findStruct scope
+                    TNever
+            | _ ->
+                let rec findStruct scope =
+                    let last = Array.last scope
+                    let tySeq = last.ty |> Seq.map (|KeyValue|) |> Seq.rev
 
-            match stru with
-            | Some s ->
-                currScope.constr.Add(
-                    CDeref
-                        { expect = TStruct s.name
-                          actual = this.TypeOfExpr scope f.receiver
-                          span = f.span }
-                )
-            | None -> ()
+                    let find (_, ty) =
+                        if symbol.stru.ContainsKey ty then
+                            let stru = symbol.stru[ty]
 
-            field
+                            match Map.tryFind key stru.field with
+                            | Some t -> Some(t, Some(stru))
+                            | None -> None
+                        else
+                            None
+
+                    match Seq.tryPick find tySeq with
+                    | Some s -> s
+                    | None ->
+                        if scope.Length > 1 then
+                            findStruct scope[.. scope.Length - 2]
+                        else
+                            error.Add(UndefinedField(f.span, key))
+                            TNever, None
+
+                let field, stru = findStruct scope
+
+                match stru with
+                | Some s ->
+                    currScope.constr.Add(
+                        CDeref
+                            { expect = TStruct(s.name, Array.map (fun _ -> TVar(currScope.NewTVar None f.span)) s.tvar)
+                              actual = receiver
+                              span = f.span }
+                    )
+                | None -> ()
+
+                field
 
         | Index(_) -> failwith "Not Implemented"
         | Array(_) -> failwith "Not Implemented"
         | ArrayRepeat(_) -> failwith "Not Implemented"
         | StructLit(_) -> failwith "Not Implemented"
         | AST.Tuple s -> Array.map (this.TypeOfExpr scope) s.element |> Tuple
-        | Closure(_) -> failwith "Not Implemented"
+        | Closure c ->
+            let paramTy (p: Param) =
+                match p.ty with
+                | Some ty -> this.ProcessTy scope ty
+                | None ->
+                    let sym =
+                        match p.pat with
+                        | IdPat i -> Some(i.sym)
+                        | _ -> None
+
+                    let newTVar = currScope.NewTVar sym p.span
+
+                    TVar newTVar
+
+            let paramTy = Array.map paramTy c.param
+
+            let retTy =
+                match c.ret with
+                | Some ty -> this.ProcessTy scope ty
+                | None -> TVar(currScope.NewTVar None c.span)
+
+            let closureScope = this.NewScope(Some retTy)
+
+            for (param, ty) in Array.zip c.param paramTy do
+                this.ProcessDeclPat closureScope param.pat ty true
+
+            let newScope = Array.append scope [| closureScope |]
+
+            let ret = this.TypeOfExpr newScope c.body
+
+            closureScope.constr.Add(
+                CNormal
+                    { expect = retTy
+                      actual = ret
+                      span = c.span }
+            )
+
+            this.Unify closureScope
+
+            let resolve ty = this.ResolveTy ty
+
+            TFn
+                { param = Array.map resolve paramTy
+                  ret = resolve retTy
+                  tvar = [||] }
+
         | Path(_) -> failwith "Not Implemented"
         | Break _ -> TNever
         | Continue _ -> TNever
@@ -864,8 +977,8 @@ type Context(moduleMap) =
 
         let fnScope = this.NewScope(Some fnTy.ret)
 
-        for (idx, p) in f.param |> Array.indexed do
-            this.ProcessDeclPat fnScope p.pat fnTy.param[idx] true
+        for (param, ty) in Array.zip f.param fnTy.param do
+            this.ProcessDeclPat fnScope param.pat ty true
 
         let newScope = Array.append scope [| fnScope |]
 
@@ -954,6 +1067,14 @@ type Context(moduleMap) =
                     false
             | TNever, _
             | _, TNever -> ()
+            | TStruct(id1, v1), TStruct(id2, v2)
+            | TEnum(id1, v1), TEnum(id2, v2) when id1 = id2 ->
+                for (v1, v2) in Array.zip v1 v2 do
+                    unify_normal
+                        { expect = v1
+                          actual = v2
+                          span = c.span }
+                        false
             | _, _ -> error.Add(TypeMismatch(c.expect, c.actual, c.span))
 
         for c in scope.constr do

@@ -142,23 +142,7 @@ let rec internal parsePatInner (ctx: Context) input =
 
         match parsePath state with
         | Error e -> Error e
-        | Ok s ->
-            let path = s.data
-
-            let error =
-                if path.prefix = None && path.seg.Length = 1 then
-                    s.error
-                else
-                    let isCatchAll id = id.sym = "_"
-                    let toError (id: Id) = InvalidCatchAll id.span
-
-                    Array.append s.error (Array.filter isCatchAll path.seg |> Array.map toError)
-
-            let state =
-                { data = path
-                  error = error
-                  rest = s.rest }
-
+        | Ok state ->
             match peek state.rest with
             | Some({ data = Paren Open }, i) ->
                 let content =
@@ -177,18 +161,10 @@ let rec internal parsePatInner (ctx: Context) input =
                           rest = content.rest }
                 | Error e -> Error e
 
-            | Some({ data = Curly Open }, i) ->
-                parseStruct
-                    { data = path
-                      error = state.error
-                      rest = state.rest[i..] }
+            | Some({ data = Curly Open }, i) -> parseStruct { state with rest = state.rest[i..] }
 
             | _ ->
-                let data =
-                    if state.data.seg[0].sym = "_" then
-                        CatchAllPat state.data.seg[0].span
-                    else
-                        IdPat state.data.seg[0]
+                let data = IdPat state.data.seg[0]
 
                 Ok
                     { data = data
@@ -197,11 +173,9 @@ let rec internal parsePatInner (ctx: Context) input =
 
     and parsePrefix input =
         match peek input with
-        | Some({ data = Reserved(LOWSELF)
-                 span = span },
-               i) ->
+        | Some({ data = Underline; span = span }, i) ->
             Ok
-                { data = SelfPat span
+                { data = CatchAllPat span
                   error = [||]
                   rest = input[i..] }
 

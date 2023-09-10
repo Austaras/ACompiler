@@ -5,17 +5,17 @@ type Integer =
     | I8
     | I32
     | I64
-    | ISize
 
-type Primitive =
-    | Int of Integer
+type Float =
     | F32
     | F64
 
 type Function = { param: Type[]; ret: Type }
 
 and Type =
-    | TPrim of Primitive
+    | TVoid
+    | TInt of Integer
+    | TFloat of Float
     | TMany of Type[]
     | TFn of Function
     | TRef of Type

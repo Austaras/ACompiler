@@ -68,6 +68,7 @@ type TokenData =
     | Identifier of string
     | Reserved of Reserved
     | Comment of CommentKind * string
+    | Underline
 
 type Token =
     { data: TokenData
@@ -119,6 +120,7 @@ let internal parseIdentifier input =
     | "false" -> Lit(AST.Bool false)
     | "NaN" -> Lit(AST.Float nan)
     | "Infinity" -> Lit(AST.Float infinity)
+    | "_" -> Underline
     | str -> Identifier str
 
 let internal unescapeStr = System.Text.RegularExpressions.Regex.Unescape

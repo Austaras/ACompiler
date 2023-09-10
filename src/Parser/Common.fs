@@ -27,8 +27,8 @@ type Error =
     | TopLevelExpr of Span
     | NeedDelimiter of Span
     | ConstPat of Span
-    | InvalidCatchAll of Span
     | PubTypeAnnotation of Span
+    | LexerError of Lexer.Error
 
 type internal Context =
     { inLoop: bool

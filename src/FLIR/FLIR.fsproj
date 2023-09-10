@@ -8,6 +8,7 @@
     <Compile Include="Library.fs" />
   </ItemGroup>
   <ItemGroup>
+    <ProjectReference Include="..\Config\Config.fsproj" />
     <ProjectReference Include="..\AST\AST.fsproj" />
     <ProjectReference Include="..\Semantic\Semantic.fsproj" />
   </ItemGroup>

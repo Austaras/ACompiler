@@ -237,7 +237,41 @@ and Pat =
         | SelfPat s -> s
         | RefSelfPat s -> s
 
-    member this.ExtractId = [||]
+    member this.ExtractId =
+        seq {
+            match this with
+            | IdPat i -> yield i
+            | TuplePat t ->
+                for pat in t.element do
+                    yield! pat.ExtractId
+            | ArrayPat a ->
+                for pat in a.element do
+                    yield! pat.ExtractId
+            | OrPat o ->
+                for pat in o.pat do
+                    yield! pat.ExtractId
+            | EnumPat e ->
+                for pat in e.content do
+                    yield! pat.ExtractId
+            | AsPat a ->
+                yield a.id
+                yield! a.pat.ExtractId
+            | RangePat r ->
+                match r.from with
+                | Some f -> yield! f.ExtractId
+                | None -> ()
+
+                match r.from with
+                | Some f -> yield! f.ExtractId
+                | None -> ()
+            | StructPat _ -> failwith "Not Implemented"
+            | PathPat _ -> failwith "Not Implemented"
+            | LitPat _
+            | SelfPat _
+            | RefSelfPat _
+            | CatchAllPat _
+            | RestPat _ -> ()
+        }
 
 type Param =
     { pat: Pat
@@ -339,8 +373,7 @@ and While = { cond: Cond; body: Block; span: Span }
 and TryReturn = { base_: Expr; span: Span }
 
 and Closure =
-    { typeParam: TypeParam[]
-      param: Param[]
+    { param: Param[]
       ret: Option<Type>
       body: Expr
       span: Span }

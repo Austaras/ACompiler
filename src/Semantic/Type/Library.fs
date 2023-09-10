@@ -4,8 +4,6 @@ open System.Collections.Generic
 
 open AST
 
-// TODO: generic struct and enum
-
 type Integer =
     | I8
     | I32
@@ -36,21 +34,22 @@ type Primitive =
         | Char -> "char"
 
 type Function =
-    { tvar: Var[]
+    {
+      // type variables waiting to be instantiated
+      tvar: Var[]
       param: Type[]
       ret: Type }
 
     member this.Generalize scopeId =
         let ofScope (v: Var) = v.scope = scopeId
 
-        let tvar = (TFn this).FindTVar |> Seq.filter ofScope |> Array.ofSeq
+        let tvar =
+            (TFn this).FindTVar |> Seq.filter ofScope |> Array.ofSeq |> Array.distinct
 
         { this with tvar = tvar }
 
-    member this.Instantiate(makeTVar: unit -> Var) =
-        let mapTVar tvar = tvar, makeTVar ()
-
-        let map = this.tvar |> Array.map mapTVar |> Map.ofArray
+    member this.Instantiate ty =
+        let map = Array.zip this.tvar ty |> Map.ofArray
 
         let getMap t =
             match Map.tryFind t map with
@@ -63,17 +62,25 @@ type Function =
 
 and Struct =
     { name: AST.Id
-      field: Map<string, Type> }
+      field: Map<string, Type>
+      tvar: Var[] }
 
 and Enum =
     { name: AST.Id
-      variant: Map<string, Type[]> }
+      variant: Map<string, Type[]>
+      tvar: Var[] }
 
 and Var =
     { scope: int
       id: int
       span: AST.Span
       sym: Option<string> }
+
+    member this.ToString =
+        "T"
+        + match this.sym with
+          | Some s -> s
+          | None -> $"{this.scope}{this.id}"
 
 and Symbol =
     { var: Dictionary<AST.Id, Type>
@@ -83,8 +90,9 @@ and Symbol =
 
 and Type =
     | TPrim of Primitive
-    | TStruct of AST.Id
-    | TEnum of AST.Id
+    /// named type can refer each other
+    | TStruct of AST.Id * Type[]
+    | TEnum of AST.Id * Type[]
     | Tuple of Type[]
     | TFn of Function
     | TRef of Type
@@ -96,9 +104,10 @@ and Type =
             match this with
             | TPrim _ -> ()
             | TVar v -> yield v
-            | TStruct s -> ()
-            // s.field |> Map.values |> Seq.map find |> Array.concat
-            | TEnum e -> ()
+            | TStruct(_, v)
+            | TEnum(_, v) ->
+                for v in v do
+                    yield! v.FindTVar
             | Tuple t ->
                 for t in t do
                     yield! t.FindTVar
@@ -116,8 +125,14 @@ and Type =
 
         match this with
         | TPrim p -> p.str
-        | TStruct s -> s.sym
-        | TEnum e -> e.sym
+        | TStruct(t, v)
+        | TEnum(t, v) ->
+            if v.Length = 0 then
+                t.sym
+            else
+                let tvar = Array.map toString v
+                let tvar = String.concat "," tvar
+                $"{t.sym}<{tvar}>"
         | Tuple t ->
             let element = t |> Array.map toString |> String.concat ", "
 
@@ -125,13 +140,16 @@ and Type =
         | TFn f ->
             let param = f.param |> Array.map toString |> String.concat ", "
 
-            $"|{param}| -> {f.ret.ToString}"
+            let fstr = $"|{param}| -> {f.ret.ToString}"
+
+            if f.tvar.Length = 0 then
+                fstr
+            else
+                let tvar = Array.map (fun (v: Var) -> v.ToString) f.tvar
+                let tvar = String.concat "," tvar
+                $"<{tvar}>{fstr}"
         | TRef r -> $"&{r.ToString}"
-        | TVar v ->
-            "T"
-            + match v.sym with
-              | Some s -> s
-              | None -> $"{v.scope}{v.id}"
+        | TVar v -> v.ToString
         | TNever -> "!"
 
     member this.Walk onVar =
@@ -139,8 +157,8 @@ and Type =
 
         match this with
         | TPrim p -> TPrim p
-        | TStruct s -> TStruct s
-        | TEnum e -> TEnum e
+        | TStruct(s, v) -> TStruct(s, Array.map walk v)
+        | TEnum(e, v) -> TEnum(e, Array.map walk v)
         | Tuple t -> Array.map walk t |> Tuple
         | TFn f ->
             let param = Array.map walk f.param
@@ -150,6 +168,16 @@ and Type =
         | TRef r -> TRef(r.Walk onVar)
         | TVar v -> onVar v
         | TNever -> TNever
+
+    member this.Instantiate tvar inst =
+        let map = Array.zip tvar inst |> Map.ofArray
+
+        let getMap t =
+            match Map.tryFind t map with
+            | None -> TVar t
+            | Some t -> t
+
+        this.Walk getMap
 
     member this.StripRef =
         let rec stripRef ty =

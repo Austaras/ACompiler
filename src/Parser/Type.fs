@@ -145,6 +145,11 @@ and internal parseType ctx input =
         | Error e -> Error e
 
     match peek input with
+    | Some({ data = Underline; span = span }, i) ->
+        Ok
+            { data = InferedType span
+              error = [||]
+              rest = input[i..] }
     | Some({ data = Reserved(PACKAGE | SELF | LOWSELF as kw)
              span = span },
            i) ->

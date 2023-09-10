@@ -83,8 +83,7 @@ let Path () =
 
 [<Fact>]
 let Closure () =
-    (parseTest "(|x| x * 2) >> <T>|x: T| -> Option<T> Some(x)")
-        .ShouldMatchChildSnapshot("Compose")
+    (parseTest "(|x| x * 2) >> |x| Some(x)").ShouldMatchChildSnapshot("Compose")
 
     (parseTest "|x| |y| x + y").ShouldMatchChildSnapshot("Curry")
 

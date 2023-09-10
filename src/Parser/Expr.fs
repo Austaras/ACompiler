@@ -122,11 +122,7 @@ and internal parsePath (ctx: Context) (state: State<Path>) =
 
             let curr = state.rest[i..]
 
-            let error =
-                if sym = "_" then
-                    Array.append state.error [| InvalidCatchAll span |]
-                else
-                    state.error
+            let error = state.error
 
             match peek curr with
             | Some({ data = ColonColon }, i) ->
@@ -219,7 +215,7 @@ and internal rangeParser ctx input =
     | Some({ data = data }, _) when canStartExpr data -> Some(parseWithPrec -1 ctx input)
     | Some(_, _) -> None
 
-and internal parseClosure ctx typeParam (input: Token[]) =
+and internal parseClosure ctx (input: Token[]) =
     let op = input[0]
     let first = op.span.first
 
@@ -265,8 +261,7 @@ and internal parseClosure ctx typeParam (input: Token[]) =
             | Error e -> ret.MergeFatalError e
             | Ok(body: State<Expr>) ->
                 let closure =
-                    { typeParam = typeParam
-                      param = param.data
+                    { param = param.data
                       ret = ret.data
                       body = body.data
                       span = Span.Make first body.data.span.last }
@@ -378,6 +373,11 @@ and internal parsePrefix ctx input =
     | Some({ data = Lit l; span = span }, i) ->
         Ok
             { data = LitExpr(l, span)
+              error = [||]
+              rest = input[i..] }
+    | Some({ data = Underline; span = span }, i) ->
+        Ok
+            { data = Id { sym = "_"; span = span }
               error = [||]
               rest = input[i..] }
     | Some({ data = Reserved(PACKAGE | LOWSELF | SELF as kw)
@@ -534,24 +534,7 @@ and internal parsePrefix ctx input =
                   error = b.error
                   rest = b.rest }
 
-    | Some({ data = Operator(Lt | Arithmetic Shr) }, i) ->
-        let typeParam =
-            parseLtGt input[i - 1 ..] (parseTypeParam ctx) "closure type parameter"
-
-        match typeParam with
-        | Ok param ->
-            let data, _ = param.data
-            let closure = parseClosure ctx data param.rest
-
-            match closure with
-            | Ok c ->
-                Ok
-                    { c with
-                        error = Array.append param.error c.error }
-            | Error e -> param.MergeFatalError e
-        | Error e -> Error e
-
-    | Some({ data = Operator(Arithmetic(BitOr | LogicalOr)) }, i) -> parseClosure ctx [||] input[i - 1 ..]
+    | Some({ data = Operator(Arithmetic(BitOr | LogicalOr)) }, i) -> parseClosure ctx input[i - 1 ..]
 
     | Some({ data = Operator(Arithmetic Sub | Arithmetic Mul | Arithmetic BitAnd as op)
              span = span },
