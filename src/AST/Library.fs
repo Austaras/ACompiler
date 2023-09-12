@@ -264,7 +264,12 @@ and Pat =
                 match r.from with
                 | Some f -> yield! f.ExtractId
                 | None -> ()
-            | StructPat _ -> failwith "Not Implemented"
+            | StructPat s ->
+                for f in s.field do
+                    match f with
+                    | ShorthandPat s -> yield s
+                    | KeyValuePat kv -> yield! kv.pat.ExtractId
+                    | RestFieldPat _ -> ()
             | PathPat _ -> failwith "Not Implemented"
             | LitPat _
             | SelfPat _
@@ -470,7 +475,7 @@ and Const =
 
 and Fn =
     { name: Id
-      typeParam: TypeParam[]
+      tyParam: TypeParam[]
       param: Param[]
       retTy: Option<Type>
       body: Block

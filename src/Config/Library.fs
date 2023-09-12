@@ -28,5 +28,8 @@ type OS =
     | Unknown
 
 type Optimization =
-    | Debug
-    | Release
+    { tailCall: bool }
+
+    static member Debug = { tailCall = false }
+
+    static member Releas = { tailCall = true }

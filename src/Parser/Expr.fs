@@ -33,7 +33,7 @@ let internal mayBeStruct ctx input =
         | Some({ data = Curly Open }, i) -> Some i
         | _ -> None
 
-let rangeCtor (from: Option<Expr>) (to_: Option<Expr>) exclusive span =
+let internal rangeCtor (from: Option<Expr>) (to_: Option<Expr>) exclusive span =
     let first =
         match from with
         | Some e -> e.span.first
@@ -49,6 +49,36 @@ let rangeCtor (from: Option<Expr>) (to_: Option<Expr>) exclusive span =
           to_ = to_
           exclusive = exclusive
           span = Span.Make first last }
+
+let internal parseParam (ctx: Context) input =
+    match parsePat ctx.InDecl input with
+    | Error e -> Error e
+    | Ok p ->
+        match peek p.rest with
+        | Some({ data = Colon }, i) ->
+            match peek p.rest[i..] with
+            | None -> p.FatalError(IncompleteAtEnd("type annotation"))
+            | _ ->
+                match parseType ctx p.rest[i..] with
+                | Error e -> p.MergeFatalError e
+                | Ok ty ->
+                    let param =
+                        { pat = p.data
+                          ty = Some ty.data
+                          span = ty.data.span.WithFirst p.data.span.first }
+
+                    Ok
+                        { data = param
+                          error = Array.append p.error ty.error
+                          rest = ty.rest }
+        | _ ->
+            Ok
+                { data =
+                    { pat = p.data
+                      ty = None
+                      span = p.data.span }
+                  error = p.error
+                  rest = p.rest }
 
 let rec internal parseStructField ctx input =
     match peek input with

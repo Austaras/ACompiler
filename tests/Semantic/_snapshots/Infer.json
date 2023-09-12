@@ -1,28 +1,28 @@
 {
   "Fib": {
-    "fib": "|i32| -> i32",
-    "n": "i32"
+    "fib": "|isize| -> isize",
+    "n": "isize"
   },
   "Enum": {
-    "e": "Either<i32,f64>",
+    "e": "Either<isize,f64>",
     "f": "f64",
-    "i": "i32",
-    "is_zero": "|Either<i32,f64>| -> bool"
+    "i": "isize",
+    "is_zero": "|Either<isize,f64>| -> bool"
   },
   "Tuple": {
-    "a": "i32",
-    "b": "i32",
-    "c": "i32",
-    "foo": "|(i32, i32, i32)| -> bool"
+    "a": "isize",
+    "b": "isize",
+    "c": "isize",
+    "foo": "|(isize, isize, isize)| -> bool"
   },
   "InferedType": {
     "f": "Foo<usize>",
     "foo": "|Foo<usize>| -> usize"
   },
   "MutualRec": {
-    "is_even": "|i32| -> bool",
-    "is_odd": "|i32| -> bool",
-    "n": "i32"
+    "is_even": "|isize| -> bool",
+    "is_odd": "|isize| -> bool",
+    "n": "isize"
   },
   "Poly": {
     "id": "<Tx>|Tx| -> Tx",
@@ -31,8 +31,8 @@
   },
   "HoistedMono": {
     "main": "|| -> ()",
-    "one": "|i32| -> i32",
-    "x": "i32"
+    "one": "|isize| -> isize",
+    "x": "isize"
   },
   "PolyDouble": {
     "double": "<Tx>||Tx| -> Tx, Tx| -> Tx",
@@ -40,24 +40,30 @@
     "x": "Tx"
   },
   "PolyRec": {
-    "bar": "|i32| -> i32",
+    "bar": "|isize| -> isize",
     "foo": "<Tx>|Tx| -> Tx",
-    "x": "i32"
+    "x": "isize"
   },
   "WeirdRec": {
-    "weird_rec": "<T11>|i32| -> T11",
-    "x": "i32"
+    "weird_rec": "<T11>|isize| -> T11",
+    "x": "isize"
+  },
+  "Explicit": {
+    "fst": "T1",
+    "snd": "T2",
+    "swap": "<T1,T2>|(T1, T2)| -> (T2, T1)",
+    "t": "(T1, T2)"
   },
   "Reference": {
-    "a": "&i32",
-    "deref": "|&i32| -> i32"
+    "a": "&isize",
+    "deref": "|&isize| -> isize"
   },
   "RefField": {
     "f": "Foo",
     "get_f": "|Foo| -> &usize"
   },
   "Struct": {
-    "add": "|Point3D| -> i32",
+    "add": "|Point3D| -> isize",
     "p": "Point3D"
   },
   "AutoDeref": {
@@ -69,12 +75,12 @@
     "foo": "|&Foo| -> usize"
   },
   "Return": {
-    "foo": "|i32| -> i32",
-    "i": "i32"
+    "foo": "|isize| -> isize",
+    "i": "isize"
   },
   "Closure": {
-    "c": "|i32| -> i32",
-    "call": "||i32| -> i32| -> i32"
+    "c": "|isize| -> isize",
+    "call": "||isize| -> isize| -> isize"
   },
   "Curry": {
     "equal": "<Tx>|Tx| -> |Tx| -> bool",
@@ -83,7 +89,7 @@
     "y": "Tx"
   },
   "MonoClosure": {
-    "id": "|i32| -> i32",
+    "id": "|isize| -> isize",
     "main": "|| -> ()",
     "x": "Tx"
   }

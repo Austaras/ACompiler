@@ -10,28 +10,9 @@ type Integer =
     | I64
     | ISize
 
-type Primitive =
-    /// bool signs if it's signed
-    | Int of bool * Integer
-    | Bool
+type Float =
     | F32
     | F64
-    | Char
-
-    member this.str =
-        match this with
-        | Int(true, I8) -> "i8"
-        | Int(false, I8) -> "u8"
-        | Int(true, I32) -> "i32"
-        | Int(false, I32) -> "u32"
-        | Int(true, I64) -> "i64"
-        | Int(false, I64) -> "u64"
-        | Int(true, ISize) -> "isize"
-        | Int(false, ISize) -> "usize"
-        | Bool -> "bool"
-        | F32 -> "f32"
-        | F64 -> "f64"
-        | Char -> "char"
 
 type Function =
     {
@@ -46,7 +27,8 @@ type Function =
         let tvar =
             (TFn this).FindTVar |> Seq.filter ofScope |> Array.ofSeq |> Array.distinct
 
-        { this with tvar = tvar }
+        { this with
+            tvar = Array.append this.tvar tvar }
 
     member this.Instantiate ty =
         let map = Array.zip this.tvar ty |> Map.ofArray
@@ -77,10 +59,9 @@ and Var =
       sym: Option<string> }
 
     member this.ToString =
-        "T"
-        + match this.sym with
-          | Some s -> s
-          | None -> $"{this.scope}{this.id}"
+        match this.sym with
+        | Some s -> if System.Char.IsUpper s[0] then s else "T" + s
+        | None -> $"T{this.scope}{this.id}"
 
 and Symbol =
     { var: Dictionary<AST.Id, Type>
@@ -89,11 +70,15 @@ and Symbol =
       enum: Dictionary<AST.Id, Enum> }
 
 and Type =
-    | TPrim of Primitive
+    /// bool signs if it's signed
+    | TInt of bool * Integer
+    | TFloat of Float
+    | TBool
+    | TChar
     /// named type can refer each other
     | TStruct of AST.Id * Type[]
     | TEnum of AST.Id * Type[]
-    | Tuple of Type[]
+    | TTuple of Type[]
     | TFn of Function
     | TRef of Type
     | TVar of Var
@@ -102,13 +87,16 @@ and Type =
     member this.FindTVar =
         seq {
             match this with
-            | TPrim _ -> ()
+            | TInt _
+            | TFloat _
+            | TBool
+            | TChar -> ()
             | TVar v -> yield v
             | TStruct(_, v)
             | TEnum(_, v) ->
                 for v in v do
                     yield! v.FindTVar
-            | Tuple t ->
+            | TTuple t ->
                 for t in t do
                     yield! t.FindTVar
             | TFn f ->
@@ -124,7 +112,18 @@ and Type =
         let toString (t: Type) = t.ToString
 
         match this with
-        | TPrim p -> p.str
+        | TInt(true, I8) -> "i8"
+        | TInt(false, I8) -> "u8"
+        | TInt(true, I32) -> "i32"
+        | TInt(false, I32) -> "u32"
+        | TInt(true, I64) -> "i64"
+        | TInt(false, I64) -> "u64"
+        | TInt(true, ISize) -> "isize"
+        | TInt(false, ISize) -> "usize"
+        | TBool -> "bool"
+        | TFloat F32 -> "f32"
+        | TFloat F64 -> "f64"
+        | TChar -> "char"
         | TStruct(t, v)
         | TEnum(t, v) ->
             if v.Length = 0 then
@@ -133,7 +132,7 @@ and Type =
                 let tvar = Array.map toString v
                 let tvar = String.concat "," tvar
                 $"{t.sym}<{tvar}>"
-        | Tuple t ->
+        | TTuple t ->
             let element = t |> Array.map toString |> String.concat ", "
 
             $"({element})"
@@ -156,10 +155,13 @@ and Type =
         let walk (t: Type) = t.Walk onVar
 
         match this with
-        | TPrim p -> TPrim p
+        | TInt _
+        | TFloat _
+        | TBool
+        | TChar -> this
         | TStruct(s, v) -> TStruct(s, Array.map walk v)
         | TEnum(e, v) -> TEnum(e, Array.map walk v)
-        | Tuple t -> Array.map walk t |> Tuple
+        | TTuple t -> Array.map walk t |> TTuple
         | TFn f ->
             let param = Array.map walk f.param
             let ret = f.ret.Walk onVar
@@ -187,7 +189,7 @@ and Type =
 
         stripRef this
 
-let UnitType = Tuple [||]
+let UnitType = TTuple [||]
 
 type ModuleType =
     { ty: Map<string, Type>

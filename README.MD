@@ -21,16 +21,8 @@ Test out various compiler technology with a toy compiler for a toy language **in
 3. Pratically functional
    - provide immutable std lib and tail call optimization
    - but also mutable std lib and for loop with control keyword
-4. Compiler Architecture
-   - hand written recursive descendant parser
-   - plain ADT for AST
-   - HM type inference with trait
-   - FLIR, which stands for First Low-level Intermediate Representation
-      - eliminates ADT, operator overloading, closure and pattern
-      - monotyped
-      - basic block
-5. suffix is .adf which stands for Advanced Dominance Functional language
-6. Major TODO
+4. suffix is .adf which stands for Advanced Dominance Functional language
+5. Major TODO
    - [ ] f-string
    - [ ] optional and position argument
    - [ ] effect system. Algebraic effect?

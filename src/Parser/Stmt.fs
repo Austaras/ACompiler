@@ -96,7 +96,7 @@ and internal parseFn ctx input span =
                         | Ok block ->
                             let fn =
                                 { name = id.data
-                                  typeParam = typeParam
+                                  tyParam = typeParam
                                   retTy = retTy.data
                                   param = param.data
                                   body = block.data

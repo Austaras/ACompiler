@@ -12,5 +12,6 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\AST\AST.fsproj" />
+    <ProjectReference Include="..\Util\Util.fsproj" />
   </ItemGroup>
 </Project>

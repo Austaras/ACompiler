@@ -191,6 +191,15 @@ let Poly () =
 
     runInfer "fn weird_rec(x) { weird_rec(1) }" "WeirdRec"
 
+    runInfer
+        "
+    pub fn swap<T1, T2>(t: (T1, T2)) -> (T2, T1) {
+        let (fst, snd) = t
+
+        (snd, fst)
+    }"
+        "Explicit"
+
 [<Fact>]
 let Match () =
     runInferFromExample "function/fib.adf" "Fib"
