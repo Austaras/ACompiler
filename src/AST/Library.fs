@@ -237,47 +237,6 @@ and Pat =
         | SelfPat s -> s
         | RefSelfPat s -> s
 
-    member this.ExtractId =
-        seq {
-            match this with
-            | IdPat i -> yield i
-            | TuplePat t ->
-                for pat in t.element do
-                    yield! pat.ExtractId
-            | ArrayPat a ->
-                for pat in a.element do
-                    yield! pat.ExtractId
-            | OrPat o ->
-                for pat in o.pat do
-                    yield! pat.ExtractId
-            | EnumPat e ->
-                for pat in e.content do
-                    yield! pat.ExtractId
-            | AsPat a ->
-                yield a.id
-                yield! a.pat.ExtractId
-            | RangePat r ->
-                match r.from with
-                | Some f -> yield! f.ExtractId
-                | None -> ()
-
-                match r.from with
-                | Some f -> yield! f.ExtractId
-                | None -> ()
-            | StructPat s ->
-                for f in s.field do
-                    match f with
-                    | ShorthandPat s -> yield s
-                    | KeyValuePat kv -> yield! kv.pat.ExtractId
-                    | RestFieldPat _ -> ()
-            | PathPat _ -> failwith "Not Implemented"
-            | LitPat _
-            | SelfPat _
-            | RefSelfPat _
-            | CatchAllPat _
-            | RestPat _ -> ()
-        }
-
 type Param =
     { pat: Pat
       ty: Option<Type>

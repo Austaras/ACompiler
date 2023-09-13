@@ -572,7 +572,7 @@ and internal parseDecl (ctx: Context) input =
 
             match peek rest with
             | Some({ data = Operator(Lt | Arithmetic Shl) }, i) ->
-                parseLtGt rest[i - 1 ..] (parseTypeParam ctx) "function type paramater"
+                parseLtGt rest[i - 1 ..] (parseTypeParam ctx) "impl type paramater"
             | _ ->
                 Ok
                     { data = [||], Span.dummy
@@ -667,7 +667,22 @@ and internal parseDecl (ctx: Context) input =
     | Some({ data = Reserved TRAIT }, i) ->
         match parseId input[i..] "trait name" with
         | Error e -> Error [| e |]
-        | Ok id -> failwith "123"
+        | Ok id ->
+            let typeParam =
+                let rest = input[i..]
+
+                match peek rest with
+                | Some({ data = Operator(Lt | Arithmetic Shl) }, i) ->
+                    parseLtGt rest[i - 1 ..] (parseTypeParam ctx) "trait type paramater"
+                | _ ->
+                    Ok
+                        { data = [||], Span.dummy
+                          error = [||]
+                          rest = rest }
+
+            match typeParam with
+            | Error e -> Error e
+            | Ok param -> failwith "123"
 
     | Some(token, _) -> Error [| UnexpectedToken(token, "declaration") |]
     | None -> Error [| IncompleteAtEnd("declaration") |]

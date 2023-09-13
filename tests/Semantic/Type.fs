@@ -8,8 +8,8 @@ open Xunit
 open AST
 open Parser.Lexer
 open Parser.Parser
-open Semantic.Type.Type
-open Semantic.Type.Infer
+open Semantic.Semantic
+open Semantic.Check
 
 let settings = SnapshotSettings.New().SnapshotFileName("Infer")
 
@@ -24,15 +24,15 @@ let runInfer input name =
         | Ok m -> m
         | Error(e, _) -> failwithf "parse error %A" e
 
-    let ctx = Context()
+    let checker = Checker(Map.empty)
 
-    ctx.Infer m
+    checker.Check m
 
-    Assert.Empty ctx.GetError
+    Assert.Empty checker.GetError
 
-    let reform (key: AST.Id, value: Type) = key.sym, value.ToString
+    let reform (key: AST.Id, value: VarInfo) = key.sym, value.ty.ToString
 
-    (ctx.GetSymbol.var
+    (checker.GetInfo.var
      |> Seq.map (|KeyValue|)
      |> Seq.map reform
      |> Map.ofSeq

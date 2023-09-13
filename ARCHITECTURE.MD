@@ -10,7 +10,8 @@
 4. FLIR, which stands for First Low-level Intermediate Representation
 
     [FLIR](./src/FLIR)
-   - eliminates ADT, operator overloading, assign operator, closure and pattern
+   - eliminates ADT, operator overloading, assign operator and pattern
+   - lambda lifting
    - monotyped
    - basic block
    - De Bruijn index

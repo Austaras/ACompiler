@@ -207,7 +207,7 @@ let rec internal parsePatInner (ctx: Context) input =
                     | LowSelf -> if ctx.inMethod then [||] else [| OutofMethod span |]
 
                 match prefix with
-                | LowSelf ->
+                | Self ->
                     let res =
                         parseStruct
                             { data = path.data
@@ -220,7 +220,17 @@ let rec internal parsePatInner (ctx: Context) input =
                             { res with
                                 error = Array.append error [| IncompletePath span |] }
                     | _ -> res
-                | Self
+                | LowSelf ->
+                    let data =
+                        if path.data.seg.Length = 1 then
+                            SelfPat path.data.span
+                        else
+                            PathPat path.data
+
+                    Ok
+                        { data = data
+                          error = error
+                          rest = path.rest }
                 | Package ->
                     Ok
                         { data = PathPat path.data
