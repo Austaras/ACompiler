@@ -128,7 +128,7 @@ type Path =
 
 and FnType =
     { param: Type[]
-      typeParam: TypeParam[]
+      tyParam: TypeParam[]
       ret: Type
       span: Span }
 
@@ -482,14 +482,15 @@ and EnumDecl =
 
 and TraitMethod =
     { name: Id
-      typeParam: TypeParam[]
+      tyParam: TypeParam[]
       param: Param[]
-      ret: Type
+      ret: Option<Type>
       defaultImpl: Option<Block>
       span: Span }
 
 and TraitType =
     { name: Id
+      bound: Path[]
       defaultTy: Option<Type>
       span: Span }
 
@@ -506,7 +507,8 @@ and TraitItem =
 
 and Trait =
     { name: Id
-      typeParam: TypeParam[]
+      tyParam: TypeParam[]
+      super: Path[]
       item: TraitItem[]
       span: Span }
 
@@ -528,7 +530,7 @@ and ImplItem =
 
 and Impl =
     { trait_: Option<Path>
-      typeParam: TypeParam[]
+      tyParam: TypeParam[]
       type_: Type
       item: ImplItem[]
       span: Span }

@@ -7,23 +7,26 @@ open Parser.Common
 open System.IO
 open Xunit
 
-let parseModuleOk prefix path =
-    let content = File.ReadAllText(__SOURCE_DIRECTORY__ + "/../../" + prefix + path)
+let parseModuleOk path =
+    let path = __SOURCE_DIRECTORY__ + "/../../" + path
 
-    match lex 0 content with
-    | Error error -> Array.map LexerError error
-    | Ok token ->
-        match parse token with
-        | Error(error, _) -> error
-        | Ok _ -> [||]
+    let files = Directory.EnumerateFiles(path, "*.adf", SearchOption.AllDirectories)
+
+    for path in files do
+        let path = Path.GetFullPath path
+
+        let error =
+            match lex 0 (File.ReadAllText path) with
+            | Error error -> Array.map LexerError error
+            | Ok token ->
+                match parse token with
+                | Error(error, _) -> error
+                | Ok _ -> [||]
+
+        Assert.Empty error
 
 [<Fact>]
 let Example () =
-    let parse = parseModuleOk "examples/"
-    Assert.Empty(parse "example.adf")
+    parseModuleOk "examples"
 
-    Assert.Empty(parse "type/tree.adf")
-
-    let parse = parseModuleOk "runtime/"
-
-    Assert.Empty(parse "core/util.adf")
+    parseModuleOk "runtime/std"

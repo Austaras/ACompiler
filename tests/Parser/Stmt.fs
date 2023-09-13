@@ -44,10 +44,10 @@ let Decl () =
     ")
         .ShouldMatchChildSnapshot("Impl")
 
-// (parseTest
-//     "
-//     trait Add {
-//         fn add(self, rhs: Self) -> Self
-//     }
-//     ")
-//     .ShouldMatchInlineSnapshot("Trait")
+    (parseTest
+        "
+        trait Summary {
+            fn summarize(&self) -> String;
+        }
+        ")
+        .ShouldMatchChildSnapshot("Trait")

@@ -323,7 +323,7 @@
   "Impl": {
     "Impl": {
       "trait_": null,
-      "typeParam": [
+      "tyParam": [
         {
           "id": {
             "sym": "T",
@@ -446,6 +446,66 @@
       "span": {
         "first": 9,
         "last": 80
+      }
+    }
+  },
+  "Trait": {
+    "Trait": {
+      "name": {
+        "sym": "Summary",
+        "span": {
+          "first": 15,
+          "last": 21
+        }
+      },
+      "tyParam": [],
+      "super": [],
+      "item": [
+        {
+          "TraitMethod": {
+            "name": {
+              "sym": "summarize",
+              "span": {
+                "first": 40,
+                "last": 48
+              }
+            },
+            "tyParam": [],
+            "param": [
+              {
+                "pat": {
+                  "RefSelfPat": {
+                    "first": 50,
+                    "last": 54
+                  }
+                },
+                "ty": null,
+                "span": {
+                  "first": 50,
+                  "last": 54
+                }
+              }
+            ],
+            "ret": {
+              "TypeId": {
+                "sym": "String",
+                "span": {
+                  "first": 60,
+                  "last": 65
+                }
+              }
+            },
+            "defaultImpl": null,
+            "span": {
+              "first": 37,
+              "last": 38
+            }
+          }
+        }
+      ],
+      "span": {
+        "first": 9,
+        "last": 76
       }
     }
   }

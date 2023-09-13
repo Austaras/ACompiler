@@ -18,7 +18,7 @@ impl<T> Option<T> {
         }
     }
 
-    pub unwrap_or(self, value: T) -> T {
+    pub fn unwrap_or(self, value: T) -> T {
         match self {
             Some(v) => v,
             None => value

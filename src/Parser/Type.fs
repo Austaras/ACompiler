@@ -131,7 +131,7 @@ and internal parseType ctx input =
                 | Ok ret ->
                     let ty =
                         { param = param.data
-                          typeParam = typeParam
+                          tyParam = typeParam
                           ret = ret.data
                           span = ret.data.span.WithFirst first }
 

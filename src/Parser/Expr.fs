@@ -25,7 +25,7 @@ let internal canStartExpr token =
     | DotDotCaret -> true
     | _ -> false
 
-let internal mayBeStruct ctx input =
+let internal maybeStruct ctx input =
     if ctx.inCond then
         None
     else
@@ -225,18 +225,14 @@ and internal parsePath (ctx: Context) (state: State<Path>) =
                   error = error
                   rest = s.rest }
 
-        match mayBeStruct ctx s.rest with
+        match maybeStruct ctx s.rest with
         | Some i ->
-            let res =
-                parseStruct
-                    ctx
-                    { data = s.data
-                      error = state.error
-                      rest = s.rest[i..] }
+            parseStruct
+                ctx
+                { data = s.data
+                  error = state.error
+                  rest = s.rest[i..] }
 
-            match res with
-            | Ok { data = Path _ } -> Ok state
-            | r -> r
         | None -> Ok state
 
 and internal rangeParser ctx input =
@@ -433,28 +429,36 @@ and internal parsePrefix ctx input =
         match peekWith path.rest ColonColon with
         | Some(_, i) -> parsePath ctx { path with rest = path.rest[i..] }
         | None ->
-            let error =
-                match prefix with
-                | LowSelf -> if ctx.inMethod then [||] else [| OutofMethod span |]
-                | Self ->
-                    if ctx.inTrait || ctx.inImpl then
-                        [| IncompletePath span |]
-                    else
-                        [| OutofMethod span |]
-                | Package -> [| IncompletePath span |]
-
             match prefix with
             | LowSelf ->
                 Ok
                     { data = SelfExpr span
-                      error = error
+                      error = if ctx.inMethod then [||] else [| OutofMethod span |]
                       rest = input[i..] }
-            | Package
-            | Self ->
+            | Package ->
                 Ok
                     { data = Path path.data
-                      error = error
+                      error = [| IncompletePath span |]
                       rest = path.rest }
+            | Self ->
+                let error =
+                    if ctx.inTrait || ctx.inImpl then
+                        [||]
+                    else
+                        [| OutofMethod span |]
+
+                match maybeStruct ctx path.rest with
+                | Some i ->
+                    parseStruct
+                        ctx
+                        { data = path.data
+                          error = error
+                          rest = path.rest[i..] }
+                | None ->
+                    Ok
+                        { data = Path path.data
+                          error = error
+                          rest = path.rest }
     | Some({ data = Identifier _; span = span }, _) ->
         let path =
             { prefix = None
