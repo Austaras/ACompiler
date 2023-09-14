@@ -950,6 +950,10 @@ let rec internal parseModuleItem (input: Token[]) =
                     let needTy = Array.map (fun (p: Param) -> PubTypeAnnotation p.span) needTy
 
                     Array.append s.error needTy
+                | Let l when vis = Public ->
+                    match l.ty with
+                    | Some _ -> s.error
+                    | None -> Array.append s.error [| PubTypeAnnotation l.span |]
                 | _ -> s.error
 
             Ok

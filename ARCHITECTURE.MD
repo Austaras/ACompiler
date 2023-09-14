@@ -1,15 +1,19 @@
-1. hand written recursive descendant parser
+1. plain ADT for AST
 
-    [Parser](./src/Parser)
-2. plain ADT for AST
+   [AST](./src/AST)
 
-    [AST](./src/AST)
+2. hand written recursive descendant parser
+
+   [Parser](./src/Parser)
+
 3. HM type inference with trait
 
-    [Type](./src/Semantic/Type)
+   [Semantic](./src/Semantic)
+
 4. FLIR, which stands for First Low-level Intermediate Representation
 
-    [FLIR](./src/FLIR)
+   [FLIR](./src/FLIR)
+
    - eliminates ADT, operator overloading, assign operator and pattern
    - lambda lifting
    - monotyped

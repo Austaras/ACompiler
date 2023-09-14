@@ -3,6 +3,8 @@
 open System.Collections.Generic
 
 open AST
+open Util.Util
+open Util.MultiMap
 
 type Integer =
     | I8
@@ -191,34 +193,45 @@ type ModuleType =
       module_: Map<string, ModuleType> }
 
 type Location =
+    | Static
     | Any
     | Stack
     | Heap
 
-type VarInfo =
-    { mutable ty: Type
-      mut: bool
-      mutable loc: Location }
+type VarInfo = { ty: Type; mut: bool; loc: Location }
 
 type SemanticInfo =
     { var: Dictionary<AST.Id, VarInfo>
       ty: Dictionary<AST.Id, Type>
       stru: Dictionary<AST.Id, Struct>
-      enum: Dictionary<AST.Id, Enum> }
+      enum: Dictionary<AST.Id, Enum>
+      capture: MultiMap<Either<AST.Fn, AST.Closure>, AST.Id> }
 
     static member Empty() =
         { var = Dictionary()
           ty = Dictionary()
           stru = Dictionary()
-          enum = Dictionary() }
+          enum = Dictionary()
+          capture = MultiMap() }
 
-    member this.AddVar id ty mut =
-        this.var[id] <- { ty = ty; mut = mut; loc = Any }
+    member this.AddVar(id, ty, ?mut, ?static_) =
+        let mut =
+            match mut with
+            | Some m -> m
+            | None -> false
+
+        let loc =
+            match static_ with
+            | Some true -> Static
+            | _ -> Any
+
+        this.var[id] <- { ty = ty; mut = mut; loc = loc }
 
     member this.TypeOfVar id = this.var[id].ty
 
     member this.ModifyVarTy id mapper =
-        this.var[id].ty <- mapper this.var[id].ty
+        let old = this.var[id]
+        this.var[id] <- { old with ty = mapper this.var[id].ty }
 
     member internal this.DetectLoop id =
         let visited = HashSet<Type>()

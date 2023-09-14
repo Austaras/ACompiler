@@ -54,8 +54,11 @@ type internal Constraint =
     | CNormal of NormalConstraint
     | CDeref of NormalConstraint
 
+type internal FnScope =
+    { fn: Either<Fn, Closure>; retTy: Type }
+
 type internal ScopeData =
-    | FnScope of Type // return type
+    | FnScope of FnScope
     | BlockScope
     | TypeScope
     | TopLevelScope
@@ -126,6 +129,24 @@ type internal ActiveScope =
 
         this.PickCurrent pickId
 
+    member this.ResolveVar(id: Id) =
+        let rec loop captured i =
+            let curr = this.scope[i]
+
+            if curr.var.ContainsKey id.sym then
+                Some(curr.var[id.sym], captured)
+            else if i = 0 then
+                None
+            else
+                let captured =
+                    match curr.data with
+                    | FnScope { fn = fn } -> Array.append captured [| fn |]
+                    | _ -> captured
+
+                loop captured (i - 1)
+
+        loop [||] (this.scope.Length - 1)
+
 type Checker(moduleMap: Map<string, ModuleType>) =
     let mutable scopeId = 0
 
@@ -193,7 +214,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
             seen.Add i.sym |> ignore
             scope.AddVar i
 
-            sema.AddVar i ty mut
+            sema.AddVar(i, ty, mut = mut)
         | LitPat(_, span)
         | RangePat { span = span } -> error.Add(RefutablePat span)
         | CatchAllPat _ -> ()
@@ -223,7 +244,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
             seen.Add a.id.sym |> ignore
             scope.AddVar a.id
-            sema.AddVar a.id ty mut
+            sema.AddVar(a.id, ty, mut = mut)
 
             this.ProcessDeclPat scope a.pat ty mut seen
         | ArrayPat(_) -> failwith "Not Implemented"
@@ -245,7 +266,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
             seen.Add i.sym |> ignore
             currScope.AddVar i
-            sema.AddVar i ty true
+            sema.AddVar(i, ty, mut = true)
         | LitPat(l, span) ->
             let litTy =
                 match l with
@@ -290,7 +311,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
             seen.Add a.id.sym |> ignore
             currScope.AddVar a.id
-            sema.AddVar a.id ty true
+            sema.AddVar(a.id, ty, mut = true)
 
             this.ProcessCondPat scope a.pat ty seen
         | ArrayPat _ -> failwith "Not Implemented"
@@ -363,21 +384,13 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
         ty.Walk onvar
 
-    member internal _.ResolveVar (scope: ActiveScope) (id: Id) =
-        let resolve scope =
-            if scope.var.ContainsKey id.sym then
-                Some scope.var[id.sym]
-            else
-                None
-
-        match scope.PickCurrent resolve with
-        | Some var -> Some var
-        | None ->
-            error.Add(Undefined id)
-            None
-
     member internal this.ProcessHoistedDecl (scope: ActiveScope) (decl: seq<Decl>) =
         let currScope = scope.current
+
+        let topLevel =
+            match currScope.data with
+            | TopLevelScope -> true
+            | _ -> false
 
         for d in decl do
             let dummyTVar _ =
@@ -388,7 +401,22 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                       span = Span.dummy }
 
             match d with
-            | Let _
+            | Let l ->
+                if topLevel then
+                    match l.pat with
+                    | IdPat id ->
+                        if currScope.var.ContainsKey id.sym then
+                            error.Add(DuplicateDefinition id)
+
+                        currScope.AddVar id
+
+                        sema.AddVar(
+                            id,
+                            (TVar(currScope.NewTVar (Some id.sym) id.span)),
+                            mut = l.mut,
+                            static_ = topLevel
+                        )
+                    | _ -> failwith "unreachable"
             | Const _ -> ()
             | FnDecl f ->
                 if currScope.var.ContainsKey f.name.sym then
@@ -544,27 +572,37 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                       ret = ret
                       tvar = tvar }
 
-            sema.AddVar f.name fnTy false
+            sema.AddVar(f.name, fnTy, static_ = true)
 
         for f in fn do
-            this.InferFn scope f
+            this.ProcessFn scope f
 
     member internal this.ProcessDecl (scope: ActiveScope) d =
+        let topLevel =
+            match scope.current.data with
+            | TopLevelScope -> true
+            | _ -> false
+
         match d with
         | Let l ->
-            let value = this.TypeOfExpr scope l.value
+            let value = this.ProcessExpr scope l.value
 
-            match l.ty with
-            | Some ty ->
-                scope.current.constr.Add(
-                    CNormal
-                        { expect = this.ProcessTy scope ty
-                          actual = value
-                          span = l.span }
-                )
-            | None -> ()
+            let ty =
+                match l.ty with
+                | Some ty ->
+                    let ty = this.ProcessTy scope ty
 
-            this.ProcessDeclPat scope.current l.pat value l.mut (HashSet())
+                    scope.current.constr.Add(
+                        CNormal
+                            { expect = ty
+                              actual = value
+                              span = l.span }
+                    )
+
+                    ty
+                | None -> value
+
+            this.ProcessDeclPat scope.current l.pat ty l.mut (HashSet())
 
         | Const _ -> failwith "Not Implemented"
         | Use _ -> failwith "Not Implemented"
@@ -575,25 +613,29 @@ type Checker(moduleMap: Map<string, ModuleType>) =
         | Trait _
         | Impl _ -> ()
 
-    member internal _.TypeOfVar (scope: Scope) (id: Id) span =
-        match sema.TypeOfVar id with
-        | TFn f ->
-            let newTVar = Array.map (fun _ -> scope.NewTVar None span) f.tvar
-            TFn(f.Instantiate newTVar)
-        | t -> t
-
-    member internal this.TypeOfExpr (scope: ActiveScope) e =
+    member internal this.ProcessExpr (scope: ActiveScope) e =
         let currScope = scope.current
 
         match e with
         | Id id ->
-            match this.ResolveVar scope id with
-            | None -> TNever
-            | Some id -> this.TypeOfVar currScope id id.span
+            match scope.ResolveVar id with
+            | None ->
+                error.Add(Undefined id)
+                TNever
+            | Some(id, captured) ->
+                if sema.var[id].loc <> Static then
+                    for c in captured do
+                        sema.capture.Add c id
+
+                match sema.TypeOfVar id with
+                | TFn f ->
+                    let newTVar = Array.map (fun _ -> currScope.NewTVar None id.span) f.tvar
+                    TFn(f.Instantiate newTVar)
+                | t -> t
 
         | Binary b ->
-            let l = this.TypeOfExpr scope b.left
-            let r = this.TypeOfExpr scope b.right
+            let l = this.ProcessExpr scope b.left
+            let r = this.ProcessExpr scope b.right
 
             match b.op with
             | Arithmetic(LogicalAnd | LogicalOr) ->
@@ -657,12 +699,12 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
         | If i ->
             let processLetCond (c: LetCond) block =
-                let value = this.TypeOfExpr scope c.value
+                let value = this.ProcessExpr scope c.value
                 let newScope = this.NewScope BlockScope
                 let scope = scope.WithNew newScope
 
                 this.ProcessCondPat scope c.pat value (HashSet())
-                let ty = this.InferBlock scope block
+                let ty = this.ProcessBlock scope block
 
                 this.Unify newScope
                 this.ResolveTy ty
@@ -673,11 +715,11 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                     currScope.constr.Add(
                         CNormal
                             { expect = TBool
-                              actual = this.TypeOfExpr scope b
+                              actual = this.ProcessExpr scope b
                               span = b.span }
                     )
 
-                    this.InferBlock scope i.then_
+                    this.ProcessBlock scope i.then_
                 | LetCond c -> processLetCond c i.then_
 
             for br in i.elseif do
@@ -687,11 +729,11 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                         currScope.constr.Add(
                             CNormal
                                 { expect = TBool
-                                  actual = this.TypeOfExpr scope b
+                                  actual = this.ProcessExpr scope b
                                   span = b.span }
                         )
 
-                        this.InferBlock scope br.block
+                        this.ProcessBlock scope br.block
                     | LetCond c -> processLetCond c br.block
 
                 currScope.constr.Add(
@@ -703,7 +745,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
             match i.else_ with
             | Some else_ ->
-                let else_ = this.InferBlock scope else_
+                let else_ = this.ProcessBlock scope else_
 
                 currScope.constr.Add(
                     CNormal
@@ -721,7 +763,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
             then_
         | Match m ->
-            let value = this.TypeOfExpr scope m.expr
+            let value = this.ProcessExpr scope m.expr
 
             let typeOfBranch (br: MatchBranch) =
                 let newScope = this.NewScope BlockScope
@@ -733,13 +775,13 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                 | Some g ->
                     newScope.constr.Add(
                         CNormal
-                            { actual = this.TypeOfExpr scope g
+                            { actual = this.ProcessExpr scope g
                               expect = TBool
                               span = g.span }
                     )
                 | None -> ()
 
-                let brTy = this.TypeOfExpr scope br.expr
+                let brTy = this.ProcessExpr scope br.expr
 
                 this.Unify newScope
 
@@ -762,11 +804,11 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
                 first
 
-        | Block b -> this.InferBlock scope b
+        | Block b -> this.ProcessBlock scope b
         | Call c ->
-            let callee = this.TypeOfExpr scope c.callee
+            let callee = this.ProcessExpr scope c.callee
 
-            let arg = Array.map (this.TypeOfExpr scope) c.arg
+            let arg = Array.map (this.ProcessExpr scope) c.arg
             let ret = TVar(currScope.NewTVar None c.span)
 
             currScope.constr.Add(
@@ -783,7 +825,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                 currScope.constr.Add(
                     CNormal
                         { expect = TBool
-                          actual = this.TypeOfExpr scope u.expr
+                          actual = this.ProcessExpr scope u.expr
                           span = u.span }
                 )
 
@@ -792,33 +834,37 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                 currScope.constr.Add(
                     CNormal
                         { expect = TInt(true, ISize)
-                          actual = this.TypeOfExpr scope u.expr
+                          actual = this.ProcessExpr scope u.expr
                           span = u.span }
                 )
 
                 TInt(true, ISize)
-            | Ref -> TRef(this.TypeOfExpr scope u.expr)
+            | Ref -> TRef(this.ProcessExpr scope u.expr)
             | Deref ->
                 let ptr = TVar(currScope.NewTVar None u.expr.span)
 
                 currScope.constr.Add(
                     CNormal
                         { expect = TRef ptr
-                          actual = this.TypeOfExpr scope u.expr
+                          actual = this.ProcessExpr scope u.expr
                           span = u.span }
                 )
 
                 ptr
         | Assign a ->
-            let value = this.TypeOfExpr scope a.value
+            let value = this.ProcessExpr scope a.value
 
             match a.place with
             | Id i ->
                 let span = a.place.span
-                let id = this.ResolveVar scope i
+                let id = scope.ResolveVar i
 
                 match id with
-                | Some id ->
+                | Some(id, captured) ->
+                    if sema.var[id].loc <> Static then
+                        for c in captured do
+                            sema.capture.Add c id
+
                     let varInfo = sema.var[id]
 
                     if not varInfo.mut then
@@ -832,12 +878,12 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                     )
 
                     ()
-                | None -> ()
+                | None -> error.Add(Undefined i)
             | _ -> failwith "Not Implemented"
 
             UnitType
         | Field f ->
-            let receiver = this.TypeOfExpr scope f.receiver
+            let receiver = this.ProcessExpr scope f.receiver
             let key = f.prop.sym
 
             match receiver with
@@ -888,7 +934,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
         | Array(_) -> failwith "Not Implemented"
         | ArrayRepeat(_) -> failwith "Not Implemented"
         | StructLit(_) -> failwith "Not Implemented"
-        | Tuple s -> Array.map (this.TypeOfExpr scope) s.element |> TTuple
+        | Tuple s -> Array.map (this.ProcessExpr scope) s.element |> TTuple
         | Closure c ->
             let paramTy (p: Param) =
                 match p.ty with
@@ -910,7 +956,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                 | Some ty -> this.ProcessTy scope ty
                 | None -> TVar(currScope.NewTVar None c.span)
 
-            let closureScope = this.NewScope(FnScope retTy)
+            let closureScope = this.NewScope(FnScope { fn = Right c; retTy = retTy })
 
             let seen = HashSet()
 
@@ -919,7 +965,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
             let newScope = scope.WithNew closureScope
 
-            let ret = this.TypeOfExpr newScope c.body
+            let ret = this.ProcessExpr newScope c.body
 
             closureScope.constr.Add(
                 CNormal
@@ -948,12 +994,12 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
             let retTy =
                 match scope.PickCurrent pickFn with
-                | Some retTy -> retTy
+                | Some { retTy = retTy } -> retTy
                 | None -> failwith "Unreachable"
 
             let ty =
                 match r.value with
-                | Some v -> this.TypeOfExpr scope v
+                | Some v -> this.ProcessExpr scope v
                 | None -> UnitType
 
             currScope.constr.Add(
@@ -969,7 +1015,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
         | While(_) -> failwith "Not Implemented"
         | TryReturn(_) -> failwith "Not Implemented"
 
-    member internal this.InferBlock (scope: ActiveScope) (b: Block) =
+    member internal this.ProcessBlock (scope: ActiveScope) (b: Block) =
         let blockScope = this.NewScope BlockScope
 
         let scope = scope.WithNew blockScope
@@ -989,7 +1035,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                 this.ProcessDecl scope d
 
                 UnitType
-            | ExprStmt e -> this.TypeOfExpr scope e
+            | ExprStmt e -> this.ProcessExpr scope e
 
         let ty = Array.fold typeof UnitType b.stmt
 
@@ -997,13 +1043,13 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
         this.ResolveTy ty
 
-    member internal this.InferFn (scope: ActiveScope) (f: Fn) =
+    member internal this.ProcessFn (scope: ActiveScope) (f: Fn) =
         let fnTy =
             match sema.TypeOfVar f.name with
             | TFn f -> f
             | _ -> failwith "Unreachable"
 
-        let fnScope = this.NewScope(FnScope fnTy.ret)
+        let fnScope = this.NewScope(FnScope { fn = Left f; retTy = fnTy.ret })
 
         let seen = HashSet()
 
@@ -1012,7 +1058,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
         let newScope = scope.WithNew fnScope
 
-        let ret = this.InferBlock newScope f.body
+        let ret = this.ProcessBlock newScope f.body
 
         fnScope.constr.Add(
             CNormal
@@ -1124,9 +1170,6 @@ type Checker(moduleMap: Map<string, ModuleType>) =
             | CNormal c -> unify_normal c false
             | CDeref c -> unify_normal c true
 
-        for id in scope.var.Values do
-            sema.ModifyVarTy id this.ResolveTy
-
     member this.Check m =
         let topLevel = this.NewScope TopLevelScope
         let scope = { scope = [| Scope.Prelude; topLevel |] }
@@ -1141,6 +1184,9 @@ type Checker(moduleMap: Map<string, ModuleType>) =
             this.ProcessDecl scope d
 
         this.Unify topLevel
+
+        for id in sema.var.Keys do
+            sema.ModifyVarTy id this.ResolveTy
 
     member _.GetInfo = sema
 

@@ -91,6 +91,6 @@
   "MonoClosure": {
     "id": "|isize| -> isize",
     "main": "|| -> ()",
-    "x": "Tx"
+    "x": "isize"
   }
 }
