@@ -130,22 +130,14 @@ type internal ActiveScope =
         this.PickCurrent pickId
 
     member this.ResolveVar(id: Id) =
-        let rec loop captured i =
-            let curr = this.scope[i]
-
-            if curr.var.ContainsKey id.sym then
-                Some(curr.var[id.sym], captured)
-            else if i = 0 then
-                None
+        let pickId scope =
+            if scope.var.ContainsKey id.sym then
+                let id = scope.var[id.sym]
+                Some id
             else
-                let captured =
-                    match curr.data with
-                    | FnScope { fn = fn } -> Array.append captured [| fn |]
-                    | _ -> captured
+                None
 
-                loop captured (i - 1)
-
-        loop [||] (this.scope.Length - 1)
+        this.PickCurrent pickId
 
 type Checker(moduleMap: Map<string, ModuleType>) =
     let mutable scopeId = 0
@@ -618,7 +610,22 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
         match e with
         | Id id ->
-            match scope.ResolveVar id with
+            let rec resolveVar captured i =
+                let curr = scope.scope[i]
+
+                if curr.var.ContainsKey id.sym then
+                    Some(curr.var[id.sym], captured)
+                else if i = 0 then
+                    None
+                else
+                    let captured =
+                        match curr.data with
+                        | FnScope { fn = fn } -> Array.append captured [| fn |]
+                        | _ -> captured
+
+                    resolveVar captured (i - 1)
+
+            match resolveVar [||] (scope.scope.Length - 1) with
             | None ->
                 error.Add(Undefined id)
                 TNever
@@ -626,6 +633,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                 if sema.var[id].loc <> Static then
                     for c in captured do
                         sema.capture.Add c id
+                        sema.AddRef id
 
                 match sema.TypeOfVar id with
                 | TFn f ->
@@ -839,7 +847,23 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                 )
 
                 TInt(true, ISize)
-            | Ref -> TRef(this.ProcessExpr scope u.expr)
+            | Ref ->
+                let rec getVar expr =
+                    match expr with
+                    | Id i -> Some i
+                    | Field { receiver = receiver } -> getVar receiver
+                    | Index { container = container } -> getVar container
+                    | Unary { op = Deref; expr = expr } -> getVar expr
+                    | _ -> None
+
+                match getVar u.expr with
+                | None -> ()
+                | Some id ->
+                    match scope.ResolveVar id with
+                    | None -> ()
+                    | Some id -> sema.AddRef id
+
+                TRef(this.ProcessExpr scope u.expr)
             | Deref ->
                 let ptr = TVar(currScope.NewTVar None u.expr.span)
 
@@ -853,33 +877,31 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                 ptr
         | Assign a ->
             let value = this.ProcessExpr scope a.value
+            let place = this.ProcessExpr scope a.place
 
-            match a.place with
-            | Id i ->
-                let span = a.place.span
-                let id = scope.ResolveVar i
+            currScope.constr.Add(
+                CNormal
+                    { expect = place
+                      actual = value
+                      span = a.span }
+            )
 
-                match id with
-                | Some(id, captured) ->
-                    if sema.var[id].loc <> Static then
-                        for c in captured do
-                            sema.capture.Add c id
+            let rec getVar expr =
+                match expr with
+                | Id i -> Some i
+                | Field { receiver = receiver } -> getVar receiver
+                | Index { container = container } -> getVar container
+                | Unary { op = Deref; expr = expr } -> getVar expr
+                | _ -> None
 
-                    let varInfo = sema.var[id]
-
-                    if not varInfo.mut then
-                        error.Add(AssignImmutable(id, span))
-
-                    currScope.constr.Add(
-                        CNormal
-                            { expect = varInfo.ty
-                              actual = value
-                              span = a.span }
-                    )
-
-                    ()
-                | None -> error.Add(Undefined i)
-            | _ -> failwith "Not Implemented"
+            match getVar a.place with
+            | None -> ()
+            | Some id ->
+                match scope.ResolveVar id with
+                | None -> ()
+                | Some id ->
+                    if not sema.var[id].mut then
+                        error.Add(AssignImmutable(id, a.span))
 
             UnitType
         | Field f ->

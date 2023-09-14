@@ -233,6 +233,13 @@ type SemanticInfo =
         let old = this.var[id]
         this.var[id] <- { old with ty = mapper this.var[id].ty }
 
+    member this.AddRef id =
+        let old = this.var[id]
+
+        match old.loc with
+        | Any -> this.var[id] <- { old with loc = Stack }
+        | _ -> ()
+
     member internal this.DetectLoop id =
         let visited = HashSet<Type>()
 
