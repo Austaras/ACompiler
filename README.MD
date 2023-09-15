@@ -31,6 +31,5 @@ Test out various compiler technology with a toy compiler for a toy language **in
    - [ ] try trait
    - [ ] GC
    - [ ] macro
-   - [ ] HKT
    - [ ] curry and pipe
    - [ ] IR. How many? What kind?

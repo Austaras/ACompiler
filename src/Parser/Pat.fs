@@ -26,8 +26,8 @@ let rec internal parsePatInner (ctx: Context) input =
     let rec parseRangeTo (from: State<Option<Pat>>) (span: Span) =
         let first =
             match from.data with
-            | Some pat -> pat.span.first
-            | None -> span.first
+            | Some pat -> pat.Span.First
+            | None -> span.First
 
         match peek from.rest with
         | Some({ data = data }, _) when canStartPat data ->
@@ -39,9 +39,9 @@ let rec internal parsePatInner (ctx: Context) input =
                 Ok
                     { data =
                         RangePat
-                            { from = from.data
-                              to_ = Some to_.data
-                              span = Span.Make first to_.data.span.last }
+                            { From = from.data
+                              To = Some to_.data
+                              Span = Span.Make first to_.data.Span.Last }
                       error = to_.error
                       rest = to_.rest }
 
@@ -55,16 +55,16 @@ let rec internal parsePatInner (ctx: Context) input =
                 Ok
                     { data =
                         RangePat
-                            { from = from.data
-                              to_ = None
-                              span = span.WithFirst first }
+                            { From = from.data
+                              To = None
+                              Span = span.WithFirst first }
                       error = [||]
                       rest = from.rest }
 
     and parseStructField input =
         match peek input with
         | Some({ data = Identifier sym; span = span }, i) ->
-            let id = { sym = sym; span = span }
+            let id = { Sym = sym; Span = span }
 
             match peekWith input[i..] Colon with
             | Some(_, j) ->
@@ -74,9 +74,9 @@ let rec internal parsePatInner (ctx: Context) input =
                     Ok
                         { data =
                             KeyValuePat
-                                { id = id
-                                  pat = v.data
-                                  span = v.data.span.WithFirst span.first }
+                                { Id = id
+                                  Pat = v.data
+                                  Span = v.data.Span.WithFirst span.First }
                           error = v.error
                           rest = v.rest }
             | None ->
@@ -101,16 +101,16 @@ let rec internal parsePatInner (ctx: Context) input =
         match field with
         | Ok(field, paren) ->
             let pat =
-                { name = state.data
-                  field = field.data
-                  span = state.data.span.WithLast paren.span.last }
+                { Id = state.data
+                  Field = field.data
+                  Span = state.data.Span.WithLast paren.span.Last }
 
             let isRest (idx, pat) =
                 match pat with
                 | RestFieldPat _ when idx <> (Array.length field.data) - 1 -> true
                 | _ -> false
 
-            let toError (_, pat: FieldPat) = RestAtStructEnd pat.span
+            let toError (_, pat: FieldPat) = RestAtStructEnd pat.Span
 
             let restError = Array.indexed field.data |> Array.filter isRest |> Array.map toError
 
@@ -126,9 +126,9 @@ let rec internal parsePatInner (ctx: Context) input =
             | Ok id ->
                 let newState: State<PathPat> =
                     { data =
-                        { prefix = state.data.prefix
-                          seg = Array.append state.data.seg [| id.data |]
-                          span = state.data.span.WithLast id.data.span.last }
+                        { Prefix = state.data.Prefix
+                          Seg = Array.append state.data.Seg [| id.data |]
+                          Span = state.data.Span.WithLast id.data.Span.Last }
                       error = Array.append state.error id.error
                       rest = id.rest }
 
@@ -151,9 +151,9 @@ let rec internal parsePatInner (ctx: Context) input =
                 match content with
                 | Ok(content, paren) ->
                     let pat =
-                        { name = state.data
-                          content = content.data
-                          span = state.data.span.WithLast paren.span.last }
+                        { Name = state.data
+                          Content = content.data
+                          Span = state.data.Span.WithLast paren.span.Last }
 
                     Ok
                         { data = EnumPat pat
@@ -164,7 +164,7 @@ let rec internal parsePatInner (ctx: Context) input =
             | Some({ data = Curly Open }, i) -> parseStruct { state with rest = state.rest[i..] }
 
             | _ ->
-                let data = IdPat state.data.seg[0]
+                let data = IdPat state.data.Seg[0]
 
                 Ok
                     { data = data
@@ -191,9 +191,9 @@ let rec internal parsePatInner (ctx: Context) input =
 
             let path: State<PathPat> =
                 { data =
-                    { prefix = Some prefix
-                      seg = [||]
-                      span = span }
+                    { Prefix = Some prefix
+                      Seg = [||]
+                      Span = span }
                   error = [||]
                   rest = input[i..] }
 
@@ -222,8 +222,8 @@ let rec internal parsePatInner (ctx: Context) input =
                     | _ -> res
                 | LowSelf ->
                     let data =
-                        if path.data.seg.Length = 1 then
-                            SelfPat path.data.span
+                        if path.data.Seg.Length = 1 then
+                            SelfPat path.data.Span
                         else
                             PathPat path.data
 
@@ -240,16 +240,16 @@ let rec internal parsePatInner (ctx: Context) input =
         | Some({ data = Identifier _; span = span }, _) ->
             parsePath
                 { data =
-                    { prefix = None
-                      seg = [||]
-                      span = span }
+                    { Prefix = None
+                      Seg = [||]
+                      Span = span }
                   error = [||]
                   rest = input }
 
         | Some({ data = Operator(Arithmetic Sub)
                  span = span },
                i) ->
-            let first = span.first
+            let first = span.First
 
             match peek input[i..] with
             | Some({ data = Lit(Int _ | Float _ as l)
@@ -292,7 +292,7 @@ let rec internal parsePatInner (ctx: Context) input =
                     if ele.data.Length = 1 then
                         ele.data[0], ele.error
                     else
-                        let span = paren.span.WithFirst span.first
+                        let span = paren.span.WithFirst span.First
 
                         let error =
                             if (Array.filter isRestPat ele.data).Length > 1 then
@@ -300,7 +300,7 @@ let rec internal parsePatInner (ctx: Context) input =
                             else
                                 ele.error
 
-                        TuplePat { element = ele.data; span = span }, error
+                        TuplePat { Ele = ele.data; Span = span }, error
 
                 Ok
                     { data = pat
@@ -314,8 +314,8 @@ let rec internal parsePatInner (ctx: Context) input =
 
             match ele with
             | Ok(ele, bracket) ->
-                let span = bracket.span.WithFirst span.first
-                let pat = ArrayPat { element = ele.data; span = span }
+                let span = bracket.span.WithFirst span.First
+                let pat = ArrayPat { Ele = ele.data; Span = span }
 
                 let error =
                     if (Array.filter isRestPat ele.data).Length > 1 then
@@ -336,7 +336,7 @@ let rec internal parsePatInner (ctx: Context) input =
             | Error e -> Error [| e |]
             | Ok(s, j) ->
                 Ok
-                    { data = RefSelfPat(span.WithLast s.last)
+                    { data = RefSelfPat(span.WithLast s.Last)
                       error = [||]
                       rest = input[i + j ..] }
 
@@ -366,14 +366,14 @@ let rec internal parsePatInner (ctx: Context) input =
         | Some({ data = Operator As }, i) ->
             match peek state.rest[i..] with
             | Some({ data = Identifier sym; span = span }, j) ->
-                let id = { sym = sym; span = span }
+                let id = { Sym = sym; Span = span }
 
                 let newState =
                     { data =
                         AsPat
-                            { pat = state.data
-                              id = id
-                              span = span.WithFirst state.data.span.first }
+                            { Pat = state.data
+                              Id = id
+                              Span = span.WithFirst state.data.Span.First }
                       error = state.error
                       rest = state.rest[i + j ..] }
 
@@ -411,8 +411,8 @@ let rec internal parsePatInner (ctx: Context) input =
                     pat[0]
                 else
                     OrPat
-                        { pat = pat
-                          span = Span.Make pat[0].span.first (Array.last pat).span.last }
+                        { Pat = pat
+                          Span = Span.Make pat[0].Span.First (Array.last pat).Span.Last }
 
             Ok
                 { data = data

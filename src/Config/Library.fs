@@ -6,13 +6,13 @@ type Arch =
     | Wasm
 
     /// pointer width in byte
-    member this.ptrSize =
+    member this.PtrSize =
         match this with
         | X86_64
         | AArch64 -> 8
         | Wasm -> 4
 
-    member this.endian =
+    member this.Endian =
         match this with
         | X86_64
         | AArch64
@@ -28,8 +28,8 @@ type OS =
     | Unknown
 
 type Optimization =
-    { tailCall: bool }
+    { TailCall: bool }
 
-    static member Debug = { tailCall = false }
+    static member Debug = { TailCall = false }
 
-    static member Releas = { tailCall = true }
+    static member Releas = { TailCall = true }

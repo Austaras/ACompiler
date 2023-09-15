@@ -1,34 +1,34 @@
 ﻿module AST.AST
 
 type Span =
-    { first: int
-      last: int }
+    { First: int
+      Last: int }
 
-    static member dummy = { first = 0; last = 0 }
-    static member Make first last = { first = first; last = last }
+    static member dummy = { First = 0; Last = 0 }
+    static member Make first last = { First = first; Last = last }
 
-    member this.WithFirst first = { this with first = first }
+    member this.WithFirst first = { this with First = first }
 
-    member this.WithLast last = { this with last = last }
+    member this.WithLast last = { this with Last = last }
 
-    member this.ShrinkFirst i = { this with first = this.first + i }
-    member this.ShrinkLast i = { this with last = this.last - i }
+    member this.ShrinkFirst i = { this with First = this.First + i }
+    member this.ShrinkLast i = { this with Last = this.Last - i }
 
 type Pos =
-    { line: int
-      column: int }
+    { Line: int
+      Column: int }
 
     static member FromSpan lines span =
         let rec fromSpan lines line column =
             if Array.length lines = 0 then
                 failwith "not in lines"
             else if column < lines[0] then
-                { line = line; column = column }
+                { Line = line; Column = column }
             else
                 let newColumn = column - lines[0]
 
                 if newColumn = 0 then
-                    { line = line + 1; column = 0 }
+                    { Line = line + 1; Column = 0 }
                 else
                     fromSpan lines[1..] (line + 1) newColumn
 
@@ -43,7 +43,7 @@ type Lit =
     | Float of double
     | Bool of bool
 
-type Id = { sym: string; span: Span }
+type Id = { Sym: string; Span: Span }
 
 type UnaryOp =
     | Neg
@@ -117,35 +117,35 @@ type PathPrefix =
     | Package
 
 type PathPat =
-    { prefix: Option<PathPrefix>
-      seg: Id[]
-      span: Span }
+    { Prefix: Option<PathPrefix>
+      Seg: Id[]
+      Span: Span }
 
 type Path =
-    { prefix: Option<PathPrefix>
-      seg: (Id * Type[])[]
-      span: Span }
+    { Prefix: Option<PathPrefix>
+      Seg: (Id * Type[])[]
+      Span: Span }
 
 and FnType =
-    { param: Type[]
-      tyParam: TypeParam[]
-      ret: Type
-      span: Span }
+    { Param: Type[]
+      TyParam: TypeParam[]
+      Ret: Type
+      Span: Span }
 
-and RefType = { ty: Type; span: Span }
+and RefType = { Ty: Type; Span: Span }
 
 and ArrayType =
-    { ele: Type
-      len: Option<uint>
-      span: Span }
+    { Ele: Type
+      Len: Option<uint>
+      Span: Span }
 
-and TupleType = { element: Type[]; span: Span }
+and TupleType = { Ele: Type[]; Span: Span }
 
 and TypeParam =
-    { id: Id
-      const_: bool
-      bound: Path[]
-      span: Span }
+    { Id: Id
+      Const: bool
+      Bound: Path[]
+      Span: Span }
 
 and Type =
     | TypeId of Id
@@ -160,49 +160,49 @@ and Type =
 
     member this.span =
         match this with
-        | TypeId i -> i.span
-        | PathType p -> p.span
-        | TupleType t -> t.span
+        | TypeId i -> i.Span
+        | PathType p -> p.Span
+        | TupleType t -> t.Span
         | LitType(_, s) -> s
         | NeverType s -> s
-        | RefType r -> r.span
-        | ArrayType a -> a.span
+        | RefType r -> r.Span
+        | ArrayType a -> a.Span
         | InferedType s -> s
-        | FnType f -> f.span
+        | FnType f -> f.Span
 
-type SeqPat = { element: Pat[]; span: Span }
+type SeqPat = { Ele: Pat[]; Span: Span }
 
-and AsPat = { pat: Pat; id: Id; span: Span }
+and AsPat = { Pat: Pat; Id: Id; Span: Span }
 
 and EnumPat =
-    { name: PathPat
-      content: Pat[]
-      span: Span }
+    { Name: PathPat
+      Content: Pat[]
+      Span: Span }
 
-and OrPat = { pat: Pat[]; span: Span }
+and OrPat = { Pat: Pat[]; Span: Span }
 
-and KeyValuePat = { id: Id; pat: Pat; span: Span }
+and KeyValuePat = { Id: Id; Pat: Pat; Span: Span }
 
 and FieldPat =
     | ShorthandPat of Id
     | KeyValuePat of KeyValuePat
     | RestFieldPat of Span
 
-    member this.span =
+    member this.Span =
         match this with
-        | ShorthandPat i -> i.span
-        | KeyValuePat k -> k.span
+        | ShorthandPat i -> i.Span
+        | KeyValuePat k -> k.Span
         | RestFieldPat s -> s
 
 and RangePat =
-    { from: Option<Pat>
-      to_: Option<Pat>
-      span: Span }
+    { From: Option<Pat>
+      To: Option<Pat>
+      Span: Span }
 
 and StructPat =
-    { name: PathPat
-      field: FieldPat[]
-      span: Span }
+    { Id: PathPat
+      Field: FieldPat[]
+      Span: Span }
 
 and Pat =
     | LitPat of Lit * Span
@@ -220,140 +220,137 @@ and Pat =
     | SelfPat of Span
     | RefSelfPat of Span
 
-    member this.span =
+    member this.Span =
         match this with
         | LitPat(_, s) -> s
-        | IdPat i -> i.span
-        | TuplePat t -> t.span
-        | ArrayPat a -> a.span
-        | AsPat a -> a.span
-        | PathPat p -> p.span
-        | EnumPat e -> e.span
-        | StructPat s -> s.span
-        | OrPat o -> o.span
+        | IdPat i -> i.Span
+        | TuplePat t -> t.Span
+        | ArrayPat a -> a.Span
+        | AsPat a -> a.Span
+        | PathPat p -> p.Span
+        | EnumPat e -> e.Span
+        | StructPat s -> s.Span
+        | OrPat o -> o.Span
         | RestPat s -> s
         | CatchAllPat s -> s
-        | RangePat r -> r.span
+        | RangePat r -> r.Span
         | SelfPat s -> s
         | RefSelfPat s -> s
 
 type Param =
-    { pat: Pat
-      ty: Option<Type>
-      span: Span }
+    { Pat: Pat
+      Ty: Option<Type>
+      Span: Span }
 
 type Call =
-    { callee: Expr
-      arg: Expr[]
-      span: Span }
+    { Callee: Expr
+      Arg: Expr[]
+      Span: Span }
 
     member this.isMethodCall =
-        match this.callee with
+        match this.Callee with
         | Field _ -> true
         | _ -> false
 
-and LetCond = { pat: Pat; value: Expr; span: Span }
+and LetCond = { Pat: Pat; Value: Expr; Span: Span }
 
 and Cond =
     | BoolCond of Expr
     | LetCond of LetCond
 
 and Elseif =
-    { cond: Cond; block: Block; span: Span }
+    { Cond: Cond; Block: Block; Span: Span }
 
 and If =
-    { cond: Cond
-      then_: Block
-      elseif: Elseif[]
-      else_: Option<Block>
-      span: Span }
+    { Cond: Cond
+      Then: Block
+      ElseIf: Elseif[]
+      Else: Option<Block>
+      Span: Span }
 
-and Unary = { op: UnaryOp; expr: Expr; span: Span }
+and Unary = { Op: UnaryOp; Expr: Expr; Span: Span }
 
 and Assign =
-    { place: Expr
-      op: Option<ArithmeticOp>
-      value: Expr
-      span: Span }
+    { Place: Expr
+      Op: Option<ArithmeticOp>
+      Value: Expr
+      Span: Span }
 
 and Binary =
-    { left: Expr
-      op: BinaryOp
-      right: Expr
-      span: Span }
+    { Left: Expr
+      Op: BinaryOp
+      Right: Expr
+      Span: Span }
 
 and Field =
-    { receiver: Expr; prop: Id; span: Span }
+    { Receiver: Expr; Prop: Id; Span: Span }
 
 and Index =
-    { container: Expr
-      index: Expr
-      span: Span }
+    { Container: Expr
+      Idx: Expr
+      Span: Span }
 
-and Block = { stmt: Stmt[]; span: Span }
+and Block = { Stmt: Stmt[]; Span: Span }
 
-and ArrayRepeat =
-    { element: Expr
-      repeat: Expr
-      span: Span }
+and ArrayRepeat = { Ele: Expr; Count: Expr; Span: Span }
 
 and Seq = { element: Expr[]; span: Span }
 
 and RangeExpr =
-    { from: Option<Expr>
-      to_: Option<Expr>
-      exclusive: bool
-      span: Span }
+    { From: Option<Expr>
+      To: Option<Expr>
+      Exclusive: bool
+      Span: Span }
 
 and KeyValueField =
-    { name: string
-      value: Expr
-      span: Span }
+    { Name: string
+      Value: Expr
+      Span: Span }
 
 and StructField =
     | ShorthandField of Id
     | KeyValueField of KeyValueField
     | RestField of Span * Expr
 
-    member this.span =
+    member this.Span =
         match this with
-        | ShorthandField i -> i.span
-        | KeyValueField k -> k.span
+        | ShorthandField i -> i.Span
+        | KeyValueField k -> k.Span
         | RestField(s, _) -> s
 
 and StructLit =
-    { ty: Path
-      field: StructField[]
-      span: Span }
+    { Ty: Path
+      Field: StructField[]
+      Span: Span }
 
 and For =
-    { var: Pat
-      iter: Expr
-      body: Block
-      span: Span }
+    { Var: Pat
+      Iter: Expr
+      Body: Block
+      Span: Span }
 
-and While = { cond: Cond; body: Block; span: Span }
+and While = { Cond: Cond; Body: Block; Span: Span }
 
-and TryReturn = { base_: Expr; span: Span }
+and TryReturn = { Base: Expr; Span: Span }
 
 and Closure =
-    { param: Param[]
-      ret: Option<Type>
-      body: Expr
-      span: Span }
+    { Param: Param[]
+      Ret: Option<Type>
+      Body: Expr
+      Span: Span }
 
 and MatchBranch =
-    { pat: Pat
-      guard: Option<Expr>
-      expr: Expr
-      span: Span }
+    { Pat: Pat
+      Guard: Option<Expr>
+      Expr: Expr
+      Span: Span }
 
 and Match =
     { expr: Expr
       branch: MatchBranch[]
       span: Span }
 
-and Return = { value: Option<Expr>; span: Span }
+and Return = { Value: Option<Expr>; Span: Span }
 
 and Expr =
     | Id of Id
@@ -383,65 +380,65 @@ and Expr =
     | TryReturn of TryReturn
     | Match of Match
 
-    member this.span =
+    member this.Span =
         match this with
-        | Id i -> i.span
+        | Id i -> i.Span
         | LitExpr(_, s) -> s
         | SelfExpr s -> s
-        | If i -> i.span
-        | Block b -> b.span
-        | Call c -> c.span
-        | Unary u -> u.span
-        | Assign a -> a.span
-        | Binary b -> b.span
-        | Field f -> f.span
-        | Index i -> i.span
+        | If i -> i.Span
+        | Block b -> b.Span
+        | Call c -> c.Span
+        | Unary u -> u.Span
+        | Assign a -> a.Span
+        | Binary b -> b.Span
+        | Field f -> f.Span
+        | Index i -> i.Span
         | Array t
         | Tuple t -> t.span
-        | StructLit s -> s.span
-        | Closure c -> c.span
-        | ArrayRepeat a -> a.span
-        | Path p -> p.span
+        | StructLit s -> s.Span
+        | Closure c -> c.Span
+        | ArrayRepeat a -> a.Span
+        | Path p -> p.Span
         | Break b -> b
         | Continue c -> c
-        | Return r -> r.span
-        | Range r -> r.span
-        | For f -> f.span
-        | While w -> w.span
-        | TryReturn t -> t.span
+        | Return r -> r.Span
+        | Range r -> r.Span
+        | For f -> f.Span
+        | While w -> w.Span
+        | TryReturn t -> t.Span
         | Match m -> m.span
 
     member this.IsPlace =
         match this with
         | Id _
         | Field _
-        | Unary { op = Deref }
+        | Unary { Op = Deref }
         | Index _ -> true
         | _ -> false
 
 and Let =
-    { pat: Pat
-      mut: bool
-      ty: Option<Type>
-      value: Expr
-      span: Span }
+    { Pat: Pat
+      Mut: bool
+      Ty: Option<Type>
+      Value: Expr
+      Span: Span }
 
 and Const =
-    { pat: Pat
-      ty: Option<Type>
-      value: Expr
-      span: Span }
+    { Pat: Pat
+      Ty: Option<Type>
+      Value: Expr
+      Span: Span }
 
 and Fn =
-    { name: Id
-      tyParam: TypeParam[]
-      param: Param[]
-      retTy: Option<Type>
-      body: Block
-      span: Span }
+    { Name: Id
+      TyParam: TypeParam[]
+      Param: Param[]
+      Ret: Option<Type>
+      Body: Block
+      Span: Span }
 
 and UsePath =
-    { span: Span; seg: Id[]; item: UseItem }
+    { Span: Span; Seg: Id[]; Item: UseItem }
 
 and UseItem =
     | UseAll of Span
@@ -450,55 +447,52 @@ and UseItem =
     | UsePath of UsePath[]
 
 and Use =
-    { span: Span
-      prefix: Option<PathPrefix>
-      seg: Id[]
-      item: UseItem[] }
+    { Span: Span
+      Prefix: Option<PathPrefix>
+      Seg: Id[]
+      Item: UseItem[] }
 
-and TypeDecl = { name: Id; ty: Type; span: Span }
+and TypeDecl = { Name: Id; Ty: Type; Span: Span }
 
 and StructFieldDef =
-    { vis: Visibility
-      name: Id
-      ty: Type
-      span: Span }
+    { Vis: Visibility
+      Name: Id
+      Ty: Type
+      Span: Span }
 
 and StructDecl =
-    { name: Id
-      tyParam: TypeParam[]
-      field: StructFieldDef[]
-      span: Span }
+    { Id: Id
+      TyParam: TypeParam[]
+      Field: StructFieldDef[]
+      Span: Span }
 
-and EnumVariantDef =
-    { name: Id
-      payload: Type[]
-      span: Span }
+and EnumVariantDef = { Id: Id; Payload: Type[]; span: Span }
 
 and EnumDecl =
-    { name: Id
-      tyParam: TypeParam[]
-      variant: EnumVariantDef[]
-      span: Span }
+    { Id: Id
+      TyParam: TypeParam[]
+      Variant: EnumVariantDef[]
+      Span: Span }
 
 and TraitMethod =
-    { name: Id
-      tyParam: TypeParam[]
-      param: Param[]
-      ret: Option<Type>
-      defaultImpl: Option<Block>
-      span: Span }
+    { Id: Id
+      TyParam: TypeParam[]
+      Param: Param[]
+      Ret: Option<Type>
+      DefaultImpl: Option<Block>
+      Span: Span }
 
 and TraitType =
-    { name: Id
-      bound: Path[]
-      defaultTy: Option<Type>
-      span: Span }
+    { Id: Id
+      Bound: Path[]
+      DefaultTy: Option<Type>
+      Span: Span }
 
 and TraitValue =
-    { name: Id
-      ty: Type
-      defaultValue: Option<Expr>
-      span: Span }
+    { Id: Id
+      Ty: Type
+      DefaultValue: Option<Expr>
+      Span: Span }
 
 and TraitItem =
     | TraitMethod of TraitMethod
@@ -506,34 +500,34 @@ and TraitItem =
     | TraitValue of TraitValue
 
 and Trait =
-    { name: Id
-      tyParam: TypeParam[]
-      super: Path[]
-      item: TraitItem[]
-      span: Span }
+    { Id: Id
+      TyParam: TypeParam[]
+      Super: Path[]
+      Item: TraitItem[]
+      Span: Span }
 
 and ImplDecl =
     | AssocType of TypeDecl
     | AssocValue of Const
     | Method of Fn
 
-    member this.span =
+    member this.Span =
         match this with
-        | AssocType t -> t.span
-        | AssocValue c -> c.span
-        | Method m -> m.span
+        | AssocType t -> t.Span
+        | AssocValue c -> c.Span
+        | Method m -> m.Span
 
 and ImplItem =
-    { vis: Visibility
-      item: ImplDecl
-      span: Span }
+    { Vis: Visibility
+      Item: ImplDecl
+      Span: Span }
 
 and Impl =
-    { trait_: Option<Path>
-      tyParam: TypeParam[]
-      type_: Type
-      item: ImplItem[]
-      span: Span }
+    { Trait: Option<Path>
+      TyParam: TypeParam[]
+      Type: Type
+      Item: ImplItem[]
+      Span: Span }
 
 and Decl =
     | Let of Let
@@ -546,25 +540,25 @@ and Decl =
     | Trait of Trait
     | Impl of Impl
 
-    member this.span =
+    member this.Span =
         match this with
-        | Let l -> l.span
-        | Const c -> c.span
-        | FnDecl f -> f.span
-        | StructDecl s -> s.span
-        | EnumDecl e -> e.span
-        | TypeDecl t -> t.span
-        | Use u -> u.span
-        | Trait t -> t.span
-        | Impl i -> i.span
+        | Let l -> l.Span
+        | Const c -> c.Span
+        | FnDecl f -> f.Span
+        | StructDecl s -> s.Span
+        | EnumDecl e -> e.Span
+        | TypeDecl t -> t.Span
+        | Use u -> u.Span
+        | Trait t -> t.Span
+        | Impl i -> i.Span
 
 and Stmt =
     | ExprStmt of Expr
     | DeclStmt of Decl
 
 type ModuleItem =
-    { vis: Visibility
-      decl: Decl
-      span: Span }
+    { Vis: Visibility
+      Decl: Decl
+      Span: Span }
 
-type Module = { item: ModuleItem[]; span: Span }
+type Module = { Item: ModuleItem[]; Span: Span }

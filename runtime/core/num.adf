@@ -1,4 +1,4 @@
-#[range_start=1]
+#[compiler_builtin::range_start=1]
 struct NonZeroUSize {
     inner: usize
 }

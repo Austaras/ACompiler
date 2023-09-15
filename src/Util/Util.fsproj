@@ -4,9 +4,9 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="RangeMap.fs" />
     <Compile Include="BiMap.fs" />
     <Compile Include="MultiMap.fs" />
+    <Compile Include="RangeMap.fs" />
     <Compile Include="Library.fs" />
   </ItemGroup>
 </Project>

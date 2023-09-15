@@ -133,7 +133,7 @@ let internal tryRecover canStart parser msg (input: Token[]) =
                             UnexpectedToken(unexpected[0], msg)
                         else
                             UnexpectedManyToken(
-                                Span.Make unexpected[0].span.first (Array.last unexpected).span.last,
+                                Span.Make unexpected[0].span.First (Array.last unexpected).span.Last,
                                 msg
                             )
 
@@ -238,7 +238,7 @@ let internal parseLtGt (input: Token[]) parser error =
             let first, rest =
                 let follow =
                     match Array.tryHead input with
-                    | Some token when token.span.first - 1 = span.last -> Some token
+                    | Some token when token.span.First - 1 = span.Last -> Some token
                     | Some _ -> None
                     | None -> None
 
@@ -246,18 +246,18 @@ let internal parseLtGt (input: Token[]) parser error =
                 // >> >
                 | Operator Gt, (Some { data = Operator Gt; span = span }) ->
                     { data = Operator(Arithmetic Shr)
-                      span = Span.Make (span.first - 1) (span.first) },
+                      span = Span.Make (span.First - 1) (span.First) },
                     input[1..]
                 // >> =
                 | Operator Gt, (Some { data = Eq; span = span }) ->
 
                     { data = Operator GtEq
-                      span = Span.Make (span.first - 1) (span.first) },
+                      span = Span.Make (span.First - 1) (span.First) },
                     input[1..]
                 // >> >=
                 | Operator Gt, (Some { data = Operator GtEq; span = span }) ->
                     { data = AssignOp Shr
-                      span = Span.Make (span.first - 1) (span.first) },
+                      span = Span.Make (span.First - 1) (span.First) },
                     input[1..]
                 // >> >>
                 | Operator Gt,
@@ -265,39 +265,39 @@ let internal parseLtGt (input: Token[]) parser error =
                           span = span }) ->
                     let first =
                         { data = Operator(Arithmetic Shr)
-                          span = Span.Make (span.first - 1) (span.first) }
+                          span = Span.Make (span.First - 1) (span.First) }
 
                     first, (splitAndMerge (Operator Gt) span input[1..])
                 // >> >>=
                 | Operator Gt, (Some { data = AssignOp Shr; span = span }) ->
                     let first =
                         { data = Operator(Arithmetic Shr)
-                          span = Span.Make (span.first - 1) (span.first) }
+                          span = Span.Make (span.First - 1) (span.First) }
 
                     first, (splitAndMerge (Operator GtEq) span input[1..])
                 // >> =>
                 | Operator Gt, (Some { data = FatArrow; span = span }) ->
                     let first =
                         { data = Operator GtEq
-                          span = Span.Make (span.first - 1) (span.first) }
+                          span = Span.Make (span.First - 1) (span.First) }
 
                     first, (splitAndMerge (Operator Gt) span input[1..])
 
                 // >= =
                 | Eq, (Some { data = Eq; span = span }) ->
                     { data = Operator EqEq
-                      span = Span.Make (span.first - 1) (span.first) },
+                      span = Span.Make (span.First - 1) (span.First) },
                     input[1..]
                 // >= >
                 | Eq, (Some { data = Operator Gt; span = span }) ->
                     { data = FatArrow
-                      span = Span.Make (span.first - 1) (span.first) },
+                      span = Span.Make (span.First - 1) (span.First) },
                     input[1..]
                 // >= >=
                 | Eq, (Some { data = Operator GtEq; span = span }) ->
                     let first =
                         { data = FatArrow
-                          span = Span.Make (span.first - 1) (span.first) }
+                          span = Span.Make (span.First - 1) (span.First) }
 
                     first, (splitAndMerge Eq span input[1..])
                 // >= >>
@@ -306,14 +306,14 @@ let internal parseLtGt (input: Token[]) parser error =
                           span = span }) ->
                     let first =
                         { data = FatArrow
-                          span = Span.Make (span.first - 1) (span.first) }
+                          span = Span.Make (span.First - 1) (span.First) }
 
                     first, (splitAndMerge (Operator Gt) span input[1..])
                 // >= >>=
                 | Eq, (Some { data = AssignOp Shr; span = span }) ->
                     let first =
                         { data = FatArrow
-                          span = Span.Make (span.first - 1) (span.first) }
+                          span = Span.Make (span.First - 1) (span.First) }
 
                     first, (splitAndMerge (Operator GtEq) span input[1..])
                 | _ -> { data = op; span = span }, input
@@ -332,7 +332,7 @@ let internal parseLtGt (input: Token[]) parser error =
             | AssignOp Shr -> splitAndMerge (Operator GtEq) gt.span param.rest
             | _ -> failwith "unreachable"
 
-        let span = Span.Make gt.span.first (gt.span.first + 1)
+        let span = Span.Make gt.span.First (gt.span.First + 1)
 
         Ok
             { data = param.data, span
@@ -373,7 +373,7 @@ let internal parseId input msg =
     match peek input with
     | Some({ data = Identifier sym; span = span }, i) ->
         Ok
-            { data = { sym = sym; span = span }
+            { data = { Sym = sym; Span = span }
               error = [||]
               rest = input[i..] }
     | Some(token, _) -> Error(UnexpectedToken(token, msg))

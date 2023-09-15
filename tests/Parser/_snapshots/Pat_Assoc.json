@@ -1,61 +1,61 @@
 {
   "AsOr": {
     "OrPat": {
-      "pat": [
+      "Pat": [
         {
           "AsPat": {
-            "pat": {
+            "Pat": {
               "AsPat": {
-                "pat": {
+                "Pat": {
                   "LitPat": [
                     {
                       "Int": 1
                     },
                     {
-                      "first": 0,
-                      "last": 0
+                      "First": 0,
+                      "Last": 0
                     }
                   ]
                 },
-                "id": {
-                  "sym": "a",
-                  "span": {
-                    "first": 5,
-                    "last": 5
+                "Id": {
+                  "Sym": "a",
+                  "Span": {
+                    "First": 5,
+                    "Last": 5
                   }
                 },
-                "span": {
-                  "first": 0,
-                  "last": 5
+                "Span": {
+                  "First": 0,
+                  "Last": 5
                 }
               }
             },
-            "id": {
-              "sym": "b",
-              "span": {
-                "first": 10,
-                "last": 10
+            "Id": {
+              "Sym": "b",
+              "Span": {
+                "First": 10,
+                "Last": 10
               }
             },
-            "span": {
-              "first": 0,
-              "last": 10
+            "Span": {
+              "First": 0,
+              "Last": 10
             }
           }
         },
         {
           "IdPat": {
-            "sym": "d",
-            "span": {
-              "first": 14,
-              "last": 14
+            "Sym": "d",
+            "Span": {
+              "First": 14,
+              "Last": 14
             }
           }
         }
       ],
-      "span": {
-        "first": 0,
-        "last": 14
+      "Span": {
+        "First": 0,
+        "Last": 14
       }
     }
   }

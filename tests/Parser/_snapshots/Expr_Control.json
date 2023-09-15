@@ -1,99 +1,99 @@
 {
   "If": {
     "If": {
-      "cond": {
+      "Cond": {
         "LetCond": {
-          "pat": {
+          "Pat": {
             "OrPat": {
-              "pat": [
+              "Pat": [
                 {
                   "EnumPat": {
-                    "name": {
-                      "prefix": null,
-                      "seg": [
+                    "Name": {
+                      "Prefix": null,
+                      "Seg": [
                         {
-                          "sym": "L",
-                          "span": {
-                            "first": 7,
-                            "last": 7
+                          "Sym": "L",
+                          "Span": {
+                            "First": 7,
+                            "Last": 7
                           }
                         }
                       ],
-                      "span": {
-                        "first": 7,
-                        "last": 7
+                      "Span": {
+                        "First": 7,
+                        "Last": 7
                       }
                     },
-                    "content": [
+                    "Content": [
                       {
                         "CatchAllPat": {
-                          "first": 9,
-                          "last": 9
+                          "First": 9,
+                          "Last": 9
                         }
                       }
                     ],
-                    "span": {
-                      "first": 7,
-                      "last": 10
+                    "Span": {
+                      "First": 7,
+                      "Last": 10
                     }
                   }
                 },
                 {
                   "EnumPat": {
-                    "name": {
-                      "prefix": null,
-                      "seg": [
+                    "Name": {
+                      "Prefix": null,
+                      "Seg": [
                         {
-                          "sym": "R",
-                          "span": {
-                            "first": 14,
-                            "last": 14
+                          "Sym": "R",
+                          "Span": {
+                            "First": 14,
+                            "Last": 14
                           }
                         }
                       ],
-                      "span": {
-                        "first": 14,
-                        "last": 14
+                      "Span": {
+                        "First": 14,
+                        "Last": 14
                       }
                     },
-                    "content": [
+                    "Content": [
                       {
                         "CatchAllPat": {
-                          "first": 16,
-                          "last": 16
+                          "First": 16,
+                          "Last": 16
                         }
                       }
                     ],
-                    "span": {
-                      "first": 14,
-                      "last": 17
+                    "Span": {
+                      "First": 14,
+                      "Last": 17
                     }
                   }
                 }
               ],
-              "span": {
-                "first": 7,
-                "last": 17
+              "Span": {
+                "First": 7,
+                "Last": 17
               }
             }
           },
-          "value": {
+          "Value": {
             "Id": {
-              "sym": "a",
-              "span": {
-                "first": 21,
-                "last": 21
+              "Sym": "a",
+              "Span": {
+                "First": 21,
+                "Last": 21
               }
             }
           },
-          "span": {
-            "first": 3,
-            "last": 21
+          "Span": {
+            "First": 3,
+            "Last": 21
           }
         }
       },
-      "then_": {
-        "stmt": [
+      "Then": {
+        "Stmt": [
           {
             "ExprStmt": {
               "LitExpr": [
@@ -101,53 +101,53 @@
                   "Int": 1
                 },
                 {
-                  "first": 25,
-                  "last": 25
+                  "First": 25,
+                  "Last": 25
                 }
               ]
             }
           }
         ],
-        "span": {
-          "first": 23,
-          "last": 27
+        "Span": {
+          "First": 23,
+          "Last": 27
         }
       },
-      "elseif": [
+      "ElseIf": [
         {
-          "cond": {
+          "Cond": {
             "BoolCond": {
               "Binary": {
-                "left": {
+                "Left": {
                   "Id": {
-                    "sym": "a",
-                    "span": {
-                      "first": 37,
-                      "last": 37
+                    "Sym": "a",
+                    "Span": {
+                      "First": 37,
+                      "Last": 37
                     }
                   }
                 },
-                "op": "LtEq",
-                "right": {
+                "Op": "LtEq",
+                "Right": {
                   "LitExpr": [
                     {
                       "Int": 3
                     },
                     {
-                      "first": 42,
-                      "last": 42
+                      "First": 42,
+                      "Last": 42
                     }
                   ]
                 },
-                "span": {
-                  "first": 37,
-                  "last": 42
+                "Span": {
+                  "First": 37,
+                  "Last": 42
                 }
               }
             }
           },
-          "block": {
-            "stmt": [
+          "Block": {
+            "Stmt": [
               {
                 "ExprStmt": {
                   "LitExpr": [
@@ -155,26 +155,26 @@
                       "Int": 2
                     },
                     {
-                      "first": 46,
-                      "last": 46
+                      "First": 46,
+                      "Last": 46
                     }
                   ]
                 }
               }
             ],
-            "span": {
-              "first": 44,
-              "last": 48
+            "Span": {
+              "First": 44,
+              "Last": 48
             }
           },
-          "span": {
-            "first": 29,
-            "last": 48
+          "Span": {
+            "First": 29,
+            "Last": 48
           }
         }
       ],
-      "else_": {
-        "stmt": [
+      "Else": {
+        "Stmt": [
           {
             "ExprStmt": {
               "LitExpr": [
@@ -182,107 +182,107 @@
                   "Int": 3
                 },
                 {
-                  "first": 57,
-                  "last": 57
+                  "First": 57,
+                  "Last": 57
                 }
               ]
             }
           }
         ],
-        "span": {
-          "first": 55,
-          "last": 59
+        "Span": {
+          "First": 55,
+          "Last": 59
         }
       },
-      "span": {
-        "first": 0,
-        "last": 27
+      "Span": {
+        "First": 0,
+        "Last": 27
       }
     }
   },
   "For": {
     "For": {
-      "var": {
+      "Var": {
         "IdPat": {
-          "sym": "i",
-          "span": {
-            "first": 4,
-            "last": 4
+          "Sym": "i",
+          "Span": {
+            "First": 4,
+            "Last": 4
           }
         }
       },
-      "iter": {
+      "Iter": {
         "Range": {
-          "from": {
+          "From": {
             "LitExpr": [
               {
                 "Int": 0
               },
               {
-                "first": 9,
-                "last": 9
+                "First": 9,
+                "Last": 9
               }
             ]
           },
-          "to_": {
+          "To": {
             "LitExpr": [
               {
                 "Int": 9
               },
               {
-                "first": 12,
-                "last": 12
+                "First": 12,
+                "Last": 12
               }
             ]
           },
-          "exclusive": false,
-          "span": {
-            "first": 9,
-            "last": 12
+          "Exclusive": false,
+          "Span": {
+            "First": 9,
+            "Last": 12
           }
         }
       },
-      "body": {
-        "stmt": [
+      "Body": {
+        "Stmt": [
           {
             "ExprStmt": {
               "Call": {
-                "callee": {
+                "Callee": {
                   "Id": {
-                    "sym": "print",
-                    "span": {
-                      "first": 16,
-                      "last": 20
+                    "Sym": "print",
+                    "Span": {
+                      "First": 16,
+                      "Last": 20
                     }
                   }
                 },
-                "arg": [
+                "Arg": [
                   {
                     "Id": {
-                      "sym": "i",
-                      "span": {
-                        "first": 22,
-                        "last": 22
+                      "Sym": "i",
+                      "Span": {
+                        "First": 22,
+                        "Last": 22
                       }
                     }
                   }
                 ],
-                "span": {
-                  "first": 16,
-                  "last": 23
+                "Span": {
+                  "First": 16,
+                  "Last": 23
                 }
               }
             }
           }
         ],
-        "span": {
-          "first": 14,
-          "last": 25
+        "Span": {
+          "First": 14,
+          "Last": 25
         }
       },
-      "span": {
-        "first": 0,
-        "last": 25
+      "Span": {
+        "First": 0,
+        "Last": 25
       }
     }
   },
@@ -290,130 +290,130 @@
     "Match": {
       "expr": {
         "Id": {
-          "sym": "a",
-          "span": {
-            "first": 6,
-            "last": 6
+          "Sym": "a",
+          "Span": {
+            "First": 6,
+            "Last": 6
           }
         }
       },
       "branch": [
         {
-          "pat": {
+          "Pat": {
             "EnumPat": {
-              "name": {
-                "prefix": null,
-                "seg": [
+              "Name": {
+                "Prefix": null,
+                "Seg": [
                   {
-                    "sym": "Some",
-                    "span": {
-                      "first": 10,
-                      "last": 13
+                    "Sym": "Some",
+                    "Span": {
+                      "First": 10,
+                      "Last": 13
                     }
                   }
                 ],
-                "span": {
-                  "first": 10,
-                  "last": 13
+                "Span": {
+                  "First": 10,
+                  "Last": 13
                 }
               },
-              "content": [
+              "Content": [
                 {
                   "IdPat": {
-                    "sym": "a",
-                    "span": {
-                      "first": 15,
-                      "last": 15
+                    "Sym": "a",
+                    "Span": {
+                      "First": 15,
+                      "Last": 15
                     }
                   }
                 }
               ],
-              "span": {
-                "first": 10,
-                "last": 16
+              "Span": {
+                "First": 10,
+                "Last": 16
               }
             }
           },
-          "guard": null,
-          "expr": {
+          "Guard": null,
+          "Expr": {
             "Id": {
-              "sym": "a",
-              "span": {
-                "first": 21,
-                "last": 21
+              "Sym": "a",
+              "Span": {
+                "First": 21,
+                "Last": 21
               }
             }
           },
-          "span": {
-            "first": 10,
-            "last": 21
+          "Span": {
+            "First": 10,
+            "Last": 21
           }
         },
         {
-          "pat": {
+          "Pat": {
             "IdPat": {
-              "sym": "None",
-              "span": {
-                "first": 24,
-                "last": 27
+              "Sym": "None",
+              "Span": {
+                "First": 24,
+                "Last": 27
               }
             }
           },
-          "guard": null,
-          "expr": {
+          "Guard": null,
+          "Expr": {
             "LitExpr": [
               {
                 "Int": 1
               },
               {
-                "first": 32,
-                "last": 32
+                "First": 32,
+                "Last": 32
               }
             ]
           },
-          "span": {
-            "first": 24,
-            "last": 32
+          "Span": {
+            "First": 24,
+            "Last": 32
           }
         },
         {
-          "pat": {
+          "Pat": {
             "CatchAllPat": {
-              "first": 35,
-              "last": 35
+              "First": 35,
+              "Last": 35
             }
           },
-          "guard": {
+          "Guard": {
             "LitExpr": [
               {
                 "Bool": true
               },
               {
-                "first": 40,
-                "last": 43
+                "First": 40,
+                "Last": 43
               }
             ]
           },
-          "expr": {
+          "Expr": {
             "LitExpr": [
               {
                 "Int": 3
               },
               {
-                "first": 48,
-                "last": 48
+                "First": 48,
+                "Last": 48
               }
             ]
           },
-          "span": {
-            "first": 35,
-            "last": 48
+          "Span": {
+            "First": 35,
+            "Last": 48
           }
         }
       ],
       "span": {
-        "first": 0,
-        "last": 50
+        "First": 0,
+        "Last": 50
       }
     }
   }

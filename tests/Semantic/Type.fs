@@ -30,9 +30,9 @@ let runInfer input name =
 
     Assert.Empty checker.GetError
 
-    let reform (key: AST.Id, value: VarInfo) = key.sym, value.ty.ToString
+    let reform (key: AST.Id, value: VarInfo) = key.Sym, value.Ty.ToString
 
-    (checker.GetInfo.var
+    (checker.GetInfo.Var
      |> Seq.map (|KeyValue|)
      |> Seq.map reform
      |> Map.ofSeq
@@ -71,6 +71,16 @@ let Closure () =
     }
     "
         "MonoClosure"
+
+    runInfer
+        "
+    fn foo() {
+        f
+    }
+
+    let f = 1
+    "
+        "TopLevel"
 
 [<Fact>]
 let Reference () =

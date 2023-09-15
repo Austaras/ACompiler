@@ -1,78 +1,78 @@
 {
   "Slice": {
     "RefType": {
-      "ty": {
+      "Ty": {
         "ArrayType": {
-          "ele": {
+          "Ele": {
             "RefType": {
-              "ty": {
+              "Ty": {
                 "ArrayType": {
-                  "ele": {
+                  "Ele": {
                     "TypeId": {
-                      "sym": "i32",
-                      "span": {
-                        "first": 4,
-                        "last": 6
+                      "Sym": "i32",
+                      "Span": {
+                        "First": 4,
+                        "Last": 6
                       }
                     }
                   },
-                  "len": null,
-                  "span": {
-                    "first": 3,
-                    "last": 7
+                  "Len": null,
+                  "Span": {
+                    "First": 3,
+                    "Last": 7
                   }
                 }
               },
-              "span": {
-                "first": 2,
-                "last": 7
+              "Span": {
+                "First": 2,
+                "Last": 7
               }
             }
           },
-          "len": 4,
-          "span": {
-            "first": 1,
-            "last": 10
+          "Len": 4,
+          "Span": {
+            "First": 1,
+            "Last": 10
           }
         }
       },
-      "span": {
-        "first": 0,
-        "last": 10
+      "Span": {
+        "First": 0,
+        "Last": 10
       }
     }
   },
   "Ref": {
     "RefType": {
-      "ty": {
+      "Ty": {
         "RefType": {
-          "ty": {
+          "Ty": {
             "ArrayType": {
-              "ele": {
+              "Ele": {
                 "TypeId": {
-                  "sym": "usize",
-                  "span": {
-                    "first": 3,
-                    "last": 7
+                  "Sym": "usize",
+                  "Span": {
+                    "First": 3,
+                    "Last": 7
                   }
                 }
               },
-              "len": null,
-              "span": {
-                "first": 2,
-                "last": 8
+              "Len": null,
+              "Span": {
+                "First": 2,
+                "Last": 8
               }
             }
           },
-          "span": {
-            "first": 1,
-            "last": 8
+          "Span": {
+            "First": 1,
+            "Last": 8
           }
         }
       },
-      "span": {
-        "first": 0,
-        "last": 8
+      "Span": {
+        "First": 0,
+        "Last": 8
       }
     }
   }

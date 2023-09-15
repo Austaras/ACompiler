@@ -10,7 +10,7 @@ type Float =
     | F32
     | F64
 
-type Function = { param: Type[]; ret: Type }
+type Function = { Param: Type[]; Ret: Type }
 
 and Type =
     | TVoid
@@ -20,3 +20,9 @@ and Type =
     | TFn of Function
     | TRef of Type
     | TNever
+
+type MonoMode =
+    | MonoSize of int
+    | MonoType of Type
+    /// has capture or not
+    | MonoFn of bool

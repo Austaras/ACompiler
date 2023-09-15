@@ -19,35 +19,38 @@ type Float =
 type Function =
     {
       // type variables waiting to be instantiated
-      tvar: Var[]
-      param: Type[]
-      ret: Type }
+      TVar: Var[]
+      Param: Type[]
+      Ret: Type }
 
     member this.Generalize scopeId =
-        let ofScope (v: Var) = v.scope = scopeId
+        let ofScope (v: Var) = v.Scope = scopeId
 
         let tvar =
-            (TFn this).FindTVar |> Seq.filter ofScope |> Array.ofSeq |> Array.distinct
+            (TFn this).FindTVar
+            |> Seq.filter ofScope
+            |> Array.ofSeq
+            |> Array.append this.TVar
+            |> Array.distinct
 
-        { this with
-            tvar = Array.append this.tvar tvar }
+        { this with TVar = tvar }
 
     member this.Instantiate ty =
-        let map = Array.zip this.tvar ty |> Map.ofArray
+        let map = Array.zip this.TVar ty |> Map.ofArray
 
         let getMap t =
             match Map.tryFind t map with
             | None -> TVar t
             | Some t -> TVar t
 
-        { tvar = [||]
-          ret = this.ret.Walk getMap
-          param = Array.map (fun (t: Type) -> t.Walk getMap) this.param }
+        { TVar = [||]
+          Ret = this.Ret.Walk getMap
+          Param = Array.map (fun (t: Type) -> t.Walk getMap) this.Param }
 
 and Struct =
-    { name: AST.Id
-      field: Map<string, Type>
-      tvar: Var[] }
+    { Name: AST.Id
+      Field: Map<string, Type>
+      TVar: Var[] }
 
 and Enum =
     { name: AST.Id
@@ -55,15 +58,15 @@ and Enum =
       tvar: Var[] }
 
 and Var =
-    { scope: int
-      id: int
-      span: AST.Span
-      sym: Option<string> }
+    { Scope: int
+      Id: int
+      Span: AST.Span
+      Sym: Option<string> }
 
     member this.ToString =
-        match this.sym with
+        match this.Sym with
         | Some s -> if System.Char.IsUpper s[0] then s else "T" + s
-        | None -> $"T{this.scope}{this.id}"
+        | None -> $"T{this.Scope}{this.Id}"
 
 and Type =
     /// bool signs if it's signed
@@ -96,10 +99,10 @@ and Type =
                 for t in t do
                     yield! t.FindTVar
             | TFn f ->
-                for p in f.param do
+                for p in f.Param do
                     yield! p.FindTVar
 
-                yield! f.ret.FindTVar
+                yield! f.Ret.FindTVar
             | TRef r -> yield! r.FindTVar
             | TNever -> ()
         }
@@ -123,24 +126,24 @@ and Type =
         | TStruct(t, v)
         | TEnum(t, v) ->
             if v.Length = 0 then
-                t.sym
+                t.Sym
             else
                 let tvar = Array.map toString v
                 let tvar = String.concat "," tvar
-                $"{t.sym}<{tvar}>"
+                $"{t.Sym}<{tvar}>"
         | TTuple t ->
             let element = t |> Array.map toString |> String.concat ", "
 
             $"({element})"
         | TFn f ->
-            let param = f.param |> Array.map toString |> String.concat ", "
+            let param = f.Param |> Array.map toString |> String.concat ", "
 
-            let fstr = $"|{param}| -> {f.ret.ToString}"
+            let fstr = $"|{param}| -> {f.Ret.ToString}"
 
-            if f.tvar.Length = 0 then
+            if f.TVar.Length = 0 then
                 fstr
             else
-                let tvar = Array.map (fun (v: Var) -> v.ToString) f.tvar
+                let tvar = Array.map (fun (v: Var) -> v.ToString) f.TVar
                 let tvar = String.concat "," tvar
                 $"<{tvar}>{fstr}"
         | TRef r -> $"&{r.ToString}"
@@ -159,10 +162,10 @@ and Type =
         | TEnum(e, v) -> TEnum(e, Array.map walk v)
         | TTuple t -> Array.map walk t |> TTuple
         | TFn f ->
-            let param = Array.map walk f.param
-            let ret = f.ret.Walk onVar
+            let param = Array.map walk f.Param
+            let ret = f.Ret.Walk onVar
 
-            TFn { f with param = param; ret = ret }
+            TFn { f with Param = param; Ret = ret }
         | TRef r -> TRef(r.Walk onVar)
         | TVar v -> onVar v
         | TNever -> TNever
@@ -198,21 +201,21 @@ type Location =
     | Stack
     | Heap
 
-type VarInfo = { ty: Type; mut: bool; loc: Location }
+type VarInfo = { Ty: Type; Mut: bool; Loc: Location }
 
 type SemanticInfo =
-    { var: Dictionary<AST.Id, VarInfo>
-      ty: Dictionary<AST.Id, Type>
-      stru: Dictionary<AST.Id, Struct>
-      enum: Dictionary<AST.Id, Enum>
-      capture: MultiMap<Either<AST.Fn, AST.Closure>, AST.Id> }
+    { Var: Dictionary<AST.Id, VarInfo>
+      Ty: Dictionary<AST.Id, Type>
+      Struct: Dictionary<AST.Id, Struct>
+      Enum: Dictionary<AST.Id, Enum>
+      Capture: MultiMap<Either<AST.Fn, AST.Closure>, AST.Id> }
 
     static member Empty() =
-        { var = Dictionary()
-          ty = Dictionary()
-          stru = Dictionary()
-          enum = Dictionary()
-          capture = MultiMap() }
+        { Var = Dictionary()
+          Ty = Dictionary()
+          Struct = Dictionary()
+          Enum = Dictionary()
+          Capture = MultiMap() }
 
     member this.AddVar(id, ty, ?mut, ?static_) =
         let mut =
@@ -225,25 +228,25 @@ type SemanticInfo =
             | Some true -> Static
             | _ -> Any
 
-        this.var[id] <- { ty = ty; mut = mut; loc = loc }
+        this.Var[id] <- { Ty = ty; Mut = mut; Loc = loc }
 
-    member this.TypeOfVar id = this.var[id].ty
+    member this.TypeOfVar id = this.Var[id].Ty
 
     member this.ModifyVarTy id mapper =
-        let old = this.var[id]
-        this.var[id] <- { old with ty = mapper this.var[id].ty }
+        let old = this.Var[id]
+        this.Var[id] <- { old with Ty = mapper this.Var[id].Ty }
 
     member this.AddRef id =
-        let old = this.var[id]
+        let old = this.Var[id]
 
-        match old.loc with
-        | Any -> this.var[id] <- { old with loc = Stack }
+        match old.Loc with
+        | Any -> this.Var[id] <- { old with Loc = Stack }
         | _ -> ()
 
     member internal this.DetectLoop id =
         let visited = HashSet<Type>()
 
-        match this.ty[id] with
+        match this.Ty[id] with
         | TVar _
         | TInt _
         | TFloat _

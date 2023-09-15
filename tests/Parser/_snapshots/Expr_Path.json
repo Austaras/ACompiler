@@ -1,244 +1,244 @@
 {
   "GenericShr": {
     "Binary": {
-      "left": {
+      "Left": {
         "Path": {
-          "prefix": null,
-          "seg": [
+          "Prefix": null,
+          "Seg": [
             [
               {
-                "sym": "Vec",
-                "span": {
-                  "first": 0,
-                  "last": 2
+                "Sym": "Vec",
+                "Span": {
+                  "First": 0,
+                  "Last": 2
                 }
               },
               [
                 {
                   "TypeId": {
-                    "sym": "i32",
-                    "span": {
-                      "first": 6,
-                      "last": 8
+                    "Sym": "i32",
+                    "Span": {
+                      "First": 6,
+                      "Last": 8
                     }
                   }
                 }
               ]
             ]
           ],
-          "span": {
-            "first": 0,
-            "last": 10
+          "Span": {
+            "First": 0,
+            "Last": 10
           }
         }
       },
-      "op": {
+      "Op": {
         "Arithmetic": "Shr"
       },
-      "right": {
+      "Right": {
         "LitExpr": [
           {
             "Int": 1
           },
           {
-            "first": 12,
-            "last": 12
+            "First": 12,
+            "Last": 12
           }
         ]
       },
-      "span": {
-        "first": 0,
-        "last": 12
+      "Span": {
+        "First": 0,
+        "Last": 12
       }
     }
   },
   "DoubleGeneric": {
     "Binary": {
-      "left": {
+      "Left": {
         "Path": {
-          "prefix": null,
-          "seg": [
+          "Prefix": null,
+          "Seg": [
             [
               {
-                "sym": "Vec",
-                "span": {
-                  "first": 0,
-                  "last": 2
+                "Sym": "Vec",
+                "Span": {
+                  "First": 0,
+                  "Last": 2
                 }
               },
               [
                 {
                   "PathType": {
-                    "prefix": null,
-                    "seg": [
+                    "Prefix": null,
+                    "Seg": [
                       [
                         {
-                          "sym": "Vec",
-                          "span": {
-                            "first": 6,
-                            "last": 8
+                          "Sym": "Vec",
+                          "Span": {
+                            "First": 6,
+                            "Last": 8
                           }
                         },
                         [
                           {
                             "TypeId": {
-                              "sym": "i32",
-                              "span": {
-                                "first": 10,
-                                "last": 12
+                              "Sym": "i32",
+                              "Span": {
+                                "First": 10,
+                                "Last": 12
                               }
                             }
                           }
                         ]
                       ]
                     ],
-                    "span": {
-                      "first": 6,
-                      "last": 14
+                    "Span": {
+                      "First": 6,
+                      "Last": 14
                     }
                   }
                 }
               ]
             ]
           ],
-          "span": {
-            "first": 0,
-            "last": 15
+          "Span": {
+            "First": 0,
+            "Last": 15
           }
         }
       },
-      "op": "Gt",
-      "right": {
+      "Op": "Gt",
+      "Right": {
         "LitExpr": [
           {
             "Int": 1
           },
           {
-            "first": 16,
-            "last": 16
+            "First": 16,
+            "Last": 16
           }
         ]
       },
-      "span": {
-        "first": 0,
-        "last": 16
+      "Span": {
+        "First": 0,
+        "Last": 16
       }
     }
   },
   "Struct": {
     "StructLit": {
-      "ty": {
-        "prefix": null,
-        "seg": [
+      "Ty": {
+        "Prefix": null,
+        "Seg": [
           [
             {
-              "sym": "Foo",
-              "span": {
-                "first": 0,
-                "last": 2
+              "Sym": "Foo",
+              "Span": {
+                "First": 0,
+                "Last": 2
               }
             },
             []
           ],
           [
             {
-              "sym": "Bar",
-              "span": {
-                "first": 5,
-                "last": 7
+              "Sym": "Bar",
+              "Span": {
+                "First": 5,
+                "Last": 7
               }
             },
             [
               {
                 "PathType": {
-                  "prefix": null,
-                  "seg": [
+                  "Prefix": null,
+                  "Seg": [
                     [
                       {
-                        "sym": "Vec",
-                        "span": {
-                          "first": 11,
-                          "last": 13
+                        "Sym": "Vec",
+                        "Span": {
+                          "First": 11,
+                          "Last": 13
                         }
                       },
                       [
                         {
                           "TypeId": {
-                            "sym": "i32",
-                            "span": {
-                              "first": 15,
-                              "last": 17
+                            "Sym": "i32",
+                            "Span": {
+                              "First": 15,
+                              "Last": 17
                             }
                           }
                         }
                       ]
                     ]
                   ],
-                  "span": {
-                    "first": 11,
-                    "last": 19
+                  "Span": {
+                    "First": 11,
+                    "Last": 19
                   }
                 }
               }
             ]
           ]
         ],
-        "span": {
-          "first": 0,
-          "last": 20
+        "Span": {
+          "First": 0,
+          "Last": 20
         }
       },
-      "field": [
+      "Field": [
         {
           "ShorthandField": {
-            "sym": "a",
-            "span": {
-              "first": 23,
-              "last": 23
+            "Sym": "a",
+            "Span": {
+              "First": 23,
+              "Last": 23
             }
           }
         },
         {
           "KeyValueField": {
-            "name": "b",
-            "value": {
+            "Name": "b",
+            "Value": {
               "LitExpr": [
                 {
                   "Int": 10
                 },
                 {
-                  "first": 29,
-                  "last": 30
+                  "First": 29,
+                  "Last": 30
                 }
               ]
             },
-            "span": {
-              "first": 26,
-              "last": 30
+            "Span": {
+              "First": 26,
+              "Last": 30
             }
           }
         },
         {
           "RestField": [
             {
-              "first": 33,
-              "last": 35
+              "First": 33,
+              "Last": 35
             },
             {
               "Id": {
-                "sym": "d",
-                "span": {
-                  "first": 35,
-                  "last": 35
+                "Sym": "d",
+                "Span": {
+                  "First": 35,
+                  "Last": 35
                 }
               }
             }
           ]
         }
       ],
-      "span": {
-        "first": 0,
-        "last": 37
+      "Span": {
+        "First": 0,
+        "Last": 37
       }
     }
   }

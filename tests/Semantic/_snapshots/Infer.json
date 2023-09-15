@@ -34,6 +34,10 @@
     "one": "|isize| -> isize",
     "x": "isize"
   },
+  "TopLevel": {
+    "f": "isize",
+    "foo": "|| -> isize"
+  },
   "PolyDouble": {
     "double": "<Tx>||Tx| -> Tx, Tx| -> Tx",
     "f": "|Tx| -> Tx",
@@ -45,7 +49,7 @@
     "x": "isize"
   },
   "WeirdRec": {
-    "weird_rec": "<T11>|isize| -> T11",
+    "weird_rec": "<T21>|isize| -> T21",
     "x": "isize"
   },
   "Explicit": {

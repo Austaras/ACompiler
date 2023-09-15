@@ -1,159 +1,159 @@
 {
   "Assoc": {
     "FnType": {
-      "param": [
+      "Param": [
         {
           "TypeId": {
-            "sym": "i32",
-            "span": {
-              "first": 1,
-              "last": 3
+            "Sym": "i32",
+            "Span": {
+              "First": 1,
+              "Last": 3
             }
           }
         }
       ],
-      "tyParam": [],
-      "ret": {
+      "TyParam": [],
+      "Ret": {
         "FnType": {
-          "param": [
+          "Param": [
             {
               "TypeId": {
-                "sym": "i32",
-                "span": {
-                  "first": 10,
-                  "last": 12
+                "Sym": "i32",
+                "Span": {
+                  "First": 10,
+                  "Last": 12
                 }
               }
             }
           ],
-          "tyParam": [],
-          "ret": {
+          "TyParam": [],
+          "Ret": {
             "TypeId": {
-              "sym": "i32",
-              "span": {
-                "first": 18,
-                "last": 20
+              "Sym": "i32",
+              "Span": {
+                "First": 18,
+                "Last": 20
               }
             }
           },
-          "span": {
-            "first": 9,
-            "last": 20
+          "Span": {
+            "First": 9,
+            "Last": 20
           }
         }
       },
-      "span": {
-        "first": 0,
-        "last": 20
+      "Span": {
+        "First": 0,
+        "Last": 20
       }
     }
   },
   "Empty": {
     "FnType": {
-      "param": [],
-      "tyParam": [],
-      "ret": {
+      "Param": [],
+      "TyParam": [],
+      "Ret": {
         "NeverType": {
-          "first": 6,
-          "last": 6
+          "First": 6,
+          "Last": 6
         }
       },
-      "span": {
-        "first": 0,
-        "last": 6
+      "Span": {
+        "First": 0,
+        "Last": 6
       }
     }
   },
   "MultiBound": {
     "FnType": {
-      "param": [
+      "Param": [
         {
           "TypeId": {
-            "sym": "T",
-            "span": {
-              "first": 17,
-              "last": 17
+            "Sym": "T",
+            "Span": {
+              "First": 17,
+              "Last": 17
             }
           }
         },
         {
           "TypeId": {
-            "sym": "T",
-            "span": {
-              "first": 20,
-              "last": 20
+            "Sym": "T",
+            "Span": {
+              "First": 20,
+              "Last": 20
             }
           }
         }
       ],
-      "tyParam": [
+      "TyParam": [
         {
-          "id": {
-            "sym": "T",
-            "span": {
-              "first": 1,
-              "last": 1
+          "Id": {
+            "Sym": "T",
+            "Span": {
+              "First": 1,
+              "Last": 1
             }
           },
-          "const_": false,
-          "bound": [
+          "Const": false,
+          "Bound": [
             {
-              "prefix": null,
-              "seg": [
+              "Prefix": null,
+              "Seg": [
                 [
                   {
-                    "sym": "Add",
-                    "span": {
-                      "first": 5,
-                      "last": 7
+                    "Sym": "Add",
+                    "Span": {
+                      "First": 5,
+                      "Last": 7
                     }
                   },
                   []
                 ]
               ],
-              "span": {
-                "first": 5,
-                "last": 7
+              "Span": {
+                "First": 5,
+                "Last": 7
               }
             },
             {
-              "prefix": null,
-              "seg": [
+              "Prefix": null,
+              "Seg": [
                 [
                   {
-                    "sym": "Sub",
-                    "span": {
-                      "first": 11,
-                      "last": 13
+                    "Sym": "Sub",
+                    "Span": {
+                      "First": 11,
+                      "Last": 13
                     }
                   },
                   []
                 ]
               ],
-              "span": {
-                "first": 11,
-                "last": 13
+              "Span": {
+                "First": 11,
+                "Last": 13
               }
             }
           ],
-          "span": {
-            "first": 1,
-            "last": 13
+          "Span": {
+            "First": 1,
+            "Last": 13
           }
         }
       ],
-      "ret": {
+      "Ret": {
         "TypeId": {
-          "sym": "T",
-          "span": {
-            "first": 27,
-            "last": 27
+          "Sym": "T",
+          "Span": {
+            "First": 27,
+            "Last": 27
           }
         }
       },
-      "span": {
-        "first": 15,
-        "last": 27
+      "Span": {
+        "First": 15,
+        "Last": 27
       }
     }
   }

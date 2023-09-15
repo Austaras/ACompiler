@@ -6,6 +6,7 @@
   <ItemGroup>
     <Compile Include="Type.fs" />
     <Compile Include="Library.fs" />
+    <Compile Include="Transform.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Config\Config.fsproj" />

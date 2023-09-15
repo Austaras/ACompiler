@@ -1,48 +1,48 @@
 {
   "Assoc": {
     "Field": {
-      "receiver": {
+      "Receiver": {
         "Field": {
-          "receiver": {
+          "Receiver": {
             "Id": {
-              "sym": "a",
-              "span": {
-                "first": 0,
-                "last": 0
+              "Sym": "a",
+              "Span": {
+                "First": 0,
+                "Last": 0
               }
             }
           },
-          "prop": {
-            "sym": "b",
-            "span": {
-              "first": 2,
-              "last": 2
+          "Prop": {
+            "Sym": "b",
+            "Span": {
+              "First": 2,
+              "Last": 2
             }
           },
-          "span": {
-            "first": 0,
-            "last": 2
+          "Span": {
+            "First": 0,
+            "Last": 2
           }
         }
       },
-      "prop": {
-        "sym": "c",
-        "span": {
-          "first": 4,
-          "last": 4
+      "Prop": {
+        "Sym": "c",
+        "Span": {
+          "First": 4,
+          "Last": 4
         }
       },
-      "span": {
-        "first": 0,
-        "last": 4
+      "Span": {
+        "First": 0,
+        "Last": 4
       }
     }
   },
   "Tuple": {
     "Binary": {
-      "left": {
+      "Left": {
         "Field": {
-          "receiver": {
+          "Receiver": {
             "Tuple": {
               "element": [
                 {
@@ -51,8 +51,8 @@
                       "Int": 0
                     },
                     {
-                      "first": 1,
-                      "last": 1
+                      "First": 1,
+                      "Last": 1
                     }
                   ]
                 },
@@ -62,54 +62,54 @@
                       "Int": 1
                     },
                     {
-                      "first": 4,
-                      "last": 4
+                      "First": 4,
+                      "Last": 4
                     }
                   ]
                 }
               ],
               "span": {
-                "first": 0,
-                "last": 5
+                "First": 0,
+                "Last": 5
               }
             }
           },
-          "prop": {
-            "sym": "_0",
-            "span": {
-              "first": 7,
-              "last": 8
+          "Prop": {
+            "Sym": "_0",
+            "Span": {
+              "First": 7,
+              "Last": 8
             }
           },
-          "span": {
-            "first": 0,
-            "last": 8
+          "Span": {
+            "First": 0,
+            "Last": 8
           }
         }
       },
-      "op": {
+      "Op": {
         "Arithmetic": "Add"
       },
-      "right": {
+      "Right": {
         "LitExpr": [
           {
             "Int": 1
           },
           {
-            "first": 12,
-            "last": 12
+            "First": 12,
+            "Last": 12
           }
         ]
       },
-      "span": {
-        "first": 0,
-        "last": 12
+      "Span": {
+        "First": 0,
+        "Last": 12
       }
     }
   },
   "Array": {
     "Index": {
-      "container": {
+      "Container": {
         "Array": {
           "element": [
             {
@@ -118,8 +118,8 @@
                   "Int": 1
                 },
                 {
-                  "first": 1,
-                  "last": 1
+                  "First": 1,
+                  "Last": 1
                 }
               ]
             },
@@ -129,8 +129,8 @@
                   "Int": 2
                 },
                 {
-                  "first": 3,
-                  "last": 3
+                  "First": 3,
+                  "Last": 3
                 }
               ]
             },
@@ -140,284 +140,284 @@
                   "Int": 3
                 },
                 {
-                  "first": 5,
-                  "last": 5
+                  "First": 5,
+                  "Last": 5
                 }
               ]
             }
           ],
           "span": {
-            "first": 0,
-            "last": 6
+            "First": 0,
+            "Last": 6
           }
         }
       },
-      "index": {
+      "Idx": {
         "LitExpr": [
           {
             "Int": 2
           },
           {
-            "first": 8,
-            "last": 8
+            "First": 8,
+            "Last": 8
           }
         ]
       },
-      "span": {
-        "first": 0,
-        "last": 9
+      "Span": {
+        "First": 0,
+        "Last": 9
       }
     }
   },
   "Multi": {
     "Index": {
-      "container": {
+      "Container": {
         "Index": {
-          "container": {
+          "Container": {
             "Id": {
-              "sym": "a",
-              "span": {
-                "first": 0,
-                "last": 0
+              "Sym": "a",
+              "Span": {
+                "First": 0,
+                "Last": 0
               }
             }
           },
-          "index": {
+          "Idx": {
             "LitExpr": [
               {
                 "Int": 1
               },
               {
-                "first": 2,
-                "last": 2
+                "First": 2,
+                "Last": 2
               }
             ]
           },
-          "span": {
-            "first": 0,
-            "last": 3
+          "Span": {
+            "First": 0,
+            "Last": 3
           }
         }
       },
-      "index": {
+      "Idx": {
         "Binary": {
-          "left": {
+          "Left": {
             "Id": {
-              "sym": "c",
-              "span": {
-                "first": 5,
-                "last": 5
+              "Sym": "c",
+              "Span": {
+                "First": 5,
+                "Last": 5
               }
             }
           },
-          "op": {
+          "Op": {
             "Arithmetic": "Add"
           },
-          "right": {
+          "Right": {
             "Id": {
-              "sym": "d",
-              "span": {
-                "first": 9,
-                "last": 9
+              "Sym": "d",
+              "Span": {
+                "First": 9,
+                "Last": 9
               }
             }
           },
-          "span": {
-            "first": 5,
-            "last": 9
+          "Span": {
+            "First": 5,
+            "Last": 9
           }
         }
       },
-      "span": {
-        "first": 0,
-        "last": 10
+      "Span": {
+        "First": 0,
+        "Last": 10
       }
     }
   },
   "Mix": {
     "Field": {
-      "receiver": {
+      "Receiver": {
         "Index": {
-          "container": {
+          "Container": {
             "Id": {
-              "sym": "a",
-              "span": {
-                "first": 0,
-                "last": 0
+              "Sym": "a",
+              "Span": {
+                "First": 0,
+                "Last": 0
               }
             }
           },
-          "index": {
+          "Idx": {
             "LitExpr": [
               {
                 "Int": 1
               },
               {
-                "first": 2,
-                "last": 2
+                "First": 2,
+                "Last": 2
               }
             ]
           },
-          "span": {
-            "first": 0,
-            "last": 3
+          "Span": {
+            "First": 0,
+            "Last": 3
           }
         }
       },
-      "prop": {
-        "sym": "x",
-        "span": {
-          "first": 5,
-          "last": 5
+      "Prop": {
+        "Sym": "x",
+        "Span": {
+          "First": 5,
+          "Last": 5
         }
       },
-      "span": {
-        "first": 0,
-        "last": 5
+      "Span": {
+        "First": 0,
+        "Last": 5
       }
     }
   },
   "Mix2": {
     "Index": {
-      "container": {
+      "Container": {
         "Field": {
-          "receiver": {
+          "Receiver": {
             "Id": {
-              "sym": "a",
-              "span": {
-                "first": 0,
-                "last": 0
+              "Sym": "a",
+              "Span": {
+                "First": 0,
+                "Last": 0
               }
             }
           },
-          "prop": {
-            "sym": "x",
-            "span": {
-              "first": 2,
-              "last": 2
+          "Prop": {
+            "Sym": "x",
+            "Span": {
+              "First": 2,
+              "Last": 2
             }
           },
-          "span": {
-            "first": 0,
-            "last": 2
+          "Span": {
+            "First": 0,
+            "Last": 2
           }
         }
       },
-      "index": {
+      "Idx": {
         "LitExpr": [
           {
             "Int": 1
           },
           {
-            "first": 4,
-            "last": 4
+            "First": 4,
+            "Last": 4
           }
         ]
       },
-      "span": {
-        "first": 0,
-        "last": 5
+      "Span": {
+        "First": 0,
+        "Last": 5
       }
     }
   },
   "Assign": {
     "Assign": {
-      "place": {
+      "Place": {
         "Field": {
-          "receiver": {
+          "Receiver": {
             "Id": {
-              "sym": "a",
-              "span": {
-                "first": 0,
-                "last": 0
+              "Sym": "a",
+              "Span": {
+                "First": 0,
+                "Last": 0
               }
             }
           },
-          "prop": {
-            "sym": "b",
-            "span": {
-              "first": 2,
-              "last": 2
+          "Prop": {
+            "Sym": "b",
+            "Span": {
+              "First": 2,
+              "Last": 2
             }
           },
-          "span": {
-            "first": 0,
-            "last": 2
+          "Span": {
+            "First": 0,
+            "Last": 2
           }
         }
       },
-      "op": null,
-      "value": {
+      "Op": null,
+      "Value": {
         "Field": {
-          "receiver": {
+          "Receiver": {
             "Id": {
-              "sym": "c",
-              "span": {
-                "first": 6,
-                "last": 6
+              "Sym": "c",
+              "Span": {
+                "First": 6,
+                "Last": 6
               }
             }
           },
-          "prop": {
-            "sym": "d",
-            "span": {
-              "first": 8,
-              "last": 8
+          "Prop": {
+            "Sym": "d",
+            "Span": {
+              "First": 8,
+              "Last": 8
             }
           },
-          "span": {
-            "first": 6,
-            "last": 8
+          "Span": {
+            "First": 6,
+            "Last": 8
           }
         }
       },
-      "span": {
-        "first": 0,
-        "last": 8
+      "Span": {
+        "First": 0,
+        "Last": 8
       }
     }
   },
   "Bin": {
     "Binary": {
-      "left": {
+      "Left": {
         "Field": {
-          "receiver": {
+          "Receiver": {
             "Id": {
-              "sym": "a",
-              "span": {
-                "first": 0,
-                "last": 0
+              "Sym": "a",
+              "Span": {
+                "First": 0,
+                "Last": 0
               }
             }
           },
-          "prop": {
-            "sym": "b",
-            "span": {
-              "first": 2,
-              "last": 2
+          "Prop": {
+            "Sym": "b",
+            "Span": {
+              "First": 2,
+              "Last": 2
             }
           },
-          "span": {
-            "first": 0,
-            "last": 2
+          "Span": {
+            "First": 0,
+            "Last": 2
           }
         }
       },
-      "op": {
+      "Op": {
         "Arithmetic": "Add"
       },
-      "right": {
+      "Right": {
         "Id": {
-          "sym": "c",
-          "span": {
-            "first": 6,
-            "last": 6
+          "Sym": "c",
+          "Span": {
+            "First": 6,
+            "Last": 6
           }
         }
       },
-      "span": {
-        "first": 0,
-        "last": 6
+      "Span": {
+        "First": 0,
+        "Last": 6
       }
     }
   }

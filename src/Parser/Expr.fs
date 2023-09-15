@@ -36,19 +36,19 @@ let internal maybeStruct ctx input =
 let internal rangeCtor (from: Option<Expr>) (to_: Option<Expr>) exclusive span =
     let first =
         match from with
-        | Some e -> e.span.first
-        | None -> span.first
+        | Some e -> e.Span.First
+        | None -> span.First
 
     let last =
         match to_ with
-        | Some e -> e.span.last
-        | None -> span.last
+        | Some e -> e.Span.Last
+        | None -> span.Last
 
     Range
-        { from = from
-          to_ = to_
-          exclusive = exclusive
-          span = Span.Make first last }
+        { From = from
+          To = to_
+          Exclusive = exclusive
+          Span = Span.Make first last }
 
 let internal parseParam (ctx: Context) input =
     match parsePat ctx.InDecl input with
@@ -63,9 +63,9 @@ let internal parseParam (ctx: Context) input =
                 | Error e -> p.MergeFatalError e
                 | Ok ty ->
                     let param =
-                        { pat = p.data
-                          ty = Some ty.data
-                          span = ty.data.span.WithFirst p.data.span.first }
+                        { Pat = p.data
+                          Ty = Some ty.data
+                          Span = ty.data.span.WithFirst p.data.Span.First }
 
                     Ok
                         { data = param
@@ -74,16 +74,16 @@ let internal parseParam (ctx: Context) input =
         | _ ->
             Ok
                 { data =
-                    { pat = p.data
-                      ty = None
-                      span = p.data.span }
+                    { Pat = p.data
+                      Ty = None
+                      Span = p.data.Span }
                   error = p.error
                   rest = p.rest }
 
 let rec internal parseStructField ctx input =
     match peek input with
     | Some({ data = Identifier sym; span = span }, i) ->
-        let id = { sym = sym; span = span }
+        let id = { Sym = sym; Span = span }
 
         match peekWith input[i..] Colon with
         | Some(_, j) ->
@@ -93,9 +93,9 @@ let rec internal parseStructField ctx input =
                 Ok
                     { data =
                         KeyValueField
-                            { name = id.sym
-                              value = v.data
-                              span = v.data.span.WithFirst span.first }
+                            { Name = id.Sym
+                              Value = v.data
+                              Span = v.data.Span.WithFirst span.First }
                       error = v.error
                       rest = v.rest }
         | None ->
@@ -108,7 +108,7 @@ let rec internal parseStructField ctx input =
         match parseExpr ctx input[i..] with
         | Error e -> Error e
         | Ok(v: State<Expr>) ->
-            let span = span.WithLast v.data.span.last
+            let span = span.WithLast v.data.Span.Last
 
             Ok
                 { data = RestField(span, v.data)
@@ -125,16 +125,16 @@ and internal parseStruct ctx (state: State<Path>) =
     match field with
     | Ok(field, curly) ->
         let str =
-            { ty = state.data
-              field = field.data
-              span = state.data.span.WithLast curly.span.last }
+            { Ty = state.data
+              Field = field.data
+              Span = state.data.Span.WithLast curly.span.Last }
 
         let isRest (idx, f) =
             match f with
             | RestField _ when idx <> (Array.length field.data) - 1 -> true
             | _ -> false
 
-        let toError (_, f: StructField) = RestAtStructEnd f.span
+        let toError (_, f: StructField) = RestAtStructEnd f.Span
 
         let restError = Array.indexed field.data |> Array.filter isRest |> Array.map toError
 
@@ -148,7 +148,7 @@ and internal parsePath (ctx: Context) (state: State<Path>) =
     let rec parsePath (state: State<Path>) =
         match peek state.rest with
         | Some({ data = Identifier sym; span = span }, i) ->
-            let id = { sym = sym; span = span }
+            let id = { Sym = sym; Span = span }
 
             let curr = state.rest[i..]
 
@@ -170,8 +170,8 @@ and internal parsePath (ctx: Context) (state: State<Path>) =
 
                         let newExpr =
                             { state.data with
-                                seg = Array.append state.data.seg [| id, ty |]
-                                span = state.data.span.WithLast last.last }
+                                Seg = Array.append state.data.Seg [| id, ty |]
+                                Span = state.data.Span.WithLast last.Last }
 
                         parsePath
                             { data = newExpr
@@ -181,8 +181,8 @@ and internal parsePath (ctx: Context) (state: State<Path>) =
                 | _ ->
                     let newExpr =
                         { state.data with
-                            seg = Array.append state.data.seg [| id, [||] |]
-                            span = state.data.span.WithLast span.last }
+                            Seg = Array.append state.data.Seg [| id, [||] |]
+                            Span = state.data.Span.WithLast span.Last }
 
                     parsePath
                         { data = newExpr
@@ -191,8 +191,8 @@ and internal parsePath (ctx: Context) (state: State<Path>) =
             | _ ->
                 let newExpr =
                     { state.data with
-                        seg = Array.append state.data.seg [| id, [||] |]
-                        span = state.data.span.WithLast span.last }
+                        Seg = Array.append state.data.Seg [| id, [||] |]
+                        Span = state.data.Span.WithLast span.Last }
 
                 Ok
                     { data = newExpr
@@ -206,18 +206,18 @@ and internal parsePath (ctx: Context) (state: State<Path>) =
     | Ok s ->
         let state =
             if
-                s.data.prefix = None
-                && s.data.seg.Length = 1
-                && Array.length (snd s.data.seg[0]) = 0
+                s.data.Prefix = None
+                && s.data.Seg.Length = 1
+                && Array.length (snd s.data.Seg[0]) = 0
             then
 
-                { data = Id(fst s.data.seg[0])
+                { data = Id(fst s.data.Seg[0])
                   error = s.error
                   rest = s.rest }
             else
                 let error =
-                    if s.data.seg.Length = 0 then
-                        Array.append s.error [| IncompletePath s.data.span |]
+                    if s.data.Seg.Length = 0 then
+                        Array.append s.error [| IncompletePath s.data.Span |]
                     else
                         s.error
 
@@ -243,7 +243,7 @@ and internal rangeParser ctx input =
 
 and internal parseClosure ctx (input: Token[]) =
     let op = input[0]
-    let first = op.span.first
+    let first = op.span.First
 
     let param =
         match op.data with
@@ -287,10 +287,10 @@ and internal parseClosure ctx (input: Token[]) =
             | Error e -> ret.MergeFatalError e
             | Ok(body: State<Expr>) ->
                 let closure =
-                    { param = param.data
-                      ret = ret.data
-                      body = body.data
-                      span = Span.Make first body.data.span.last }
+                    { Param = param.data
+                      Ret = ret.data
+                      Body = body.data
+                      Span = Span.Make first body.data.Span.Last }
 
                 Ok
                     { data = Closure closure
@@ -311,9 +311,9 @@ and internal parseCond (ctx: Context) input =
                 | Error e -> pat.MergeFatalError e
                 | Ok expr ->
                     let cond =
-                        { pat = pat.data
-                          value = expr.data
-                          span = span.WithLast expr.data.span.last }
+                        { Pat = pat.data
+                          Value = expr.data
+                          Span = span.WithLast expr.data.Span.Last }
 
                     let error = Array.append pat.error expr.error
 
@@ -361,10 +361,10 @@ and internal parseMatchBranch (ctx: Context) state =
                     | Error e -> pat.MergeFatalError e
                     | Ok res ->
                         let branch =
-                            { pat = pat.data
-                              expr = res.data
-                              guard = guard
-                              span = pat.data.span.WithLast res.data.span.last }
+                            { Pat = pat.data
+                              Expr = res.data
+                              Guard = guard
+                              Span = pat.data.Span.WithLast res.data.Span.Last }
 
                         let newState =
                             { data = Array.append state.data [| branch |]
@@ -403,7 +403,7 @@ and internal parsePrefix ctx input =
               rest = input[i..] }
     | Some({ data = Underline; span = span }, i) ->
         Ok
-            { data = Id { sym = "_"; span = span }
+            { data = Id { Sym = "_"; Span = span }
               error = [||]
               rest = input[i..] }
     | Some({ data = Reserved(PACKAGE | LOWSELF | SELF as kw)
@@ -417,9 +417,9 @@ and internal parsePrefix ctx input =
             | _ -> failwith "unreachable"
 
         let path =
-            { prefix = Some prefix
-              seg = [||]
-              span = span }
+            { Prefix = Some prefix
+              Seg = [||]
+              Span = span }
 
         let path =
             { data = path
@@ -461,9 +461,9 @@ and internal parsePrefix ctx input =
                           rest = path.rest }
     | Some({ data = Identifier _; span = span }, _) ->
         let path =
-            { prefix = None
-              seg = [||]
-              span = span }
+            { Prefix = None
+              Seg = [||]
+              Span = span }
 
         let newState =
             { data = path
@@ -473,7 +473,7 @@ and internal parsePrefix ctx input =
         parsePath ctx newState
 
     | Some({ data = Paren Open; span = span }, i) ->
-        let first = span.first
+        let first = span.First
         let input = input[i..]
         let ctx = ctx.NotInCond
 
@@ -496,7 +496,7 @@ and internal parsePrefix ctx input =
                       rest = state.rest }
 
     | Some({ data = Bracket Open; span = span } as token, i) ->
-        let first = span.first
+        let first = span.First
         let input = input[i..]
         let ctx = ctx.NotInCond
 
@@ -533,9 +533,9 @@ and internal parsePrefix ctx input =
                             let span = span.WithFirst first
 
                             let expr =
-                                { element = firstEle.data
-                                  repeat = repeat.data
-                                  span = span }
+                                { Ele = firstEle.data
+                                  Count = repeat.data
+                                  Span = span }
 
                             Ok
                                 { data = ArrayRepeat expr
@@ -584,9 +584,9 @@ and internal parsePrefix ctx input =
         | Error e -> Error e
         | Ok(state: State<Expr>) ->
             let expr =
-                { op = op
-                  expr = state.data
-                  span = Span.Make span.first state.data.span.last }
+                { Op = op
+                  Expr = state.data
+                  Span = Span.Make span.First state.data.Span.Last }
 
             Ok { state with data = Unary expr }
 
@@ -595,9 +595,9 @@ and internal parsePrefix ctx input =
         | Error e -> Error e
         | Ok(state: State<Expr>) ->
             let expr =
-                { op = AST.Not
-                  expr = state.data
-                  span = Span.Make span.first state.data.span.last }
+                { Op = AST.Not
+                  Expr = state.data
+                  Span = Span.Make span.First state.data.Span.Last }
 
             Ok { state with data = Unary expr }
 
@@ -608,14 +608,14 @@ and internal parsePrefix ctx input =
         | Error e -> Error e
         | Ok(state: State<Expr>) ->
             let expr =
-                { op = Deref
-                  expr = state.data
-                  span = Span.Make (span.first + 1) state.data.span.last }
+                { Op = Deref
+                  Expr = state.data
+                  Span = Span.Make (span.First + 1) state.data.Span.Last }
 
             let expr =
-                { op = Deref
-                  expr = Unary expr
-                  span = expr.span.WithFirst span.first }
+                { Op = Deref
+                  Expr = Unary expr
+                  Span = expr.Span.WithFirst span.First }
 
             Ok { state with data = Unary expr }
 
@@ -641,14 +641,14 @@ and internal parsePrefix ctx input =
                         | Error e -> Error e
                         | Ok(body: State<Block>) ->
                             let elif_ =
-                                { cond = cond.data
-                                  block = body.data
-                                  span = span.WithLast body.data.span.last }
+                                { Cond = cond.data
+                                  Block = body.data
+                                  Span = span.WithLast body.data.Span.Last }
 
                             let newState =
                                 { data =
                                     { state.data with
-                                        elseif = Array.append state.data.elseif [| elif_ |] }
+                                        ElseIf = Array.append state.data.ElseIf [| elif_ |] }
                                   error = Array.concat [ state.error; cond.error; body.error ]
                                   rest = body.rest }
 
@@ -658,7 +658,7 @@ and internal parsePrefix ctx input =
                     | Error e -> Error e
                     | Ok(e: State<Block>) ->
                         Ok
-                            { data = If { state.data with else_ = Some e.data }
+                            { data = If { state.data with Else = Some e.data }
                               error = Array.append state.error e.error
                               rest = e.rest }
             | None ->
@@ -674,11 +674,11 @@ and internal parsePrefix ctx input =
             | Error e -> Error e
             | Ok then_ ->
                 let expr =
-                    { cond = cond.data
-                      then_ = then_.data
-                      elseif = [||]
-                      else_ = None
-                      span = span.WithLast then_.data.span.last }
+                    { Cond = cond.data
+                      Then = then_.data
+                      ElseIf = [||]
+                      Else = None
+                      Span = span.WithLast then_.data.Span.Last }
 
                 parseElse
                     { data = expr
@@ -701,10 +701,10 @@ and internal parsePrefix ctx input =
                     | Error e -> Error(Array.append error e)
                     | Ok block ->
                         let expr =
-                            { var = pat.data
-                              iter = value.data
-                              body = block.data
-                              span = span.WithLast block.data.span.last }
+                            { Var = pat.data
+                              Iter = value.data
+                              Body = block.data
+                              Span = span.WithLast block.data.Span.Last }
 
                         Ok
                             { data = For expr
@@ -719,9 +719,9 @@ and internal parsePrefix ctx input =
             | Error e -> cond.MergeFatalError e
             | Ok block ->
                 let expr =
-                    { cond = cond.data
-                      body = block.data
-                      span = span.WithLast block.data.span.last }
+                    { Cond = cond.data
+                      Body = block.data
+                      Span = span.WithLast block.data.Span.Last }
 
                 Ok
                     { data = While expr
@@ -755,8 +755,8 @@ and internal parsePrefix ctx input =
             | Error e -> Error e
             | Ok state ->
                 let expr =
-                    { value = Some state.data
-                      span = state.data.span.WithFirst span.first }
+                    { Value = Some state.data
+                      Span = state.data.Span.WithFirst span.First }
 
                 Ok
                     { data = Return expr
@@ -764,7 +764,7 @@ and internal parsePrefix ctx input =
                       rest = state.rest }
         | _ ->
             Ok
-                { data = Return { value = None; span = span }
+                { data = Return { Value = None; Span = span }
                   error = error
                   rest = input[i..] }
 
@@ -786,7 +786,7 @@ and internal parsePrefix ctx input =
                     let expr =
                         { expr = value.data
                           branch = branch.data
-                          span = span.WithLast last.last }
+                          span = span.WithLast last.Last }
 
                     Ok
                         { data = Match expr
@@ -796,7 +796,7 @@ and internal parsePrefix ctx input =
     | Some(token, _) ->
         match tryRecover canStartExpr (parsePrefix ctx) "expression" input with
         | Ok expr -> Ok expr
-        | Error i -> Error [| UnexpectedManyToken(token.span.WithLast input[i].span.last, "expression") |]
+        | Error i -> Error [| UnexpectedManyToken(token.span.WithLast input[i].span.Last, "expression") |]
     | None -> Error [| IncompleteAtEnd "expression" |]
 
 and internal parseFollow prec ctx (state: State<Expr>) =
@@ -806,7 +806,7 @@ and internal parseFollow prec ctx (state: State<Expr>) =
     // <= because of right associativity
     | Some({ data = Eq | AssignOp _ as data }, i) when prec <= -2 ->
         match peek state.rest[i..] with
-        | None -> state.FatalError(Incomplete(state.data.span, "assign expression"))
+        | None -> state.FatalError(Incomplete(state.data.Span, "assign expression"))
         | _ ->
             let assignee = state.data
 
@@ -826,10 +826,10 @@ and internal parseFollow prec ctx (state: State<Expr>) =
             | Error e -> Error e
             | Ok right ->
                 let expr =
-                    { place = state.data
-                      op = op
-                      value = right.data
-                      span = Span.Make state.data.span.first right.data.span.last }
+                    { Place = state.data
+                      Op = op
+                      Value = right.data
+                      Span = Span.Make state.data.Span.First right.data.Span.Last }
 
                 Ok
                     { data = Assign expr
@@ -846,18 +846,18 @@ and internal parseFollow prec ctx (state: State<Expr>) =
 
     | Some({ data = Operator op }, i) when prec < op.precedence ->
         match peek state.rest[i..] with
-        | None -> state.FatalError(Incomplete(state.data.span, "binary expression"))
+        | None -> state.FatalError(Incomplete(state.data.Span, "binary expression"))
         | _ ->
             match parseWithPrec op.precedence ctx state.rest[i..] with
             | Error e -> Error e
             | Ok right ->
-                let span = Span.Make state.data.span.first right.data.span.last
+                let span = Span.Make state.data.Span.First right.data.Span.Last
 
                 let expr =
-                    { left = state.data
-                      op = op
-                      right = right.data
-                      span = span }
+                    { Left = state.data
+                      Op = op
+                      Right = right.data
+                      Span = span }
 
                 Ok
                     { right with
@@ -871,12 +871,12 @@ and internal parsePostfix ctx prec state =
     match peekInline state.rest with
     | Some({ data = Dot }, i) ->
         match peek state.rest[i..] with
-        | None -> state.FatalError(Incomplete(state.data.span, "field access expression"))
+        | None -> state.FatalError(Incomplete(state.data.Span, "field access expression"))
         | Some({ data = Identifier sym; span = span }, j) ->
             let expr =
-                { receiver = state.data
-                  prop = { sym = sym; span = span }
-                  span = Span.Make state.data.span.first span.last }
+                { Receiver = state.data
+                  Prop = { Sym = sym; Span = span }
+                  Span = Span.Make state.data.Span.First span.Last }
 
             parsePostfix
                 ctx
@@ -895,12 +895,12 @@ and internal parsePostfix ctx prec state =
             match parseCommaSeq state.rest[i..] (parseExpr newCtx) (Paren Close) "call arguments" with
             | Error e -> Error e
             | Ok(param, paren) ->
-                let span = paren.span.WithFirst state.data.span.first
+                let span = paren.span.WithFirst state.data.Span.First
 
                 let expr =
-                    { arg = param.data
-                      callee = state.data
-                      span = span }
+                    { Arg = param.data
+                      Callee = state.data
+                      Span = span }
 
                 parsePostfix
                     ctx
@@ -921,9 +921,9 @@ and internal parsePostfix ctx prec state =
                 match consume idx.rest (Bracket Close) "index expression" with
                 | Ok(span, i) ->
                     let expr =
-                        { container = state.data
-                          index = idx.data
-                          span = span.WithFirst state.data.span.first }
+                        { Container = state.data
+                          Idx = idx.data
+                          Span = span.WithFirst state.data.Span.First }
 
                     parsePostfix
                         ctx
@@ -936,8 +936,8 @@ and internal parsePostfix ctx prec state =
 
     | Some({ data = Question; span = span }, i) ->
         let expr =
-            { base_ = state.data
-              span = state.data.span.WithLast span.last }
+            { Base = state.data
+              Span = state.data.Span.WithLast span.Last }
 
         let error = if ctx.inFn then [||] else [| OutOfFn span |]
 

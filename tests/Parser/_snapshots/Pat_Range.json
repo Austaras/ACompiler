@@ -1,45 +1,45 @@
 {
   "CatchAll": {
     "RestPat": {
-      "first": 0,
-      "last": 1
+      "First": 0,
+      "Last": 1
     }
   },
   "Left": {
     "RangePat": {
-      "from": {
+      "From": {
         "IdPat": {
-          "sym": "A",
-          "span": {
-            "first": 0,
-            "last": 0
+          "Sym": "A",
+          "Span": {
+            "First": 0,
+            "Last": 0
           }
         }
       },
-      "to_": null,
-      "span": {
-        "first": 0,
-        "last": 2
+      "To": null,
+      "Span": {
+        "First": 0,
+        "Last": 2
       }
     }
   },
   "Right": {
     "RangePat": {
-      "from": null,
-      "to_": {
+      "From": null,
+      "To": {
         "LitPat": [
           {
             "Int": 10
           },
           {
-            "first": 2,
-            "last": 3
+            "First": 2,
+            "Last": 3
           }
         ]
       },
-      "span": {
-        "first": 0,
-        "last": 3
+      "Span": {
+        "First": 0,
+        "Last": 3
       }
     }
   }

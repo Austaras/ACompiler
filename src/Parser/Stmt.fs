@@ -25,10 +25,10 @@ let rec internal parseBlock (ctx: Context) input =
             match curly with
             | None -> Error [| IncompleteAtEnd "block expression" |]
             | Some token ->
-                let span = span.WithLast token.span.last
+                let span = span.WithLast token.span.Last
 
                 Ok
-                    { data = { stmt = item.data; span = span }
+                    { data = { Stmt = item.data; Span = span }
                       error = item.error
                       rest = item.rest }
 
@@ -95,12 +95,12 @@ and internal parseFn ctx input span =
                         | Error e -> Error(Array.append retTy.error e)
                         | Ok block ->
                             let fn =
-                                { name = id.data
-                                  tyParam = typeParam
-                                  retTy = retTy.data
-                                  param = param.data
-                                  body = block.data
-                                  span = span }
+                                { Name = id.data
+                                  TyParam = typeParam
+                                  Ret = retTy.data
+                                  Param = param.data
+                                  Body = block.data
+                                  Span = span }
 
                             Ok
                                 { data = fn
@@ -117,9 +117,9 @@ and internal parseTypeAlias ctx input (span: Span) =
             | Error e -> Error e
             | Ok ty ->
                 let decl =
-                    { name = id.data
-                      ty = ty.data
-                      span = span.WithLast ty.data.span.last }
+                    { Name = id.data
+                      Ty = ty.data
+                      Span = span.WithLast ty.data.span.Last }
 
                 Ok
                     { data = decl
@@ -138,10 +138,10 @@ and internal parseConst (ctx: Context) input (span: Span) =
             | Error e -> Error e
             | Ok value ->
                 let decl =
-                    { pat = param.data.pat
-                      ty = param.data.ty
-                      value = value.data
-                      span = span.WithLast value.data.span.last }
+                    { Pat = param.data.Pat
+                      Ty = param.data.Ty
+                      Value = value.data
+                      Span = span.WithLast value.data.Span.Last }
 
                 Ok
                     { data = decl
@@ -176,13 +176,13 @@ and internal parseImplItem isForTrait input =
     let makeItem item =
         match visSpan with
         | Some span ->
-            { vis = vis
-              item = item
-              span = item.span.WithFirst span.first }
+            { Vis = vis
+              Item = item
+              Span = item.Span.WithFirst span.First }
         | None ->
-            { vis = vis
-              item = item
-              span = item.span }
+            { Vis = vis
+              Item = item
+              Span = item.Span }
 
     let input = input[i..]
     let ctx = { Context.Normal with inImpl = true }
@@ -306,12 +306,12 @@ and internal parseTraitItem input =
                             | Error e -> Error(Array.append error e)
                             | Ok b ->
                                 let method =
-                                    { name = id.data
-                                      tyParam = tyParam
-                                      param = param.data
-                                      ret = rt.data
-                                      defaultImpl = b.data
-                                      span = span }
+                                    { Id = id.data
+                                      TyParam = tyParam
+                                      Param = param.data
+                                      Ret = rt.data
+                                      DefaultImpl = b.data
+                                      Span = span }
 
                                 Ok
                                     { data = TraitMethod method
@@ -363,15 +363,15 @@ and internal parseTraitItem input =
                         | Some t -> t.span
                         | None ->
                             if b.data.Length > 0 then
-                                (Array.last b.data).span
+                                (Array.last b.data).Span
                             else
-                                id.data.span
+                                id.data.Span
 
                     let traitTy =
-                        { name = id.data
-                          bound = b.data
-                          defaultTy = ty.data
-                          span = span.WithLast last.last }
+                        { Id = id.data
+                          Bound = b.data
+                          DefaultTy = ty.data
+                          Span = span.WithLast last.Last }
 
                     Ok
                         { data = TraitType traitTy
@@ -414,11 +414,11 @@ and internal parseDecl (ctx: Context) input =
                 | Error e -> Error e
                 | Ok value ->
                     let decl =
-                        { pat = param.data.pat
-                          ty = param.data.ty
-                          mut = mut
-                          value = value.data
-                          span = span.WithLast value.data.span.last }
+                        { Pat = param.data.Pat
+                          Ty = param.data.Ty
+                          Mut = mut
+                          Value = value.data
+                          Span = span.WithLast value.data.Span.Last }
 
                     Ok
                         { data = Let decl
@@ -439,13 +439,13 @@ and internal parseDecl (ctx: Context) input =
         let path =
             match peek input[i..] with
             | Some({ data = Identifier id; span = span }, j) ->
-                let id = { sym = id; span = span }
+                let id = { Sym = id; Span = span }
 
                 let data =
-                    { prefix = None
-                      seg = [| id |]
-                      item = [||]
-                      span = span }
+                    { Prefix = None
+                      Seg = [| id |]
+                      Item = [||]
+                      Span = span }
 
                 Ok
                     { data = data
@@ -461,10 +461,10 @@ and internal parseDecl (ctx: Context) input =
                     | _ -> failwith "unreachable"
 
                 let data =
-                    { prefix = Some prefix
-                      seg = [||]
-                      item = [||]
-                      span = span }
+                    { Prefix = Some prefix
+                      Seg = [||]
+                      Item = [||]
+                      Span = span }
 
                 Ok
                     { data = data
@@ -481,12 +481,12 @@ and internal parseDecl (ctx: Context) input =
                 | Some({ data = ColonColon }, i) ->
                     match peek state.rest[i..] with
                     | Some({ data = Identifier sym; span = span }, j) ->
-                        let id = { sym = sym; span = span }
+                        let id = { Sym = sym; Span = span }
 
                         let data =
                             { state.data with
-                                seg = Array.append state.data.seg [| id |]
-                                span = state.data.span.WithLast span.last }
+                                Seg = Array.append state.data.Seg [| id |]
+                                Span = state.data.Span.WithLast span.Last }
 
                         let newState =
                             { state with
@@ -499,8 +499,8 @@ and internal parseDecl (ctx: Context) input =
                            j) ->
                         let data =
                             { state.data with
-                                item = [| UseAll span |]
-                                span = state.data.span.WithLast span.last }
+                                Item = [| UseAll span |]
+                                Span = state.data.Span.WithLast span.Last }
 
                         let newState =
                             { state with
@@ -520,18 +520,18 @@ and internal parseDecl (ctx: Context) input =
                 let data = p.data
 
                 let data =
-                    if Array.isEmpty data.item && not (Array.isEmpty data.seg) then
-                        let last = Array.length data.seg - 1
+                    if Array.isEmpty data.Item && not (Array.isEmpty data.Seg) then
+                        let last = Array.length data.Seg - 1
 
                         { data with
-                            seg = data.seg[.. last - 1]
-                            item = [| UseItem data.seg[last] |] }
+                            Seg = data.Seg[.. last - 1]
+                            Item = [| UseItem data.Seg[last] |] }
                     else
                         data
 
                 let error =
-                    if data.prefix <> None && Array.isEmpty data.item then
-                        Array.append p.error [| IncompletePath data.span |]
+                    if data.Prefix <> None && Array.isEmpty data.Item then
+                        Array.append p.error [| IncompletePath data.Span |]
                     else
                         p.error
 
@@ -567,10 +567,10 @@ and internal parseDecl (ctx: Context) input =
                     | Error e -> id.MergeFatalError e
                     | Ok ty ->
                         let data =
-                            { vis = vis
-                              name = id.data
-                              ty = ty.data
-                              span = id.data.span }
+                            { Vis = vis
+                              Name = id.data
+                              Ty = ty.data
+                              Span = id.data.Span }
 
                         let error = Array.append id.error ty.error
 
@@ -602,13 +602,13 @@ and internal parseDecl (ctx: Context) input =
                         match parseCommaSeq ty.rest[i..] parseStructField (Curly Close) "struct fields" with
                         | Error e -> ty.MergeFatalError e
                         | Ok(fields, curly) ->
-                            let span = span.WithLast curly.span.last
+                            let span = span.WithLast curly.span.Last
 
                             let data =
-                                { name = id.data
-                                  tyParam = fst ty.data
-                                  field = fields.data
-                                  span = span }
+                                { Id = id.data
+                                  TyParam = fst ty.data
+                                  Field = fields.data
+                                  Span = span }
 
                             let error = Array.concat [ id.error; ty.error; fields.error ]
 
@@ -620,13 +620,13 @@ and internal parseDecl (ctx: Context) input =
                 match parseCommaSeq id.rest[i..] parseStructField (Curly Close) "struct fields" with
                 | Error e -> id.MergeFatalError e
                 | Ok(fields, curly) ->
-                    let span = span.WithLast curly.span.last
+                    let span = span.WithLast curly.span.Last
 
                     let data =
-                        { name = id.data
-                          tyParam = [||]
-                          field = fields.data
-                          span = span }
+                        { Id = id.data
+                          TyParam = [||]
+                          Field = fields.data
+                          Span = span }
 
                     let error = Array.append id.error fields.error
 
@@ -647,9 +647,9 @@ and internal parseDecl (ctx: Context) input =
                     | Error e -> id.MergeFatalError e
                     | Ok(ty, _) ->
                         let data =
-                            { name = id.data
-                              payload = ty.data
-                              span = id.data.span }
+                            { Id = id.data
+                              Payload = ty.data
+                              span = id.data.Span }
 
                         let error = Array.append id.error ty.error
 
@@ -659,9 +659,9 @@ and internal parseDecl (ctx: Context) input =
                               rest = ty.rest }
                 | _ ->
                     let data =
-                        { name = id.data
-                          payload = [||]
-                          span = id.data.span }
+                        { Id = id.data
+                          Payload = [||]
+                          span = id.data.Span }
 
                     Ok
                         { data = data
@@ -685,13 +685,13 @@ and internal parseDecl (ctx: Context) input =
                         match parseCommaSeq ty.rest[i..] parseEnumVariant (Curly Close) "enum variants" with
                         | Error e -> ty.MergeFatalError e
                         | Ok(variants, curly) ->
-                            let span = span.WithLast curly.span.last
+                            let span = span.WithLast curly.span.Last
 
                             let data =
-                                { name = id.data
-                                  tyParam = fst ty.data
-                                  variant = variants.data
-                                  span = span }
+                                { Id = id.data
+                                  TyParam = fst ty.data
+                                  Variant = variants.data
+                                  Span = span }
 
                             let error = Array.concat [ id.error; ty.error; variants.error ]
 
@@ -709,13 +709,13 @@ and internal parseDecl (ctx: Context) input =
                 match parseCommaSeq id.rest[i..] parseEnumVariant (Curly Close) "enum variants" with
                 | Error e -> id.MergeFatalError e
                 | Ok(variants, curly) ->
-                    let span = span.WithLast curly.span.last
+                    let span = span.WithLast curly.span.Last
 
                     let data =
-                        { name = id.data
-                          tyParam = [||]
-                          variant = variants.data
-                          span = span }
+                        { Id = id.data
+                          TyParam = [||]
+                          Variant = variants.data
+                          Span = span }
 
                     let error = Array.append id.error variants.error
 
@@ -732,7 +732,7 @@ and internal parseDecl (ctx: Context) input =
             | Some(token, _) -> id.FatalError(UnexpectedToken(token, "struct definition"))
 
     | Some({ data = Reserved IMPL; span = span }, i) ->
-        let first = span.first
+        let first = span.First
 
         let typeParam =
             let rest = input[i..]
@@ -764,11 +764,11 @@ and internal parseDecl (ctx: Context) input =
                     match ty2 with
                     | Ok None ->
                         let data =
-                            { trait_ = None
-                              tyParam = fst param.data
-                              type_ = ty1.data
-                              item = [||]
-                              span = Span.dummy }
+                            { Trait = None
+                              TyParam = fst param.data
+                              Type = ty1.data
+                              Item = [||]
+                              Span = Span.dummy }
 
                         Ok
                             { data = data
@@ -781,24 +781,24 @@ and internal parseDecl (ctx: Context) input =
                             match ty1.data with
                             | TypeId id ->
                                 Some
-                                    { prefix = None
-                                      seg = [| id, [||] |]
-                                      span = id.span },
+                                    { Prefix = None
+                                      Seg = [| id, [||] |]
+                                      Span = id.Span },
                                 error
                             | PathType p ->
                                 Some
-                                    { prefix = p.prefix
-                                      seg = p.seg
-                                      span = p.span },
+                                    { Prefix = p.Prefix
+                                      Seg = p.Seg
+                                      Span = p.Span },
                                 error
                             | _ -> None, Array.append error [| InvalidTrait ty1.data.span |]
 
                         let data =
-                            { trait_ = trait_
-                              tyParam = fst param.data
-                              type_ = ty2.data
-                              item = [||]
-                              span = Span.dummy }
+                            { Trait = trait_
+                              TyParam = fst param.data
+                              Type = ty2.data
+                              Item = [||]
+                              Span = Span.dummy }
 
                         Ok
                             { data = data
@@ -826,13 +826,13 @@ and internal parseDecl (ctx: Context) input =
                                     { data =
                                         Impl
                                             { impl.data with
-                                                item = item.data
-                                                span = span.WithFirst first }
+                                                Item = item.data
+                                                Span = span.WithFirst first }
                                       error = Array.append impl.error item.error
                                       rest = item.rest }
 
     | Some({ data = Reserved TRAIT; span = span }, i) ->
-        let first = span.first
+        let first = span.First
 
         match parseId input[i..] "trait name" with
         | Error e -> Error [| e |]
@@ -882,11 +882,11 @@ and internal parseDecl (ctx: Context) input =
                                 Ok
                                     { data =
                                         Trait
-                                            { name = id.data
-                                              tyParam = tyParam
-                                              super = super.data
-                                              item = item.data
-                                              span = span.WithFirst first }
+                                            { Id = id.data
+                                              TyParam = tyParam
+                                              Super = super.data
+                                              Item = item.data
+                                              Span = span.WithFirst first }
                                       error = Array.append param.error item.error
                                       rest = item.rest }
 
@@ -935,25 +935,25 @@ let rec internal parseModuleItem (input: Token[]) =
         | DeclStmt d ->
             let first =
                 match visSpan with
-                | Some s -> s.first
-                | None -> d.span.first
+                | Some s -> s.First
+                | None -> d.Span.First
 
             let item =
-                { vis = vis
-                  decl = d
-                  span = d.span.WithFirst first }
+                { Vis = vis
+                  Decl = d
+                  Span = d.Span.WithFirst first }
 
             let error =
                 match d with
                 | FnDecl f when vis = Public ->
-                    let needTy = Array.filter (fun (p: Param) -> p.ty = None) f.param
-                    let needTy = Array.map (fun (p: Param) -> PubTypeAnnotation p.span) needTy
+                    let needTy = Array.filter (fun (p: Param) -> p.Ty = None) f.Param
+                    let needTy = Array.map (fun (p: Param) -> PubTypeAnnotation p.Span) needTy
 
                     Array.append s.error needTy
                 | Let l when vis = Public ->
-                    match l.ty with
+                    match l.Ty with
                     | Some _ -> s.error
-                    | None -> Array.append s.error [| PubTypeAnnotation l.span |]
+                    | None -> Array.append s.error [| PubTypeAnnotation l.Span |]
                 | _ -> s.error
 
             Ok
@@ -961,7 +961,7 @@ let rec internal parseModuleItem (input: Token[]) =
                   error = error
                   rest = s.rest }
         | ExprStmt e ->
-            let error = Array.append s.error [| TopLevelExpr e.span |]
+            let error = Array.append s.error [| TopLevelExpr e.Span |]
 
             match parseModuleItem s.rest with
             | Ok m ->

@@ -13,8 +13,8 @@ open Parser.Stmt
 let parse (input: Token[]) =
     let span =
         if input.Length > 0 then
-            let first = input[0].span.first
-            let last = (Array.last input).span.last
+            let first = input[0].span.First
+            let last = (Array.last input).span.Last
 
             Span.Make first last
         else
@@ -22,7 +22,7 @@ let parse (input: Token[]) =
 
     match parseManyItem input parseModuleItem (fun _ -> false) with
     | Ok(state, _) ->
-        let data = { item = state.data; span = span }
+        let data = { Item = state.data; Span = span }
 
         if state.error.Length = 0 then
             Ok data

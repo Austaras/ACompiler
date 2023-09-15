@@ -1,9 +1,5 @@
 ﻿module FLIR.FLIR
 
-open Config
-open AST
-open Semantic.Semantic
-
 open FLIR.Type
 
 type BinOp =
@@ -12,9 +8,9 @@ type BinOp =
     | Mul
     | Div
     | Rem
-    | BitXor
-    | BitAnd
-    | BitOr
+    | Xor
+    | And
+    | Or
     | Shl
     | Shr
     | Eq
@@ -27,9 +23,7 @@ type BinOp =
 type Bin =
     { ty: Integer
       op: BinOp
-      fst: AST.Id
-      snd: AST.Id }
+      fst: string
+      snd: string }
 
 type FLIR = Bin of Bin
-
-let transformAST (arch: Config.Arch) (ast: AST.Module) (ty: SemanticInfo) = failwith "Not Implemented"

@@ -46,16 +46,15 @@ let internal primitive =
        TChar |]
 
 type internal NormalConstraint =
-    { expect: Type
-      actual: Type
-      span: Span }
+    { Expect: Type
+      Actual: Type
+      Span: Span }
 
 type internal Constraint =
     | CNormal of NormalConstraint
     | CDeref of NormalConstraint
 
-type internal FnScope =
-    { fn: Either<Fn, Closure>; retTy: Type }
+type internal FnScope = { Fn: Either<Fn, Closure>; Ret: Type }
 
 type internal ScopeData =
     | FnScope of FnScope
@@ -64,65 +63,65 @@ type internal ScopeData =
     | TopLevelScope
 
 type internal Scope =
-    { ty: Dictionary<string, Id>
-      var: Dictionary<string, Id>
-      constr: ResizeArray<Constraint>
-      id: int
-      data: ScopeData
+    { Ty: Dictionary<string, Id>
+      Var: Dictionary<string, Id>
+      Constr: ResizeArray<Constraint>
+      Id: int
+      Data: ScopeData
       mutable varId: int }
 
-    member this.AddTy(id: Id) = this.ty[id.sym] <- id
+    member this.AddTy(id: Id) = this.Ty[id.Sym] <- id
 
-    member this.AddVar(id: Id) = this.var[id.sym] <- id
+    member this.AddVar(id: Id) = this.Var[id.Sym] <- id
 
     member this.NewTVar sym span =
         let tvar =
-            { scope = this.id
-              id = this.varId
-              sym = sym
-              span = span }
+            { Scope = this.Id
+              Id = this.varId
+              Sym = sym
+              Span = span }
 
         this.varId <- this.varId + 1
 
         tvar
 
     static member Empty id data =
-        { ty = Dictionary()
-          var = Dictionary()
-          constr = ResizeArray()
-          id = id
-          data = data
+        { Ty = Dictionary()
+          Var = Dictionary()
+          Constr = ResizeArray()
+          Id = id
+          Data = data
           varId = 0 }
 
     static member Prelude =
         let scope =
-            { ty = Dictionary()
-              var = Dictionary()
-              constr = ResizeArray()
-              id = 0
-              data = TopLevelScope
+            { Ty = Dictionary()
+              Var = Dictionary()
+              Constr = ResizeArray()
+              Id = 0
+              Data = TopLevelScope
               varId = 0 }
 
         for p in primitive do
             let name = p.ToString
-            scope.ty[name] <- { sym = name; span = Span.dummy }
+            scope.Ty[name] <- { Sym = name; Span = Span.dummy }
 
         scope
 
 type internal ActiveScope =
-    { scope: Scope[] }
+    { Scope: Scope[] }
 
     member this.WithNew s =
-        { scope = Array.append this.scope [| s |] }
+        { Scope = Array.append this.Scope [| s |] }
 
-    member this.current = Array.last this.scope
+    member this.current = Array.last this.Scope
 
-    member this.PickCurrent picker = tryPickBack picker this.scope
+    member this.PickCurrent picker = tryPickBack picker this.Scope
 
     member this.ResolveTy(id: Id) =
         let pickId scope =
-            if scope.ty.ContainsKey id.sym then
-                let id = scope.ty[id.sym]
+            if scope.Ty.ContainsKey id.Sym then
+                let id = scope.Ty[id.Sym]
                 Some id
             else
                 None
@@ -131,8 +130,8 @@ type internal ActiveScope =
 
     member this.ResolveVar(id: Id) =
         let pickId scope =
-            if scope.var.ContainsKey id.sym then
-                let id = scope.var[id.sym]
+            if scope.Var.ContainsKey id.Sym then
+                let id = scope.Var[id.Sym]
                 Some id
             else
                 None
@@ -146,9 +145,9 @@ type Checker(moduleMap: Map<string, ModuleType>) =
         let sema = SemanticInfo.Empty()
 
         for t in primitive do
-            let id = { sym = t.ToString; span = Span.dummy }
+            let id = { Sym = t.ToString; Span = Span.dummy }
 
-            sema.ty[id] <- t
+            sema.Ty[id] <- t
 
         sema
 
@@ -162,7 +161,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
     member internal this.ProcessTy (scope: ActiveScope) ty =
         let resolve id =
             match scope.ResolveTy id with
-            | Some id -> sema.ty[id]
+            | Some id -> sema.Ty[id]
             | None ->
                 error.Add(Undefined id)
                 TNever
@@ -171,10 +170,10 @@ type Checker(moduleMap: Map<string, ModuleType>) =
         | NeverType _ -> TNever
         | TypeId i -> resolve i
         | PathType p ->
-            if p.prefix <> None || p.seg.Length > 1 then
+            if p.Prefix <> None || p.Seg.Length > 1 then
                 failwith "Not Implemented"
 
-            let id, ty = p.seg[0]
+            let id, ty = p.Seg[0]
 
             let instType = Array.map (this.ProcessTy scope) ty
 
@@ -184,11 +183,11 @@ type Checker(moduleMap: Map<string, ModuleType>) =
             | TStruct(id, gen) when gen.Length = instType.Length -> TStruct(id, instType)
             | TEnum(id, gen) when gen.Length = instType.Length -> TEnum(id, instType)
             | _ ->
-                error.Add(GenericMismatch(container, instType, p.span))
+                error.Add(GenericMismatch(container, instType, p.Span))
 
                 TNever
-        | TupleType t -> TTuple(Array.map (this.ProcessTy scope) t.element)
-        | RefType r -> TRef(this.ProcessTy scope r.ty)
+        | TupleType t -> TTuple(Array.map (this.ProcessTy scope) t.Ele)
+        | RefType r -> TRef(this.ProcessTy scope r.Ty)
         | InferedType span ->
             let newTVar = scope.current.NewTVar None span
 
@@ -200,45 +199,45 @@ type Checker(moduleMap: Map<string, ModuleType>) =
     member internal this.ProcessDeclPat (scope: Scope) pat ty mut (seen: HashSet<string>) =
         match pat with
         | IdPat i ->
-            if seen.Contains i.sym then
+            if seen.Contains i.Sym then
                 error.Add(DuplicateDefinition i)
 
-            seen.Add i.sym |> ignore
+            seen.Add i.Sym |> ignore
             scope.AddVar i
 
             sema.AddVar(i, ty, mut = mut)
         | LitPat(_, span)
-        | RangePat { span = span } -> error.Add(RefutablePat span)
+        | RangePat { Span = span } -> error.Add(RefutablePat span)
         | CatchAllPat _ -> ()
         | TuplePat t ->
             let addBinding pat =
                 let sym =
                     match pat with
-                    | IdPat id -> Some id.sym
+                    | IdPat id -> Some id.Sym
                     | _ -> None
 
-                let newVar = scope.NewTVar sym pat.span |> TVar
+                let newVar = scope.NewTVar sym pat.Span |> TVar
                 this.ProcessDeclPat scope pat newVar mut seen
 
                 newVar
 
-            let patTy = Array.map addBinding t.element
+            let patTy = Array.map addBinding t.Ele
 
-            scope.constr.Add(
+            scope.Constr.Add(
                 CNormal
-                    { actual = TTuple patTy
-                      expect = ty
-                      span = t.span }
+                    { Actual = TTuple patTy
+                      Expect = ty
+                      Span = t.Span }
             )
         | AsPat a ->
-            if seen.Contains a.id.sym then
-                error.Add(DuplicateDefinition a.id)
+            if seen.Contains a.Id.Sym then
+                error.Add(DuplicateDefinition a.Id)
 
-            seen.Add a.id.sym |> ignore
-            scope.AddVar a.id
-            sema.AddVar(a.id, ty, mut = mut)
+            seen.Add a.Id.Sym |> ignore
+            scope.AddVar a.Id
+            sema.AddVar(a.Id, ty, mut = mut)
 
-            this.ProcessDeclPat scope a.pat ty mut seen
+            this.ProcessDeclPat scope a.Pat ty mut seen
         | ArrayPat(_) -> failwith "Not Implemented"
         | PathPat(_) -> failwith "Not Implemented"
         | EnumPat(_) -> failwith "Not Implemented"
@@ -253,10 +252,10 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
         match pat with
         | IdPat i ->
-            if seen.Contains i.sym then
+            if seen.Contains i.Sym then
                 error.Add(DuplicateDefinition i)
 
-            seen.Add i.sym |> ignore
+            seen.Add i.Sym |> ignore
             currScope.AddVar i
             sema.AddVar(i, ty, mut = true)
         | LitPat(l, span) ->
@@ -269,11 +268,11 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                 | String _ -> failwith "Not Implemented"
                 | NegInt _ -> failwith "Unreachable"
 
-            currScope.constr.Add(
+            currScope.Constr.Add(
                 CNormal
-                    { actual = litTy
-                      expect = ty
-                      span = span }
+                    { Actual = litTy
+                      Expect = ty
+                      Span = span }
             )
         | RangePat _ -> failwith "Not Implemented"
         | CatchAllPat _ -> ()
@@ -281,59 +280,59 @@ type Checker(moduleMap: Map<string, ModuleType>) =
             let addBinding pat =
                 let sym =
                     match pat with
-                    | IdPat id -> Some id.sym
+                    | IdPat id -> Some id.Sym
                     | _ -> None
 
-                let newVar = currScope.NewTVar sym pat.span |> TVar
+                let newVar = currScope.NewTVar sym pat.Span |> TVar
                 this.ProcessCondPat scope pat newVar seen
 
                 newVar
 
-            let patTy = Array.map addBinding t.element
+            let patTy = Array.map addBinding t.Ele
 
-            currScope.constr.Add(
+            currScope.Constr.Add(
                 CNormal
-                    { actual = TTuple patTy
-                      expect = ty
-                      span = t.span }
+                    { Actual = TTuple patTy
+                      Expect = ty
+                      Span = t.Span }
             )
         | AsPat a ->
-            if seen.Contains a.id.sym then
-                error.Add(DuplicateDefinition a.id)
+            if seen.Contains a.Id.Sym then
+                error.Add(DuplicateDefinition a.Id)
 
-            seen.Add a.id.sym |> ignore
-            currScope.AddVar a.id
-            sema.AddVar(a.id, ty, mut = true)
+            seen.Add a.Id.Sym |> ignore
+            currScope.AddVar a.Id
+            sema.AddVar(a.Id, ty, mut = true)
 
-            this.ProcessCondPat scope a.pat ty seen
+            this.ProcessCondPat scope a.Pat ty seen
         | ArrayPat _ -> failwith "Not Implemented"
         | PathPat _ -> failwith "Not Implemented"
         | EnumPat e ->
-            if e.name.prefix <> None || e.name.seg.Length <> 2 then
+            if e.Name.Prefix <> None || e.Name.Seg.Length <> 2 then
                 failwith "Not Implemented"
 
-            let enumId = e.name.seg[0]
-            let variant = e.name.seg[1]
+            let enumId = e.Name.Seg[0]
+            let variant = e.Name.Seg[1]
 
             let enumTy =
                 match scope.ResolveTy enumId with
-                | Some id -> sema.ty[id]
+                | Some id -> sema.Ty[id]
                 | None ->
                     error.Add(Undefined enumId)
                     TNever
 
             match enumTy with
             | TEnum(enum, v) ->
-                let enumData = sema.enum[enum]
-                let inst = Array.map (fun _ -> TVar(currScope.NewTVar None e.span)) v
+                let enumData = sema.Enum[enum]
+                let inst = Array.map (fun _ -> TVar(currScope.NewTVar None e.Span)) v
 
-                if enumData.variant.ContainsKey variant.sym then
-                    let payload = enumData.variant[variant.sym]
+                if enumData.variant.ContainsKey variant.Sym then
+                    let payload = enumData.variant[variant.Sym]
 
-                    if payload.Length <> e.content.Length then
-                        error.Add(PayloadMismatch(e.span, enumData))
+                    if payload.Length <> e.Content.Length then
+                        error.Add(PayloadMismatch(e.Span, enumData))
 
-                    for idx, c in Array.indexed e.content do
+                    for idx, c in Array.indexed e.Content do
                         let payload =
                             if idx < payload.Length then
                                 payload[idx].Instantiate enumData.tvar inst
@@ -343,22 +342,22 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                         this.ProcessCondPat scope c payload seen
 
 
-                    currScope.constr.Add(
+                    currScope.Constr.Add(
                         CNormal
-                            { expect = TEnum(enum, inst)
-                              actual = ty
-                              span = e.span }
+                            { Expect = TEnum(enum, inst)
+                              Actual = ty
+                              Span = e.Span }
                     )
                 else
                     error.Add(UndefinedVariant(enumId, variant))
 
-                    for c in e.content do
+                    for c in e.Content do
                         this.ProcessCondPat scope c TNever seen
 
             | ty ->
                 error.Add(ExpectEnum(enumId, ty))
 
-                for c in e.content do
+                for c in e.Content do
                     this.ProcessCondPat scope c TNever seen
 
         | StructPat(_) -> failwith "Not Implemented"
@@ -380,221 +379,250 @@ type Checker(moduleMap: Map<string, ModuleType>) =
         let currScope = scope.current
 
         let topLevel =
-            match currScope.data with
+            match currScope.Data with
             | TopLevelScope -> true
             | _ -> false
 
+        // Process Type Decl Hoisted Name
         for d in decl do
             let dummyTVar _ =
                 TVar
-                    { scope = 0
-                      id = 0
-                      sym = None
-                      span = Span.dummy }
+                    { Scope = 0
+                      Id = 0
+                      Sym = None
+                      Span = Span.dummy }
 
             match d with
-            | Let l ->
-                if topLevel then
-                    match l.pat with
-                    | IdPat id ->
-                        if currScope.var.ContainsKey id.sym then
-                            error.Add(DuplicateDefinition id)
-
-                        currScope.AddVar id
-
-                        sema.AddVar(
-                            id,
-                            (TVar(currScope.NewTVar (Some id.sym) id.span)),
-                            mut = l.mut,
-                            static_ = topLevel
-                        )
-                    | _ -> failwith "unreachable"
-            | Const _ -> ()
-            | FnDecl f ->
-                if currScope.var.ContainsKey f.name.sym then
-                    error.Add(DuplicateDefinition f.name)
-
-                currScope.AddVar f.name
+            | Let _
+            | Const _
+            | FnDecl _ -> ()
             | StructDecl s ->
-                if currScope.ty.ContainsKey s.name.sym then
-                    error.Add(DuplicateDefinition s.name)
+                if currScope.Ty.ContainsKey s.Id.Sym then
+                    error.Add(DuplicateDefinition s.Id)
 
-                currScope.AddTy s.name
-                let tvar = Array.map dummyTVar s.tyParam
-                sema.ty.Add(s.name, TStruct(s.name, tvar))
+                currScope.AddTy s.Id
+                let tvar = Array.map dummyTVar s.TyParam
+                sema.Ty.Add(s.Id, TStruct(s.Id, tvar))
             | EnumDecl e ->
-                if currScope.ty.ContainsKey e.name.sym then
-                    error.Add(DuplicateDefinition e.name)
+                if currScope.Ty.ContainsKey e.Id.Sym then
+                    error.Add(DuplicateDefinition e.Id)
 
-                currScope.AddTy e.name
-                let tvar = Array.map dummyTVar e.tyParam
-                sema.ty.Add(e.name, TEnum(e.name, tvar))
+                currScope.AddTy e.Id
+                let tvar = Array.map dummyTVar e.TyParam
+                sema.Ty.Add(e.Id, TEnum(e.Id, tvar))
             | TypeDecl t ->
-                if currScope.ty.ContainsKey t.name.sym then
-                    error.Add(DuplicateDefinition t.name)
+                if currScope.Ty.ContainsKey t.Name.Sym then
+                    error.Add(DuplicateDefinition t.Name)
 
-                currScope.AddTy t.name
+                currScope.AddTy t.Name
             | Use _ -> failwith "Not Implemented"
             | Trait _ -> failwith "Not Implemented"
             | Impl _ -> failwith "Not Implemented"
 
-        let fn = ResizeArray()
+        let staticItem = ResizeArray()
 
+        // Process Type Decl
         for d in decl do
             match d with
-            | Let _
+            | Let _ ->
+                if topLevel then
+                    staticItem.Add d
             | Const _ -> ()
-            | FnDecl f -> fn.Add f
+            | FnDecl _ -> staticItem.Add d
             | StructDecl s ->
                 let scope, tvar =
-                    if s.tyParam.Length > 0 then
+                    if s.TyParam.Length > 0 then
                         let newScope = this.NewScope TypeScope
 
                         let processParam (param: TypeParam) =
-                            let newTVar = newScope.NewTVar (Some param.id.sym) param.id.span
+                            let newTVar = newScope.NewTVar (Some param.Id.Sym) param.Id.Span
 
-                            sema.ty.Add(param.id, TVar newTVar)
-                            newScope.ty.Add(param.id.sym, param.id)
+                            sema.Ty.Add(param.Id, TVar newTVar)
+                            newScope.Ty.Add(param.Id.Sym, param.Id)
 
                             newTVar
 
-                        scope.WithNew newScope, Array.map processParam s.tyParam
+                        scope.WithNew newScope, Array.map processParam s.TyParam
                     else
                         scope, [||]
 
                 let processField m (field: StructFieldDef) =
-                    let name = field.name.sym
+                    let name = field.Name.Sym
 
                     if Map.containsKey name m then
-                        error.Add(DuplicateField field.name)
+                        error.Add(DuplicateField field.Name)
 
-                    Map.add name (this.ProcessTy scope field.ty) m
+                    Map.add name (this.ProcessTy scope field.Ty) m
 
-                let field = Array.fold processField Map.empty s.field
+                let field = Array.fold processField Map.empty s.Field
 
                 let stru =
-                    { name = s.name
-                      field = field
-                      tvar = tvar }
+                    { Name = s.Id
+                      Field = field
+                      TVar = tvar }
 
-                sema.stru[s.name] <- stru
+                sema.Struct[s.Id] <- stru
 
             | EnumDecl e ->
                 let scope, tvar =
-                    if e.tyParam.Length > 0 then
+                    if e.TyParam.Length > 0 then
                         let newScope = this.NewScope TypeScope
 
                         let processParam (param: TypeParam) =
-                            let newTVar = newScope.NewTVar (Some param.id.sym) param.id.span
+                            let newTVar = newScope.NewTVar (Some param.Id.Sym) param.Id.Span
 
-                            sema.ty.Add(param.id, TVar newTVar)
-                            newScope.ty.Add(param.id.sym, param.id)
+                            sema.Ty.Add(param.Id, TVar newTVar)
+                            newScope.Ty.Add(param.Id.Sym, param.Id)
 
                             newTVar
 
-                        scope.WithNew newScope, Array.map processParam e.tyParam
+                        scope.WithNew newScope, Array.map processParam e.TyParam
                     else
                         scope, [||]
 
                 let processVariant m (variant: EnumVariantDef) =
-                    let name = variant.name.sym
+                    let name = variant.Id.Sym
 
                     if Map.containsKey name m then
-                        error.Add(DuplicateVariant variant.name)
+                        error.Add(DuplicateVariant variant.Id)
 
-                    let payload = Array.map (this.ProcessTy scope) variant.payload
+                    let payload = Array.map (this.ProcessTy scope) variant.Payload
 
                     Map.add name payload m
 
-                let variant = Array.fold processVariant Map.empty e.variant
+                let variant = Array.fold processVariant Map.empty e.Variant
 
                 let enum =
-                    { name = e.name
+                    { name = e.Id
                       variant = variant
                       tvar = tvar }
 
-                sema.enum[e.name] <- enum
+                sema.Enum[e.Id] <- enum
 
-            | TypeDecl t -> sema.ty[t.name] <- this.ProcessTy scope t.ty
+            | TypeDecl t -> sema.Ty[t.Name] <- this.ProcessTy scope t.Ty
 
             | Use(_) -> failwith "Not Implemented"
             | Trait(_) -> failwith "Not Implemented"
             | Impl(_) -> failwith "Not Implemented"
 
-        for f in fn do
-            let scope, tvar =
-                if f.tyParam.Length > 0 then
-                    let newScope = this.NewScope TypeScope
+        let valueMap = Dictionary()
+        let scopeMap = Dictionary()
 
-                    let processParam (param: TypeParam) =
-                        let newTVar = newScope.NewTVar (Some param.id.sym) param.id.span
+        for item in staticItem do
+            match item with
+            | FnDecl f ->
+                if currScope.Var.ContainsKey f.Name.Sym then
+                    error.Add(DuplicateDefinition f.Name)
 
-                        sema.ty.Add(param.id, TVar newTVar)
-                        newScope.ty.Add(param.id.sym, param.id)
+                currScope.AddVar f.Name
 
-                        newTVar
+                let newScope = this.NewScope TypeScope
 
-                    scope.WithNew newScope, Array.map processParam f.tyParam
-                else
-                    scope, [||]
+                let tvar =
+                    if f.TyParam.Length > 0 then
+                        let processParam (param: TypeParam) =
+                            let newTVar = newScope.NewTVar (Some param.Id.Sym) param.Id.Span
 
-            let paramTy (p: Param) =
-                match p.ty with
-                | Some ty -> this.ProcessTy scope ty
-                | None ->
-                    let sym =
-                        match p.pat with
-                        | IdPat i -> Some(i.sym)
-                        | _ -> None
+                            sema.Ty.Add(param.Id, TVar newTVar)
+                            newScope.Ty.Add(param.Id.Sym, param.Id)
 
-                    let newTVar = currScope.NewTVar sym p.span
+                            newTVar
 
-                    TVar newTVar
+                        Array.map processParam f.TyParam
+                    else
+                        [||]
 
-            let param = Array.map paramTy f.param
+                let scope = scope.WithNew newScope
 
-            let ret =
-                match f.retTy with
-                | Some ty -> this.ProcessTy scope ty
-                | None -> TVar(currScope.NewTVar None f.span)
+                let paramTy (p: Param) =
+                    match p.Ty with
+                    | Some ty -> this.ProcessTy scope ty
+                    | None ->
+                        let sym =
+                            match p.Pat with
+                            | IdPat i -> Some(i.Sym)
+                            | _ -> None
 
-            let fnTy =
-                TFn
-                    { param = param
-                      ret = ret
-                      tvar = tvar }
+                        let newTVar = newScope.NewTVar sym p.Span
 
-            sema.AddVar(f.name, fnTy, static_ = true)
+                        TVar newTVar
 
-        for f in fn do
-            this.ProcessFn scope f
+                let param = Array.map paramTy f.Param
+
+                let ret =
+                    match f.Ret with
+                    | Some ty -> this.ProcessTy scope ty
+                    | None -> TVar(newScope.NewTVar None f.Span)
+
+                let newScope =
+                    { newScope with
+                        Data = FnScope { Fn = Left f; Ret = ret } }
+
+                scopeMap.Add(f, newScope)
+
+                let fnTy =
+                    TFn
+                        { Param = param
+                          Ret = ret
+                          TVar = tvar }
+
+                sema.AddVar(f.Name, fnTy, static_ = true)
+
+            | Let l ->
+                let ty =
+                    match l.Ty with
+                    | Some ty -> this.ProcessTy scope ty
+                    | None ->
+                        let sym =
+                            match l.Pat with
+                            | IdPat i -> Some(i.Sym)
+                            | _ -> None
+
+                        let newTVar = currScope.NewTVar sym l.Span
+
+                        TVar newTVar
+
+                valueMap.Add(l.Pat, ty)
+                this.ProcessDeclPat currScope l.Pat ty l.Mut (HashSet())
+            | _ -> ()
+
+        for item in staticItem do
+            match item with
+            | FnDecl f ->
+                let newScope = scope.WithNew scopeMap[f]
+                this.ProcessFn newScope f
+            | Let l ->
+                let value = this.ProcessExpr scope l.Value
+
+                currScope.Constr.Add(
+                    CNormal
+                        { Expect = valueMap[l.Pat]
+                          Actual = value
+                          Span = l.Span }
+                )
+            | _ -> ()
 
     member internal this.ProcessDecl (scope: ActiveScope) d =
-        let topLevel =
-            match scope.current.data with
-            | TopLevelScope -> true
-            | _ -> false
-
         match d with
         | Let l ->
-            let value = this.ProcessExpr scope l.value
+            let value = this.ProcessExpr scope l.Value
 
             let ty =
-                match l.ty with
+                match l.Ty with
                 | Some ty ->
                     let ty = this.ProcessTy scope ty
 
-                    scope.current.constr.Add(
+                    scope.current.Constr.Add(
                         CNormal
-                            { expect = ty
-                              actual = value
-                              span = l.span }
+                            { Expect = ty
+                              Actual = value
+                              Span = l.Span }
                     )
 
                     ty
                 | None -> value
 
-            this.ProcessDeclPat scope.current l.pat ty l.mut (HashSet())
+            this.ProcessDeclPat scope.current l.Pat ty l.Mut (HashSet())
 
         | Const _ -> failwith "Not Implemented"
         | Use _ -> failwith "Not Implemented"
@@ -611,70 +639,70 @@ type Checker(moduleMap: Map<string, ModuleType>) =
         match e with
         | Id id ->
             let rec resolveVar captured i =
-                let curr = scope.scope[i]
+                let curr = scope.Scope[i]
 
-                if curr.var.ContainsKey id.sym then
-                    Some(curr.var[id.sym], captured)
+                if curr.Var.ContainsKey id.Sym then
+                    Some(curr.Var[id.Sym], captured)
                 else if i = 0 then
                     None
                 else
                     let captured =
-                        match curr.data with
-                        | FnScope { fn = fn } -> Array.append captured [| fn |]
+                        match curr.Data with
+                        | FnScope { Fn = fn } -> Array.append captured [| fn |]
                         | _ -> captured
 
                     resolveVar captured (i - 1)
 
-            match resolveVar [||] (scope.scope.Length - 1) with
+            match resolveVar [||] (scope.Scope.Length - 1) with
             | None ->
                 error.Add(Undefined id)
                 TNever
             | Some(id, captured) ->
-                if sema.var[id].loc <> Static then
+                if sema.Var[id].Loc <> Static then
                     for c in captured do
-                        sema.capture.Add c id
+                        sema.Capture.Add c id
                         sema.AddRef id
 
                 match sema.TypeOfVar id with
                 | TFn f ->
-                    let newTVar = Array.map (fun _ -> currScope.NewTVar None id.span) f.tvar
+                    let newTVar = Array.map (fun _ -> currScope.NewTVar None id.Span) f.TVar
                     TFn(f.Instantiate newTVar)
                 | t -> t
 
         | Binary b ->
-            let l = this.ProcessExpr scope b.left
-            let r = this.ProcessExpr scope b.right
+            let l = this.ProcessExpr scope b.Left
+            let r = this.ProcessExpr scope b.Right
 
-            match b.op with
+            match b.Op with
             | Arithmetic(LogicalAnd | LogicalOr) ->
-                currScope.constr.Add(
+                currScope.Constr.Add(
                     CNormal
-                        { expect = TBool
-                          actual = l
-                          span = b.left.span }
+                        { Expect = TBool
+                          Actual = l
+                          Span = b.Left.Span }
                 )
 
-                currScope.constr.Add(
+                currScope.Constr.Add(
                     CNormal
-                        { expect = TBool
-                          actual = r
-                          span = b.right.span }
+                        { Expect = TBool
+                          Actual = r
+                          Span = b.Right.Span }
                 )
 
                 TBool
             | Arithmetic _ ->
-                currScope.constr.Add(
+                currScope.Constr.Add(
                     CNormal
-                        { expect = TInt(true, ISize)
-                          actual = l
-                          span = b.left.span }
+                        { Expect = TInt(true, ISize)
+                          Actual = l
+                          Span = b.Left.Span }
                 )
 
-                currScope.constr.Add(
+                currScope.Constr.Add(
                     CNormal
-                        { expect = TInt(true, ISize)
-                          actual = r
-                          span = b.right.span }
+                        { Expect = TInt(true, ISize)
+                          Actual = r
+                          Span = b.Right.Span }
                 )
 
                 TInt(true, ISize)
@@ -684,11 +712,11 @@ type Checker(moduleMap: Map<string, ModuleType>) =
             | Gt
             | LtEq
             | GtEq ->
-                currScope.constr.Add(
+                currScope.Constr.Add(
                     CNormal
-                        { expect = l
-                          actual = r
-                          span = b.span }
+                        { Expect = l
+                          Actual = r
+                          Span = b.Span }
                 )
 
                 TBool
@@ -707,66 +735,66 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
         | If i ->
             let processLetCond (c: LetCond) block =
-                let value = this.ProcessExpr scope c.value
+                let value = this.ProcessExpr scope c.Value
                 let newScope = this.NewScope BlockScope
                 let scope = scope.WithNew newScope
 
-                this.ProcessCondPat scope c.pat value (HashSet())
+                this.ProcessCondPat scope c.Pat value (HashSet())
                 let ty = this.ProcessBlock scope block
 
                 this.Unify newScope
                 this.ResolveTy ty
 
             let then_ =
-                match i.cond with
+                match i.Cond with
                 | BoolCond b ->
-                    currScope.constr.Add(
+                    currScope.Constr.Add(
                         CNormal
-                            { expect = TBool
-                              actual = this.ProcessExpr scope b
-                              span = b.span }
+                            { Expect = TBool
+                              Actual = this.ProcessExpr scope b
+                              Span = b.Span }
                     )
 
-                    this.ProcessBlock scope i.then_
-                | LetCond c -> processLetCond c i.then_
+                    this.ProcessBlock scope i.Then
+                | LetCond c -> processLetCond c i.Then
 
-            for br in i.elseif do
+            for br in i.ElseIf do
                 let elseif =
-                    match br.cond with
+                    match br.Cond with
                     | BoolCond b ->
-                        currScope.constr.Add(
+                        currScope.Constr.Add(
                             CNormal
-                                { expect = TBool
-                                  actual = this.ProcessExpr scope b
-                                  span = b.span }
+                                { Expect = TBool
+                                  Actual = this.ProcessExpr scope b
+                                  Span = b.Span }
                         )
 
-                        this.ProcessBlock scope br.block
-                    | LetCond c -> processLetCond c br.block
+                        this.ProcessBlock scope br.Block
+                    | LetCond c -> processLetCond c br.Block
 
-                currScope.constr.Add(
+                currScope.Constr.Add(
                     CNormal
-                        { expect = then_
-                          actual = elseif
-                          span = i.span }
+                        { Expect = then_
+                          Actual = elseif
+                          Span = i.Span }
                 )
 
-            match i.else_ with
+            match i.Else with
             | Some else_ ->
                 let else_ = this.ProcessBlock scope else_
 
-                currScope.constr.Add(
+                currScope.Constr.Add(
                     CNormal
-                        { expect = then_
-                          actual = else_
-                          span = i.span }
+                        { Expect = then_
+                          Actual = else_
+                          Span = i.Span }
                 )
             | None ->
-                currScope.constr.Add(
+                currScope.Constr.Add(
                     CNormal
-                        { expect = then_
-                          actual = UnitType
-                          span = i.span }
+                        { Expect = then_
+                          Actual = UnitType
+                          Span = i.Span }
                 )
 
             then_
@@ -777,19 +805,19 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                 let newScope = this.NewScope BlockScope
                 let scope = scope.WithNew newScope
 
-                this.ProcessCondPat scope br.pat value (HashSet())
+                this.ProcessCondPat scope br.Pat value (HashSet())
 
-                match br.guard with
+                match br.Guard with
                 | Some g ->
-                    newScope.constr.Add(
+                    newScope.Constr.Add(
                         CNormal
-                            { actual = this.ProcessExpr scope g
-                              expect = TBool
-                              span = g.span }
+                            { Actual = this.ProcessExpr scope g
+                              Expect = TBool
+                              Span = g.Span }
                     )
                 | None -> ()
 
-                let brTy = this.ProcessExpr scope br.expr
+                let brTy = this.ProcessExpr scope br.Expr
 
                 this.Unify newScope
 
@@ -803,47 +831,47 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                 for br in m.branch[1..] do
                     let brTy = typeOfBranch br
 
-                    currScope.constr.Add(
+                    currScope.Constr.Add(
                         CNormal
-                            { expect = first
-                              actual = brTy
-                              span = br.span }
+                            { Expect = first
+                              Actual = brTy
+                              Span = br.Span }
                     )
 
                 first
 
         | Block b -> this.ProcessBlock scope b
         | Call c ->
-            let callee = this.ProcessExpr scope c.callee
+            let callee = this.ProcessExpr scope c.Callee
 
-            let arg = Array.map (this.ProcessExpr scope) c.arg
-            let ret = TVar(currScope.NewTVar None c.span)
+            let arg = Array.map (this.ProcessExpr scope) c.Arg
+            let ret = TVar(currScope.NewTVar None c.Span)
 
-            currScope.constr.Add(
+            currScope.Constr.Add(
                 CNormal
-                    { expect = TFn { param = arg; ret = ret; tvar = [||] }
-                      actual = callee
-                      span = c.span }
+                    { Expect = TFn { Param = arg; Ret = ret; TVar = [||] }
+                      Actual = callee
+                      Span = c.Span }
             )
 
             ret
         | Unary u ->
-            match u.op with
+            match u.Op with
             | Not ->
-                currScope.constr.Add(
+                currScope.Constr.Add(
                     CNormal
-                        { expect = TBool
-                          actual = this.ProcessExpr scope u.expr
-                          span = u.span }
+                        { Expect = TBool
+                          Actual = this.ProcessExpr scope u.Expr
+                          Span = u.Span }
                 )
 
                 TBool
             | Neg ->
-                currScope.constr.Add(
+                currScope.Constr.Add(
                     CNormal
-                        { expect = TInt(true, ISize)
-                          actual = this.ProcessExpr scope u.expr
-                          span = u.span }
+                        { Expect = TInt(true, ISize)
+                          Actual = this.ProcessExpr scope u.Expr
+                          Span = u.Span }
                 )
 
                 TInt(true, ISize)
@@ -851,82 +879,82 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                 let rec getVar expr =
                     match expr with
                     | Id i -> Some i
-                    | Field { receiver = receiver } -> getVar receiver
-                    | Index { container = container } -> getVar container
-                    | Unary { op = Deref; expr = expr } -> getVar expr
+                    | Field { Receiver = receiver } -> getVar receiver
+                    | Index { Container = container } -> getVar container
+                    | Unary { Op = Deref; Expr = expr } -> getVar expr
                     | _ -> None
 
-                match getVar u.expr with
+                match getVar u.Expr with
                 | None -> ()
                 | Some id ->
                     match scope.ResolveVar id with
                     | None -> ()
                     | Some id -> sema.AddRef id
 
-                TRef(this.ProcessExpr scope u.expr)
+                TRef(this.ProcessExpr scope u.Expr)
             | Deref ->
-                let ptr = TVar(currScope.NewTVar None u.expr.span)
+                let ptr = TVar(currScope.NewTVar None u.Expr.Span)
 
-                currScope.constr.Add(
+                currScope.Constr.Add(
                     CNormal
-                        { expect = TRef ptr
-                          actual = this.ProcessExpr scope u.expr
-                          span = u.span }
+                        { Expect = TRef ptr
+                          Actual = this.ProcessExpr scope u.Expr
+                          Span = u.Span }
                 )
 
                 ptr
         | Assign a ->
-            let value = this.ProcessExpr scope a.value
-            let place = this.ProcessExpr scope a.place
+            let value = this.ProcessExpr scope a.Value
+            let place = this.ProcessExpr scope a.Place
 
-            currScope.constr.Add(
+            currScope.Constr.Add(
                 CNormal
-                    { expect = place
-                      actual = value
-                      span = a.span }
+                    { Expect = place
+                      Actual = value
+                      Span = a.Span }
             )
 
             let rec getVar expr =
                 match expr with
                 | Id i -> Some i
-                | Field { receiver = receiver } -> getVar receiver
-                | Index { container = container } -> getVar container
-                | Unary { op = Deref; expr = expr } -> getVar expr
+                | Field { Receiver = receiver } -> getVar receiver
+                | Index { Container = container } -> getVar container
+                | Unary { Op = Deref; Expr = expr } -> getVar expr
                 | _ -> None
 
-            match getVar a.place with
+            match getVar a.Place with
             | None -> ()
             | Some id ->
                 match scope.ResolveVar id with
                 | None -> ()
                 | Some id ->
-                    if not sema.var[id].mut then
-                        error.Add(AssignImmutable(id, a.span))
+                    if not sema.Var[id].Mut then
+                        error.Add(AssignImmutable(id, a.Span))
 
             UnitType
         | Field f ->
-            let receiver = this.ProcessExpr scope f.receiver
-            let key = f.prop.sym
+            let receiver = this.ProcessExpr scope f.Receiver
+            let key = f.Prop.Sym
 
             match receiver with
             | TStruct(i, inst) ->
-                let stru = sema.stru[i]
+                let stru = sema.Struct[i]
 
-                match Map.tryFind key stru.field with
-                | Some f -> f.Instantiate stru.tvar inst
+                match Map.tryFind key stru.Field with
+                | Some f -> f.Instantiate stru.TVar inst
                 | None ->
-                    error.Add(UndefinedField(f.span, key))
+                    error.Add(UndefinedField(f.Span, key))
 
                     TNever
             | _ ->
                 let rec findStruct scope =
-                    let tySeq = scope.ty |> Seq.map (|KeyValue|) |> Seq.rev
+                    let tySeq = scope.Ty |> Seq.map (|KeyValue|) |> Seq.rev
 
                     let find (_, ty) =
-                        if sema.stru.ContainsKey ty then
-                            let stru = sema.stru[ty]
+                        if sema.Struct.ContainsKey ty then
+                            let stru = sema.Struct[ty]
 
-                            match Map.tryFind key stru.field with
+                            match Map.tryFind key stru.Field with
                             | Some t -> Some stru
                             | None -> None
                         else
@@ -938,18 +966,18 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
                 match stru with
                 | Some s ->
-                    let inst = Array.map (fun _ -> TVar(currScope.NewTVar None f.span)) s.tvar
+                    let inst = Array.map (fun _ -> TVar(currScope.NewTVar None f.Span)) s.TVar
 
-                    currScope.constr.Add(
+                    currScope.Constr.Add(
                         CDeref
-                            { expect = TStruct(s.name, inst)
-                              actual = receiver
-                              span = f.span }
+                            { Expect = TStruct(s.Name, inst)
+                              Actual = receiver
+                              Span = f.Span }
                     )
 
-                    s.field[key].Instantiate s.tvar inst
+                    s.Field[key].Instantiate s.TVar inst
                 | None ->
-                    error.Add(UndefinedField(f.span, key))
+                    error.Add(UndefinedField(f.Span, key))
                     TNever
 
         | Index(_) -> failwith "Not Implemented"
@@ -959,41 +987,41 @@ type Checker(moduleMap: Map<string, ModuleType>) =
         | Tuple s -> Array.map (this.ProcessExpr scope) s.element |> TTuple
         | Closure c ->
             let paramTy (p: Param) =
-                match p.ty with
+                match p.Ty with
                 | Some ty -> this.ProcessTy scope ty
                 | None ->
                     let sym =
-                        match p.pat with
-                        | IdPat i -> Some(i.sym)
+                        match p.Pat with
+                        | IdPat i -> Some(i.Sym)
                         | _ -> None
 
-                    let newTVar = currScope.NewTVar sym p.span
+                    let newTVar = currScope.NewTVar sym p.Span
 
                     TVar newTVar
 
-            let paramTy = Array.map paramTy c.param
+            let paramTy = Array.map paramTy c.Param
 
             let retTy =
-                match c.ret with
+                match c.Ret with
                 | Some ty -> this.ProcessTy scope ty
-                | None -> TVar(currScope.NewTVar None c.span)
+                | None -> TVar(currScope.NewTVar None c.Span)
 
-            let closureScope = this.NewScope(FnScope { fn = Right c; retTy = retTy })
+            let closureScope = this.NewScope(FnScope { Fn = Right c; Ret = retTy })
 
             let seen = HashSet()
 
-            for (param, ty) in Array.zip c.param paramTy do
-                this.ProcessDeclPat closureScope param.pat ty true seen
+            for (param, ty) in Array.zip c.Param paramTy do
+                this.ProcessDeclPat closureScope param.Pat ty true seen
 
             let newScope = scope.WithNew closureScope
 
-            let ret = this.ProcessExpr newScope c.body
+            let ret = this.ProcessExpr newScope c.Body
 
-            closureScope.constr.Add(
+            closureScope.Constr.Add(
                 CNormal
-                    { expect = retTy
-                      actual = ret
-                      span = c.span }
+                    { Expect = retTy
+                      Actual = ret
+                      Span = c.Span }
             )
 
             this.Unify closureScope
@@ -1001,34 +1029,34 @@ type Checker(moduleMap: Map<string, ModuleType>) =
             let resolve ty = this.ResolveTy ty
 
             TFn
-                { param = Array.map resolve paramTy
-                  ret = resolve retTy
-                  tvar = [||] }
+                { Param = Array.map resolve paramTy
+                  Ret = resolve retTy
+                  TVar = [||] }
 
         | Path _ -> failwith "Not Implemented"
         | Break _ -> TNever
         | Continue _ -> TNever
         | Return r ->
             let pickFn scope =
-                match scope.data with
+                match scope.Data with
                 | FnScope f -> Some f
                 | _ -> None
 
             let retTy =
                 match scope.PickCurrent pickFn with
-                | Some { retTy = retTy } -> retTy
+                | Some { Ret = retTy } -> retTy
                 | None -> failwith "Unreachable"
 
             let ty =
-                match r.value with
+                match r.Value with
                 | Some v -> this.ProcessExpr scope v
                 | None -> UnitType
 
-            currScope.constr.Add(
+            currScope.Constr.Add(
                 CNormal
-                    { expect = retTy
-                      actual = ty
-                      span = r.span }
+                    { Expect = retTy
+                      Actual = ty
+                      Span = r.Span }
             )
 
             TNever
@@ -1047,7 +1075,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
             | DeclStmt d -> Some d
             | ExprStmt _ -> None
 
-        let decl = Seq.choose chooseDecl b.stmt
+        let decl = Seq.choose chooseDecl b.Stmt
 
         this.ProcessHoistedDecl scope decl
 
@@ -1059,7 +1087,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                 UnitType
             | ExprStmt e -> this.ProcessExpr scope e
 
-        let ty = Array.fold typeof UnitType b.stmt
+        let ty = Array.fold typeof UnitType b.Stmt
 
         this.Unify blockScope
 
@@ -1067,36 +1095,36 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
     member internal this.ProcessFn (scope: ActiveScope) (f: Fn) =
         let fnTy =
-            match sema.TypeOfVar f.name with
+            match sema.TypeOfVar f.Name with
             | TFn f -> f
             | _ -> failwith "Unreachable"
 
-        let fnScope = this.NewScope(FnScope { fn = Left f; retTy = fnTy.ret })
+        let currScope = scope.current
 
         let seen = HashSet()
 
-        for (param, ty) in Array.zip f.param fnTy.param do
-            this.ProcessDeclPat fnScope param.pat ty true seen
+        for (param, ty) in Array.zip f.Param fnTy.Param do
+            this.ProcessDeclPat currScope param.Pat ty true seen
 
-        let newScope = scope.WithNew fnScope
+        let ret = this.ProcessBlock scope f.Body
 
-        let ret = this.ProcessBlock newScope f.body
-
-        fnScope.constr.Add(
+        currScope.Constr.Add(
             CNormal
-                { expect = fnTy.ret
-                  actual = ret
-                  span = f.name.span }
+                { Expect = fnTy.Ret
+                  Actual = ret
+                  Span = f.Name.Span }
         )
 
-        this.Unify fnScope
+        this.Unify currScope
 
         let mapper ty =
             match this.ResolveTy ty with
-            | TFn f -> TFn(f.Generalize scope.current.id)
+            | TFn f ->
+                let f = TFn(f.Generalize scope.current.Id)
+                f
             | _ -> failwith "Unreachable"
 
-        sema.ModifyVarTy f.name mapper
+        sema.ModifyVarTy f.Name mapper
 
     member internal this.Unify scope =
         let rec unify_normal c may_deref =
@@ -1105,22 +1133,22 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                     let oldTy = tVarMap[v]
 
                     unify_normal
-                        { expect = ty
-                          actual = oldTy
-                          span = c.span }
+                        { Expect = ty
+                          Actual = oldTy
+                          Span = c.Span }
                         may_deref
 
                     tVarMap[v] <- this.ResolveTy oldTy
                 else
                     tVarMap[v] <- ty
 
-            match c.expect, c.actual with
+            match c.Expect, c.Actual with
             | p1, p2 when p1 = p2 -> ()
             | TVar v1, TVar v2 ->
-                if v1.scope > v2.scope then
+                if v1.Scope > v2.Scope then
                     addMap v1 (TVar v2)
-                else if v1.scope = v2.scope then
-                    if v1.id > v2.id then
+                else if v1.Scope = v2.Scope then
+                    if v1.Id > v2.Id then
                         addMap v1 (TVar v2)
                     else
                         addMap v2 (TVar v1)
@@ -1131,39 +1159,39 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                 let ty = this.ResolveTy ty
 
                 match ty.FindTVar |> Seq.tryFind ((=) v) with
-                | Some _ -> error.Add(FailToUnify(c.expect, c.actual, c.span))
+                | Some _ -> error.Add(FailToUnify(c.Expect, c.Actual, c.Span))
                 | None -> addMap v ty
 
             | TFn f1, TFn f2 ->
-                if f1.param.Length <> f2.param.Length then
-                    error.Add(TypeMismatch(c.expect, c.actual, c.span))
+                if f1.Param.Length <> f2.Param.Length then
+                    error.Add(TypeMismatch(c.Expect, c.Actual, c.Span))
                 else
-                    for (p1, p2) in (Array.zip f1.param f2.param) do
+                    for (p1, p2) in (Array.zip f1.Param f2.Param) do
                         unify_normal
-                            { expect = p1
-                              actual = p2
-                              span = c.span }
+                            { Expect = p1
+                              Actual = p2
+                              Span = c.Span }
                             may_deref
 
                     unify_normal
-                        { expect = f1.ret
-                          actual = f2.ret
-                          span = c.span }
+                        { Expect = f1.Ret
+                          Actual = f2.Ret
+                          Span = c.Span }
                         false
 
             | TRef r1, TRef r2 ->
                 unify_normal
-                    { expect = r1
-                      actual = r2
-                      span = c.span }
+                    { Expect = r1
+                      Actual = r2
+                      Span = c.Span }
                     false
 
             | TRef r, t
             | t, TRef r when may_deref ->
                 unify_normal
-                    { expect = r.StripRef
-                      actual = t
-                      span = c.span }
+                    { Expect = r.StripRef
+                      Actual = t
+                      Span = c.Span }
                     false
             | TNever, _
             | _, TNever -> ()
@@ -1171,43 +1199,40 @@ type Checker(moduleMap: Map<string, ModuleType>) =
             | TEnum(id1, v1), TEnum(id2, v2) when id1 = id2 ->
                 for (v1, v2) in Array.zip v1 v2 do
                     unify_normal
-                        { expect = v1
-                          actual = v2
-                          span = c.span }
+                        { Expect = v1
+                          Actual = v2
+                          Span = c.Span }
                         false
             | TTuple t1, TTuple t2 ->
                 if t1.Length <> t2.Length then
-                    error.Add(TupleLengthMismatch(c.span, t1.Length, t2.Length))
+                    error.Add(TupleLengthMismatch(c.Span, t1.Length, t2.Length))
                 else
                     for (t1, t2) in Array.zip t1 t2 do
                         unify_normal
-                            { expect = t1
-                              actual = t2
-                              span = c.span }
+                            { Expect = t1
+                              Actual = t2
+                              Span = c.Span }
                             false
-            | _, _ -> error.Add(TypeMismatch(c.expect, c.actual, c.span))
+            | _, _ -> error.Add(TypeMismatch(c.Expect, c.Actual, c.Span))
 
-        for c in scope.constr do
+        for c in scope.Constr do
             match c with
             | CNormal c -> unify_normal c false
             | CDeref c -> unify_normal c true
 
     member this.Check m =
         let topLevel = this.NewScope TopLevelScope
-        let scope = { scope = [| Scope.Prelude; topLevel |] }
+        let scope = { Scope = [| Scope.Prelude; topLevel |] }
 
-        let getDecl m = m.decl
+        let getDecl m = m.Decl
 
-        let decl = Array.map getDecl m.item
+        let decl = Array.map getDecl m.Item
 
         this.ProcessHoistedDecl scope decl
 
-        for d in decl do
-            this.ProcessDecl scope d
-
         this.Unify topLevel
 
-        for id in sema.var.Keys do
+        for id in sema.Var.Keys do
             sema.ModifyVarTy id this.ResolveTy
 
     member _.GetInfo = sema

@@ -35,7 +35,7 @@ let runCheck input name =
     let reform (key: Either<AST.Fn, AST.Closure>, value: ResizeArray<AST.Id>) =
         let key =
             match key with
-            | Left f -> f.name.sym
+            | Left f -> f.Name.Sym
             | Right _ ->
                 let key = $"Closure{cid}"
 
@@ -45,7 +45,7 @@ let runCheck input name =
 
         key, Array.ofSeq value
 
-    (checker.GetInfo.capture
+    (checker.GetInfo.Capture
      |> Seq.map (|KeyValue|)
      |> Seq.map reform
      |> Map.ofSeq

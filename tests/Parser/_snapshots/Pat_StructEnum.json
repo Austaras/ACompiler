@@ -1,282 +1,282 @@
 {
   "Enum": {
     "EnumPat": {
-      "name": {
-        "prefix": null,
-        "seg": [
+      "Name": {
+        "Prefix": null,
+        "Seg": [
           {
-            "sym": "core",
-            "span": {
-              "first": 0,
-              "last": 3
+            "Sym": "core",
+            "Span": {
+              "First": 0,
+              "Last": 3
             }
           },
           {
-            "sym": "Option",
-            "span": {
-              "first": 6,
-              "last": 11
+            "Sym": "Option",
+            "Span": {
+              "First": 6,
+              "Last": 11
             }
           },
           {
-            "sym": "Some",
-            "span": {
-              "first": 14,
-              "last": 17
+            "Sym": "Some",
+            "Span": {
+              "First": 14,
+              "Last": 17
             }
           }
         ],
-        "span": {
-          "first": 0,
-          "last": 17
+        "Span": {
+          "First": 0,
+          "Last": 17
         }
       },
-      "content": [
+      "Content": [
         {
           "LitPat": [
             {
               "Int": 1
             },
             {
-              "first": 19,
-              "last": 19
+              "First": 19,
+              "Last": 19
             }
           ]
         }
       ],
-      "span": {
-        "first": 0,
-        "last": 20
+      "Span": {
+        "First": 0,
+        "Last": 20
       }
     }
   },
   "Struct": {
     "StructPat": {
-      "name": {
-        "prefix": "Package",
-        "seg": [
+      "Id": {
+        "Prefix": "Package",
+        "Seg": [
           {
-            "sym": "Foo",
-            "span": {
-              "first": 5,
-              "last": 7
+            "Sym": "Foo",
+            "Span": {
+              "First": 5,
+              "Last": 7
             }
           }
         ],
-        "span": {
-          "first": 0,
-          "last": 7
+        "Span": {
+          "First": 0,
+          "Last": 7
         }
       },
-      "field": [
+      "Field": [
         {
           "ShorthandPat": {
-            "sym": "v",
-            "span": {
-              "first": 11,
-              "last": 11
+            "Sym": "v",
+            "Span": {
+              "First": 11,
+              "Last": 11
             }
           }
         },
         {
           "KeyValuePat": {
-            "id": {
-              "sym": "x",
-              "span": {
-                "first": 14,
-                "last": 14
+            "Id": {
+              "Sym": "x",
+              "Span": {
+                "First": 14,
+                "Last": 14
               }
             },
-            "pat": {
+            "Pat": {
               "LitPat": [
                 {
                   "Int": 10
                 },
                 {
-                  "first": 17,
-                  "last": 18
+                  "First": 17,
+                  "Last": 18
                 }
               ]
             },
-            "span": {
-              "first": 14,
-              "last": 18
+            "Span": {
+              "First": 14,
+              "Last": 18
             }
           }
         },
         {
           "RestFieldPat": {
-            "first": 21,
-            "last": 22
+            "First": 21,
+            "Last": 22
           }
         }
       ],
-      "span": {
-        "first": 0,
-        "last": 23
+      "Span": {
+        "First": 0,
+        "Last": 23
       }
     }
   },
   "Compound": {
     "StructPat": {
-      "name": {
-        "prefix": null,
-        "seg": [
+      "Id": {
+        "Prefix": null,
+        "Seg": [
           {
-            "sym": "Person",
-            "span": {
-              "first": 0,
-              "last": 5
+            "Sym": "Person",
+            "Span": {
+              "First": 0,
+              "Last": 5
             }
           }
         ],
-        "span": {
-          "first": 0,
-          "last": 5
+        "Span": {
+          "First": 0,
+          "Last": 5
         }
       },
-      "field": [
+      "Field": [
         {
           "KeyValuePat": {
-            "id": {
-              "sym": "car",
-              "span": {
-                "first": 17,
-                "last": 19
+            "Id": {
+              "Sym": "car",
+              "Span": {
+                "First": 17,
+                "Last": 19
               }
             },
-            "pat": {
+            "Pat": {
               "EnumPat": {
-                "name": {
-                  "prefix": null,
-                  "seg": [
+                "Name": {
+                  "Prefix": null,
+                  "Seg": [
                     {
-                      "sym": "Some",
-                      "span": {
-                        "first": 22,
-                        "last": 25
+                      "Sym": "Some",
+                      "Span": {
+                        "First": 22,
+                        "Last": 25
                       }
                     }
                   ],
-                  "span": {
-                    "first": 22,
-                    "last": 25
+                  "Span": {
+                    "First": 22,
+                    "Last": 25
                   }
                 },
-                "content": [
+                "Content": [
                   {
                     "CatchAllPat": {
-                      "first": 27,
-                      "last": 27
+                      "First": 27,
+                      "Last": 27
                     }
                   }
                 ],
-                "span": {
-                  "first": 22,
-                  "last": 28
+                "Span": {
+                  "First": 22,
+                  "Last": 28
                 }
               }
             },
-            "span": {
-              "first": 17,
-              "last": 28
+            "Span": {
+              "First": 17,
+              "Last": 28
             }
           }
         },
         {
           "KeyValuePat": {
-            "id": {
-              "sym": "age",
-              "span": {
-                "first": 39,
-                "last": 41
+            "Id": {
+              "Sym": "age",
+              "Span": {
+                "First": 39,
+                "Last": 41
               }
             },
-            "pat": {
+            "Pat": {
               "AsPat": {
-                "pat": {
+                "Pat": {
                   "RangePat": {
-                    "from": {
+                    "From": {
                       "LitPat": [
                         {
                           "Int": 13
                         },
                         {
-                          "first": 44,
-                          "last": 45
+                          "First": 44,
+                          "Last": 45
                         }
                       ]
                     },
-                    "to_": {
+                    "To": {
                       "LitPat": [
                         {
                           "Int": 19
                         },
                         {
-                          "first": 48,
-                          "last": 49
+                          "First": 48,
+                          "Last": 49
                         }
                       ]
                     },
-                    "span": {
-                      "first": 44,
-                      "last": 49
+                    "Span": {
+                      "First": 44,
+                      "Last": 49
                     }
                   }
                 },
-                "id": {
-                  "sym": "person",
-                  "span": {
-                    "first": 54,
-                    "last": 59
+                "Id": {
+                  "Sym": "person",
+                  "Span": {
+                    "First": 54,
+                    "Last": 59
                   }
                 },
-                "span": {
-                  "first": 44,
-                  "last": 59
+                "Span": {
+                  "First": 44,
+                  "Last": 59
                 }
               }
             },
-            "span": {
-              "first": 39,
-              "last": 59
+            "Span": {
+              "First": 39,
+              "Last": 59
             }
           }
         },
         {
           "KeyValuePat": {
-            "id": {
-              "sym": "name",
-              "span": {
-                "first": 70,
-                "last": 73
+            "Id": {
+              "Sym": "name",
+              "Span": {
+                "First": 70,
+                "Last": 73
               }
             },
-            "pat": {
+            "Pat": {
               "IdPat": {
-                "sym": "person_name",
-                "span": {
-                  "first": 76,
-                  "last": 86
+                "Sym": "person_name",
+                "Span": {
+                  "First": 76,
+                  "Last": 86
                 }
               }
             },
-            "span": {
-              "first": 70,
-              "last": 86
+            "Span": {
+              "First": 70,
+              "Last": 86
             }
           }
         },
         {
           "RestFieldPat": {
-            "first": 97,
-            "last": 98
+            "First": 97,
+            "Last": 98
           }
         }
       ],
-      "span": {
-        "first": 0,
-        "last": 104
+      "Span": {
+        "First": 0,
+        "Last": 104
       }
     }
   }

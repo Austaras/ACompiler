@@ -1,195 +1,195 @@
 {
   "function": {
     "FnDecl": {
-      "name": {
-        "sym": "add",
-        "span": {
-          "first": 12,
-          "last": 14
+      "Name": {
+        "Sym": "add",
+        "Span": {
+          "First": 12,
+          "Last": 14
         }
       },
-      "tyParam": [
+      "TyParam": [
         {
-          "id": {
-            "sym": "T",
-            "span": {
-              "first": 16,
-              "last": 16
+          "Id": {
+            "Sym": "T",
+            "Span": {
+              "First": 16,
+              "Last": 16
             }
           },
-          "const_": false,
-          "bound": [
+          "Const": false,
+          "Bound": [
             {
-              "prefix": null,
-              "seg": [
+              "Prefix": null,
+              "Seg": [
                 [
                   {
-                    "sym": "Add",
-                    "span": {
-                      "first": 19,
-                      "last": 21
+                    "Sym": "Add",
+                    "Span": {
+                      "First": 19,
+                      "Last": 21
                     }
                   },
                   []
                 ]
               ],
-              "span": {
-                "first": 19,
-                "last": 21
+              "Span": {
+                "First": 19,
+                "Last": 21
               }
             }
           ],
-          "span": {
-            "first": 16,
-            "last": 21
+          "Span": {
+            "First": 16,
+            "Last": 21
           }
         }
       ],
-      "param": [
+      "Param": [
         {
-          "pat": {
+          "Pat": {
             "IdPat": {
-              "sym": "x",
-              "span": {
-                "first": 24,
-                "last": 24
+              "Sym": "x",
+              "Span": {
+                "First": 24,
+                "Last": 24
               }
             }
           },
-          "ty": {
+          "Ty": {
             "TypeId": {
-              "sym": "T",
-              "span": {
-                "first": 27,
-                "last": 27
+              "Sym": "T",
+              "Span": {
+                "First": 27,
+                "Last": 27
               }
             }
           },
-          "span": {
-            "first": 24,
-            "last": 27
+          "Span": {
+            "First": 24,
+            "Last": 27
           }
         },
         {
-          "pat": {
+          "Pat": {
             "IdPat": {
-              "sym": "y",
-              "span": {
-                "first": 30,
-                "last": 30
+              "Sym": "y",
+              "Span": {
+                "First": 30,
+                "Last": 30
               }
             }
           },
-          "ty": {
+          "Ty": {
             "TypeId": {
-              "sym": "T",
-              "span": {
-                "first": 33,
-                "last": 33
+              "Sym": "T",
+              "Span": {
+                "First": 33,
+                "Last": 33
               }
             }
           },
-          "span": {
-            "first": 30,
-            "last": 33
+          "Span": {
+            "First": 30,
+            "Last": 33
           }
         }
       ],
-      "retTy": {
+      "Ret": {
         "TypeId": {
-          "sym": "T",
-          "span": {
-            "first": 39,
-            "last": 39
+          "Sym": "T",
+          "Span": {
+            "First": 39,
+            "Last": 39
           }
         }
       },
-      "body": {
-        "stmt": [
+      "Body": {
+        "Stmt": [
           {
             "ExprStmt": {
               "Binary": {
-                "left": {
+                "Left": {
                   "Id": {
-                    "sym": "x",
-                    "span": {
-                      "first": 55,
-                      "last": 55
+                    "Sym": "x",
+                    "Span": {
+                      "First": 55,
+                      "Last": 55
                     }
                   }
                 },
-                "op": {
+                "Op": {
                   "Arithmetic": "Add"
                 },
-                "right": {
+                "Right": {
                   "Id": {
-                    "sym": "y",
-                    "span": {
-                      "first": 59,
-                      "last": 59
+                    "Sym": "y",
+                    "Span": {
+                      "First": 59,
+                      "Last": 59
                     }
                   }
                 },
-                "span": {
-                  "first": 55,
-                  "last": 59
+                "Span": {
+                  "First": 55,
+                  "Last": 59
                 }
               }
             }
           }
         ],
-        "span": {
-          "first": 41,
-          "last": 69
+        "Span": {
+          "First": 41,
+          "Last": 69
         }
       },
-      "span": {
-        "first": 9,
-        "last": 10
+      "Span": {
+        "First": 9,
+        "Last": 10
       }
     }
   },
   "Let": {
     "Let": {
-      "pat": {
+      "Pat": {
         "CatchAllPat": {
-          "first": 13,
-          "last": 13
+          "First": 13,
+          "Last": 13
         }
       },
-      "mut": false,
-      "ty": null,
-      "value": {
+      "Mut": false,
+      "Ty": null,
+      "Value": {
         "Block": {
-          "stmt": [
+          "Stmt": [
             {
               "DeclStmt": {
                 "Let": {
-                  "pat": {
+                  "Pat": {
                     "IdPat": {
-                      "sym": "a",
-                      "span": {
-                        "first": 39,
-                        "last": 39
+                      "Sym": "a",
+                      "Span": {
+                        "First": 39,
+                        "Last": 39
                       }
                     }
                   },
-                  "mut": true,
-                  "ty": null,
-                  "value": {
+                  "Mut": true,
+                  "Ty": null,
+                  "Value": {
                     "LitExpr": [
                       {
                         "Int": 10
                       },
                       {
-                        "first": 43,
-                        "last": 44
+                        "First": 43,
+                        "Last": 44
                       }
                     ]
                   },
-                  "span": {
-                    "first": 31,
-                    "last": 44
+                  "Span": {
+                    "First": 31,
+                    "Last": 44
                   }
                 }
               }
@@ -197,29 +197,29 @@
             {
               "ExprStmt": {
                 "Call": {
-                  "callee": {
+                  "Callee": {
                     "Id": {
-                      "sym": "print",
-                      "span": {
-                        "first": 59,
-                        "last": 63
+                      "Sym": "print",
+                      "Span": {
+                        "First": 59,
+                        "Last": 63
                       }
                     }
                   },
-                  "arg": [
+                  "Arg": [
                     {
                       "Id": {
-                        "sym": "a",
-                        "span": {
-                          "first": 65,
-                          "last": 65
+                        "Sym": "a",
+                        "Span": {
+                          "First": 65,
+                          "Last": 65
                         }
                       }
                     }
                   ],
-                  "span": {
-                    "first": 59,
-                    "last": 66
+                  "Span": {
+                    "First": 59,
+                    "Last": 66
                   }
                 }
               }
@@ -227,285 +227,285 @@
             {
               "ExprStmt": {
                 "Id": {
-                  "sym": "a",
-                  "span": {
-                    "first": 81,
-                    "last": 81
+                  "Sym": "a",
+                  "Span": {
+                    "First": 81,
+                    "Last": 81
                   }
                 }
               }
             }
           ],
-          "span": {
-            "first": 17,
-            "last": 91
+          "Span": {
+            "First": 17,
+            "Last": 91
           }
         }
       },
-      "span": {
-        "first": 9,
-        "last": 91
+      "Span": {
+        "First": 9,
+        "Last": 91
       }
     }
   },
   "Enum": {
     "EnumDecl": {
-      "name": {
-        "sym": "Option",
-        "span": {
-          "first": 14,
-          "last": 19
+      "Id": {
+        "Sym": "Option",
+        "Span": {
+          "First": 14,
+          "Last": 19
         }
       },
-      "tyParam": [
+      "TyParam": [
         {
-          "id": {
-            "sym": "T",
-            "span": {
-              "first": 21,
-              "last": 21
+          "Id": {
+            "Sym": "T",
+            "Span": {
+              "First": 21,
+              "Last": 21
             }
           },
-          "const_": false,
-          "bound": [],
-          "span": {
-            "first": 21,
-            "last": 21
+          "Const": false,
+          "Bound": [],
+          "Span": {
+            "First": 21,
+            "Last": 21
           }
         }
       ],
-      "variant": [
+      "Variant": [
         {
-          "name": {
-            "sym": "Some",
-            "span": {
-              "first": 38,
-              "last": 41
+          "Id": {
+            "Sym": "Some",
+            "Span": {
+              "First": 38,
+              "Last": 41
             }
           },
-          "payload": [
+          "Payload": [
             {
               "TypeId": {
-                "sym": "T",
-                "span": {
-                  "first": 43,
-                  "last": 43
+                "Sym": "T",
+                "Span": {
+                  "First": 43,
+                  "Last": 43
                 }
               }
             }
           ],
           "span": {
-            "first": 38,
-            "last": 41
+            "First": 38,
+            "Last": 41
           }
         },
         {
-          "name": {
-            "sym": "None",
-            "span": {
-              "first": 59,
-              "last": 62
+          "Id": {
+            "Sym": "None",
+            "Span": {
+              "First": 59,
+              "Last": 62
             }
           },
-          "payload": [],
+          "Payload": [],
           "span": {
-            "first": 59,
-            "last": 62
+            "First": 59,
+            "Last": 62
           }
         }
       ],
-      "span": {
-        "first": 9,
-        "last": 72
+      "Span": {
+        "First": 9,
+        "Last": 72
       }
     }
   },
   "Impl": {
     "Impl": {
-      "trait_": null,
-      "tyParam": [
+      "Trait": null,
+      "TyParam": [
         {
-          "id": {
-            "sym": "T",
-            "span": {
-              "first": 14,
-              "last": 14
+          "Id": {
+            "Sym": "T",
+            "Span": {
+              "First": 14,
+              "Last": 14
             }
           },
-          "const_": false,
-          "bound": [],
-          "span": {
-            "first": 14,
-            "last": 14
+          "Const": false,
+          "Bound": [],
+          "Span": {
+            "First": 14,
+            "Last": 14
           }
         }
       ],
-      "type_": {
+      "Type": {
         "PathType": {
-          "prefix": null,
-          "seg": [
+          "Prefix": null,
+          "Seg": [
             [
               {
-                "sym": "Vec",
-                "span": {
-                  "first": 17,
-                  "last": 19
+                "Sym": "Vec",
+                "Span": {
+                  "First": 17,
+                  "Last": 19
                 }
               },
               [
                 {
                   "TypeId": {
-                    "sym": "T",
-                    "span": {
-                      "first": 21,
-                      "last": 21
+                    "Sym": "T",
+                    "Span": {
+                      "First": 21,
+                      "Last": 21
                     }
                   }
                 }
               ]
             ]
           ],
-          "span": {
-            "first": 17,
-            "last": 23
+          "Span": {
+            "First": 17,
+            "Last": 23
           }
         }
       },
-      "item": [
+      "Item": [
         {
-          "vis": "Public",
-          "item": {
+          "Vis": "Public",
+          "Item": {
             "Method": {
-              "name": {
-                "sym": "push",
-                "span": {
-                  "first": 45,
-                  "last": 48
+              "Name": {
+                "Sym": "push",
+                "Span": {
+                  "First": 45,
+                  "Last": 48
                 }
               },
-              "tyParam": [],
-              "param": [
+              "TyParam": [],
+              "Param": [
                 {
-                  "pat": {
+                  "Pat": {
                     "RefSelfPat": {
-                      "first": 50,
-                      "last": 54
+                      "First": 50,
+                      "Last": 54
                     }
                   },
-                  "ty": null,
-                  "span": {
-                    "first": 50,
-                    "last": 54
+                  "Ty": null,
+                  "Span": {
+                    "First": 50,
+                    "Last": 54
                   }
                 },
                 {
-                  "pat": {
+                  "Pat": {
                     "IdPat": {
-                      "sym": "element",
-                      "span": {
-                        "first": 57,
-                        "last": 63
+                      "Sym": "element",
+                      "Span": {
+                        "First": 57,
+                        "Last": 63
                       }
                     }
                   },
-                  "ty": {
+                  "Ty": {
                     "TypeId": {
-                      "sym": "T",
-                      "span": {
-                        "first": 66,
-                        "last": 66
+                      "Sym": "T",
+                      "Span": {
+                        "First": 66,
+                        "Last": 66
                       }
                     }
                   },
-                  "span": {
-                    "first": 57,
-                    "last": 66
+                  "Span": {
+                    "First": 57,
+                    "Last": 66
                   }
                 }
               ],
-              "retTy": null,
-              "body": {
-                "stmt": [],
-                "span": {
-                  "first": 69,
-                  "last": 70
+              "Ret": null,
+              "Body": {
+                "Stmt": [],
+                "Span": {
+                  "First": 69,
+                  "Last": 70
                 }
               },
-              "span": {
-                "first": 42,
-                "last": 43
+              "Span": {
+                "First": 42,
+                "Last": 43
               }
             }
           },
-          "span": {
-            "first": 38,
-            "last": 43
+          "Span": {
+            "First": 38,
+            "Last": 43
           }
         }
       ],
-      "span": {
-        "first": 9,
-        "last": 80
+      "Span": {
+        "First": 9,
+        "Last": 80
       }
     }
   },
   "Trait": {
     "Trait": {
-      "name": {
-        "sym": "Summary",
-        "span": {
-          "first": 15,
-          "last": 21
+      "Id": {
+        "Sym": "Summary",
+        "Span": {
+          "First": 15,
+          "Last": 21
         }
       },
-      "tyParam": [],
-      "super": [],
-      "item": [
+      "TyParam": [],
+      "Super": [],
+      "Item": [
         {
           "TraitMethod": {
-            "name": {
-              "sym": "summarize",
-              "span": {
-                "first": 40,
-                "last": 48
+            "Id": {
+              "Sym": "summarize",
+              "Span": {
+                "First": 40,
+                "Last": 48
               }
             },
-            "tyParam": [],
-            "param": [
+            "TyParam": [],
+            "Param": [
               {
-                "pat": {
+                "Pat": {
                   "RefSelfPat": {
-                    "first": 50,
-                    "last": 54
+                    "First": 50,
+                    "Last": 54
                   }
                 },
-                "ty": null,
-                "span": {
-                  "first": 50,
-                  "last": 54
+                "Ty": null,
+                "Span": {
+                  "First": 50,
+                  "Last": 54
                 }
               }
             ],
-            "ret": {
+            "Ret": {
               "TypeId": {
-                "sym": "String",
-                "span": {
-                  "first": 60,
-                  "last": 65
+                "Sym": "String",
+                "Span": {
+                  "First": 60,
+                  "Last": 65
                 }
               }
             },
-            "defaultImpl": null,
-            "span": {
-              "first": 37,
-              "last": 38
+            "DefaultImpl": null,
+            "Span": {
+              "First": 37,
+              "Last": 38
             }
           }
         }
       ],
-      "span": {
-        "first": 9,
-        "last": 76
+      "Span": {
+        "First": 9,
+        "Last": 76
       }
     }
   }

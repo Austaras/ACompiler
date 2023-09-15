@@ -3,85 +3,85 @@
     "Tuple": {
       "element": [],
       "span": {
-        "first": 0,
-        "last": 1
+        "First": 0,
+        "Last": 1
       }
     }
   },
   "One": {
     "Binary": {
-      "left": {
+      "Left": {
         "Binary": {
-          "left": {
+          "Left": {
             "LitExpr": [
               {
                 "Int": 1
               },
               {
-                "first": 1,
-                "last": 1
+                "First": 1,
+                "Last": 1
               }
             ]
           },
-          "op": {
+          "Op": {
             "Arithmetic": "Add"
           },
-          "right": {
+          "Right": {
             "LitExpr": [
               {
                 "Int": 2
               },
               {
-                "first": 5,
-                "last": 5
+                "First": 5,
+                "Last": 5
               }
             ]
           },
-          "span": {
-            "first": 1,
-            "last": 5
+          "Span": {
+            "First": 1,
+            "Last": 5
           }
         }
       },
-      "op": {
+      "Op": {
         "Arithmetic": "Mul"
       },
-      "right": {
+      "Right": {
         "Binary": {
-          "left": {
+          "Left": {
             "LitExpr": [
               {
                 "Int": 4
               },
               {
-                "first": 11,
-                "last": 11
+                "First": 11,
+                "Last": 11
               }
             ]
           },
-          "op": {
+          "Op": {
             "Arithmetic": "Sub"
           },
-          "right": {
+          "Right": {
             "LitExpr": [
               {
                 "Int": 5
               },
               {
-                "first": 15,
-                "last": 15
+                "First": 15,
+                "Last": 15
               }
             ]
           },
-          "span": {
-            "first": 11,
-            "last": 15
+          "Span": {
+            "First": 11,
+            "Last": 15
           }
         }
       },
-      "span": {
-        "first": 1,
-        "last": 15
+      "Span": {
+        "First": 1,
+        "Last": 15
       }
     }
   },
@@ -94,8 +94,8 @@
               "Int": 2
             },
             {
-              "first": 1,
-              "last": 1
+              "First": 1,
+              "Last": 1
             }
           ]
         },
@@ -108,8 +108,8 @@
                     "Int": 1
                   },
                   {
-                    "first": 5,
-                    "last": 5
+                    "First": 5,
+                    "Last": 5
                   }
                 ]
               },
@@ -119,49 +119,49 @@
                     "Int": 2
                   },
                   {
-                    "first": 8,
-                    "last": 8
+                    "First": 8,
+                    "Last": 8
                   }
                 ]
               }
             ],
             "span": {
-              "first": 4,
-              "last": 9
+              "First": 4,
+              "Last": 9
             }
           }
         },
         {
           "Assign": {
-            "place": {
+            "Place": {
               "Id": {
-                "sym": "a",
-                "span": {
-                  "first": 12,
-                  "last": 12
+                "Sym": "a",
+                "Span": {
+                  "First": 12,
+                  "Last": 12
                 }
               }
             },
-            "op": null,
-            "value": {
+            "Op": null,
+            "Value": {
               "Id": {
-                "sym": "b",
-                "span": {
-                  "first": 16,
-                  "last": 16
+                "Sym": "b",
+                "Span": {
+                  "First": 16,
+                  "Last": 16
                 }
               }
             },
-            "span": {
-              "first": 12,
-              "last": 16
+            "Span": {
+              "First": 12,
+              "Last": 16
             }
           }
         }
       ],
       "span": {
-        "first": 0,
-        "last": 17
+        "First": 0,
+        "Last": 17
       }
     }
   }

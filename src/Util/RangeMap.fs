@@ -14,7 +14,7 @@ type internal RangeMapNode<'value> =
 type RangeMap<'value>() =
     let set = System.Collections.Generic.SortedSet<RangeMapNode<'value>>()
 
-    member internal this.SplitAt i to_right =
+    member internal this.SplitAt i toRight =
         let left =
             set.GetViewBetween(
                 { first = -1
@@ -32,7 +32,7 @@ type RangeMap<'value>() =
                 if left.last > left.first then
                     set.Remove left |> ignore
 
-                    if to_right then
+                    if toRight then
                         set.Add { left with last = i - 1 } |> ignore
                         set.Add { left with first = i } |> ignore
                     else

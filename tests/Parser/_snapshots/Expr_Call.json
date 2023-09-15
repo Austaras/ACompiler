@@ -1,127 +1,127 @@
 {
   "Many": {
     "Call": {
-      "callee": {
+      "Callee": {
         "Call": {
-          "callee": {
+          "Callee": {
             "Id": {
-              "sym": "a",
-              "span": {
-                "first": 0,
-                "last": 0
+              "Sym": "a",
+              "Span": {
+                "First": 0,
+                "Last": 0
               }
             }
           },
-          "arg": [],
-          "span": {
-            "first": 0,
-            "last": 2
+          "Arg": [],
+          "Span": {
+            "First": 0,
+            "Last": 2
           }
         }
       },
-      "arg": [],
-      "span": {
-        "first": 0,
-        "last": 4
+      "Arg": [],
+      "Span": {
+        "First": 0,
+        "Last": 4
       }
     }
   },
   "Unary": {
     "Unary": {
-      "op": "Neg",
-      "expr": {
+      "Op": "Neg",
+      "Expr": {
         "Call": {
-          "callee": {
+          "Callee": {
             "Field": {
-              "receiver": {
+              "Receiver": {
                 "Id": {
-                  "sym": "a",
-                  "span": {
-                    "first": 1,
-                    "last": 1
+                  "Sym": "a",
+                  "Span": {
+                    "First": 1,
+                    "Last": 1
                   }
                 }
               },
-              "prop": {
-                "sym": "b",
-                "span": {
-                  "first": 3,
-                  "last": 3
+              "Prop": {
+                "Sym": "b",
+                "Span": {
+                  "First": 3,
+                  "Last": 3
                 }
               },
-              "span": {
-                "first": 1,
-                "last": 3
+              "Span": {
+                "First": 1,
+                "Last": 3
               }
             }
           },
-          "arg": [],
-          "span": {
-            "first": 1,
-            "last": 5
+          "Arg": [],
+          "Span": {
+            "First": 1,
+            "Last": 5
           }
         }
       },
-      "span": {
-        "first": 0,
-        "last": 5
+      "Span": {
+        "First": 0,
+        "Last": 5
       }
     }
   },
   "Bin": {
     "Binary": {
-      "left": {
+      "Left": {
         "Call": {
-          "callee": {
+          "Callee": {
             "Id": {
-              "sym": "a",
-              "span": {
-                "first": 0,
-                "last": 0
+              "Sym": "a",
+              "Span": {
+                "First": 0,
+                "Last": 0
               }
             }
           },
-          "arg": [],
-          "span": {
-            "first": 0,
-            "last": 2
+          "Arg": [],
+          "Span": {
+            "First": 0,
+            "Last": 2
           }
         }
       },
-      "op": {
+      "Op": {
         "Arithmetic": "Add"
       },
-      "right": {
+      "Right": {
         "Call": {
-          "callee": {
+          "Callee": {
             "Id": {
-              "sym": "c",
-              "span": {
-                "first": 6,
-                "last": 6
+              "Sym": "c",
+              "Span": {
+                "First": 6,
+                "Last": 6
               }
             }
           },
-          "arg": [
+          "Arg": [
             {
               "Id": {
-                "sym": "d",
-                "span": {
-                  "first": 8,
-                  "last": 8
+                "Sym": "d",
+                "Span": {
+                  "First": 8,
+                  "Last": 8
                 }
               }
             }
           ],
-          "span": {
-            "first": 6,
-            "last": 9
+          "Span": {
+            "First": 6,
+            "Last": 9
           }
         }
       },
-      "span": {
-        "first": 0,
-        "last": 9
+      "Span": {
+        "First": 0,
+        "Last": 9
       }
     }
   }
