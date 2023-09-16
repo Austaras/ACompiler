@@ -21,6 +21,7 @@ type Error =
     | LoopInDefintion of Id * Id
     | PrivatecInPublic of Id * Id
     | ExpectEnum of Id * Type
+    | OrPatDifferent of Span * string[] * string[]
     | PayloadMismatch of Span * Enum
     | TupleLengthMismatch of Span * int * int
     | TypeMismatch of Type * Type * Span
@@ -114,7 +115,7 @@ type internal ActiveScope =
     member this.WithNew s =
         { Scope = Array.append this.Scope [| s |] }
 
-    member this.current = Array.last this.Scope
+    member this.Current = Array.last this.Scope
 
     member this.PickCurrent picker = tryPickBack picker this.Scope
 
@@ -137,6 +138,13 @@ type internal ActiveScope =
                 None
 
         this.PickCurrent pickId
+
+type internal LetPat = { Mut: bool; Static: bool }
+
+type internal PatMode =
+    | ParamPat
+    | CondPat
+    | LetPat of LetPat
 
 type Checker(moduleMap: Map<string, ModuleType>) =
     let mutable scopeId = 0
@@ -189,182 +197,184 @@ type Checker(moduleMap: Map<string, ModuleType>) =
         | TupleType t -> TTuple(Array.map (this.ProcessTy scope) t.Ele)
         | RefType r -> TRef(this.ProcessTy scope r.Ty)
         | InferedType span ->
-            let newTVar = scope.current.NewTVar None span
+            let newTVar = scope.Current.NewTVar None span
 
             TVar newTVar
         | LitType _ -> failwith "Not Implemented"
         | ArrayType _ -> failwith "Not Implemented"
         | FnType _ -> failwith "Not Implemented"
 
-    member internal this.ProcessDeclPat (scope: Scope) pat ty mut (seen: HashSet<string>) =
-        match pat with
-        | IdPat i ->
-            if seen.Contains i.Sym then
+    member internal this.ProcessPat (scope: ActiveScope) mode pat ty =
+        let mut, static_, mayShadow, isCond =
+            match mode with
+            | LetPat { Mut = mut; Static = static_ } -> mut, static_, not static_, false
+            | ParamPat -> true, false, false, false
+            | CondPat -> true, false, true, true
+
+        let addSym sym (i: Id) (ty: Type) =
+            if Map.containsKey i.Sym sym then
                 error.Add(DuplicateDefinition i)
 
-            seen.Add i.Sym |> ignore
-            scope.AddVar i
+            Map.add i.Sym (i, ty) sym
 
-            sema.AddVar(i, ty, mut = mut)
-        | LitPat(_, span)
-        | RangePat { Span = span } -> error.Add(RefutablePat span)
-        | CatchAllPat _ -> ()
-        | TuplePat t ->
-            let addBinding pat =
-                let sym =
-                    match pat with
-                    | IdPat id -> Some id.Sym
-                    | _ -> None
+        let currScope = scope.Current
 
-                let newVar = scope.NewTVar sym pat.Span |> TVar
-                this.ProcessDeclPat scope pat newVar mut seen
+        let rec proc sym ty pat =
+            match pat with
+            | IdPat i -> addSym sym i ty
+            | LitPat(l, span) ->
+                if not isCond then
+                    error.Add(RefutablePat span)
 
-                newVar
+                let litTy =
+                    match l with
+                    | Int _ -> TInt(true, ISize)
+                    | Bool _ -> TBool
+                    | Char _ -> TChar
+                    | Float _ -> TFloat F64
+                    | String _ -> failwith "Not Implemented"
+                    | NegInt _ -> failwith "Unreachable"
 
-            let patTy = Array.map addBinding t.Ele
+                currScope.Constr.Add(
+                    CNormal
+                        { Actual = litTy
+                          Expect = ty
+                          Span = span }
+                )
 
-            scope.Constr.Add(
-                CNormal
-                    { Actual = TTuple patTy
-                      Expect = ty
-                      Span = t.Span }
-            )
-        | AsPat a ->
-            if seen.Contains a.Id.Sym then
-                error.Add(DuplicateDefinition a.Id)
+                sym
+            | RangePat { Span = span } -> failwith "Not Implemented"
+            | CatchAllPat _ -> sym
+            | TuplePat t ->
+                let addBinding pat =
+                    let sym =
+                        match pat with
+                        | IdPat id -> Some id.Sym
+                        | _ -> None
 
-            seen.Add a.Id.Sym |> ignore
-            scope.AddVar a.Id
-            sema.AddVar(a.Id, ty, mut = mut)
+                    let newVar = currScope.NewTVar sym pat.Span |> TVar
 
-            this.ProcessDeclPat scope a.Pat ty mut seen
-        | ArrayPat(_) -> failwith "Not Implemented"
-        | PathPat(_) -> failwith "Not Implemented"
-        | EnumPat(_) -> failwith "Not Implemented"
-        | StructPat(_) -> failwith "Not Implemented"
-        | OrPat(_) -> failwith "Not Implemented"
-        | RestPat(_) -> failwith "Not Implemented"
-        | SelfPat(_) -> failwith "Not Implemented"
-        | RefSelfPat(_) -> failwith "Not Implemented"
+                    newVar
 
-    member internal this.ProcessCondPat (scope: ActiveScope) pat ty (seen: HashSet<string>) =
-        let currScope = scope.current
+                let patTy = t.Ele |> Array.map addBinding
 
-        match pat with
-        | IdPat i ->
-            if seen.Contains i.Sym then
-                error.Add(DuplicateDefinition i)
+                currScope.Constr.Add(
+                    CNormal
+                        { Actual = TTuple patTy
+                          Expect = ty
+                          Span = t.Span }
+                )
 
-            seen.Add i.Sym |> ignore
-            currScope.AddVar i
-            sema.AddVar(i, ty, mut = true)
-        | LitPat(l, span) ->
-            let litTy =
-                match l with
-                | Int _ -> TInt(true, ISize)
-                | Bool _ -> TBool
-                | Char _ -> TChar
-                | Float _ -> TFloat F64
-                | String _ -> failwith "Not Implemented"
-                | NegInt _ -> failwith "Unreachable"
+                Array.fold2 proc sym patTy t.Ele
+            | AsPat a ->
+                let sym = addSym sym a.Id ty
 
-            currScope.Constr.Add(
-                CNormal
-                    { Actual = litTy
-                      Expect = ty
-                      Span = span }
-            )
-        | RangePat _ -> failwith "Not Implemented"
-        | CatchAllPat _ -> ()
-        | TuplePat t ->
-            let addBinding pat =
-                let sym =
-                    match pat with
-                    | IdPat id -> Some id.Sym
-                    | _ -> None
+                proc sym ty a.Pat
+            | OrPat { Pat = pat; Span = span } ->
+                if not isCond then
+                    error.Add(RefutablePat span)
 
-                let newVar = currScope.NewTVar sym pat.Span |> TVar
-                this.ProcessCondPat scope pat newVar seen
+                let allSym = Array.map (proc Map.empty ty) pat
 
-                newVar
+                let first = allSym[0]
 
-            let patTy = Array.map addBinding t.Ele
+                for (idx, sym) in Array.indexed allSym do
+                    if idx > 0 then
+                        let firstKey = first |> Map.keys |> Array.ofSeq
+                        let currKey = sym |> Map.keys |> Array.ofSeq
 
-            currScope.Constr.Add(
-                CNormal
-                    { Actual = TTuple patTy
-                      Expect = ty
-                      Span = t.Span }
-            )
-        | AsPat a ->
-            if seen.Contains a.Id.Sym then
-                error.Add(DuplicateDefinition a.Id)
+                        if firstKey <> currKey then
+                            error.Add(OrPatDifferent(pat[idx].Span, firstKey, currKey))
 
-            seen.Add a.Id.Sym |> ignore
-            currScope.AddVar a.Id
-            sema.AddVar(a.Id, ty, mut = true)
+                        for key in firstKey do
+                            let firstTy = snd first[key]
+                            let id, currTy = sym[key]
 
-            this.ProcessCondPat scope a.Pat ty seen
-        | ArrayPat _ -> failwith "Not Implemented"
-        | PathPat _ -> failwith "Not Implemented"
-        | EnumPat e ->
-            if e.Name.Prefix <> None || e.Name.Seg.Length <> 2 then
-                failwith "Not Implemented"
+                            currScope.Constr.Add(
+                                CNormal
+                                    { Expect = firstTy
+                                      Actual = currTy
+                                      Span = id.Span }
+                            )
 
-            let enumId = e.Name.Seg[0]
-            let variant = e.Name.Seg[1]
+                let mergeSym sym curr =
+                    Map.fold (fun sym _ (id, ty) -> addSym sym id ty) sym curr
 
-            let enumTy =
-                match scope.ResolveTy enumId with
-                | Some id -> sema.Ty[id]
-                | None ->
-                    error.Add(Undefined enumId)
-                    TNever
+                Array.fold mergeSym sym allSym
+            | ArrayPat(_) -> failwith "Not Implemented"
+            | PathPat(_) -> failwith "Not Implemented"
+            | EnumPat e ->
+                if e.Name.Prefix <> None || e.Name.Seg.Length <> 2 then
+                    failwith "Not Implemented"
 
-            match enumTy with
-            | TEnum(enum, v) ->
-                let enumData = sema.Enum[enum]
-                let inst = Array.map (fun _ -> TVar(currScope.NewTVar None e.Span)) v
+                if not isCond then
+                    error.Add(RefutablePat e.Span)
 
-                if enumData.variant.ContainsKey variant.Sym then
-                    let payload = enumData.variant[variant.Sym]
+                let enumId = e.Name.Seg[0]
+                let variant = e.Name.Seg[1]
 
-                    if payload.Length <> e.Content.Length then
-                        error.Add(PayloadMismatch(e.Span, enumData))
+                let enumTy =
+                    match scope.ResolveTy enumId with
+                    | Some id -> sema.Ty[id]
+                    | None ->
+                        error.Add(Undefined enumId)
+                        TNever
 
-                    for idx, c in Array.indexed e.Content do
-                        let payload =
-                            if idx < payload.Length then
-                                payload[idx].Instantiate enumData.tvar inst
-                            else
-                                TNever
+                let payloadTy =
+                    match enumTy with
+                    | TEnum(enum, v) ->
+                        let enumData = sema.Enum[enum]
+                        let inst = Array.map (fun _ -> TVar(currScope.NewTVar None e.Span)) v
 
-                        this.ProcessCondPat scope c payload seen
+                        if enumData.variant.ContainsKey variant.Sym then
+                            currScope.Constr.Add(
+                                CNormal
+                                    { Expect = TEnum(enum, inst)
+                                      Actual = ty
+                                      Span = e.Span }
+                            )
 
+                            let payload = enumData.variant[variant.Sym]
 
-                    currScope.Constr.Add(
-                        CNormal
-                            { Expect = TEnum(enum, inst)
-                              Actual = ty
-                              Span = e.Span }
-                    )
-                else
-                    error.Add(UndefinedVariant(enumId, variant))
+                            if payload.Length <> e.Payload.Length then
+                                error.Add(PayloadMismatch(e.Span, enumData))
 
-                    for c in e.Content do
-                        this.ProcessCondPat scope c TNever seen
+                            let getTy idx _ =
+                                if idx < payload.Length then
+                                    payload[idx].Instantiate enumData.tvar inst
+                                else
+                                    TNever
 
-            | ty ->
-                error.Add(ExpectEnum(enumId, ty))
+                            Array.mapi getTy e.Payload
+                        else
+                            error.Add(UndefinedVariant(enumId, variant))
 
-                for c in e.Content do
-                    this.ProcessCondPat scope c TNever seen
+                            Array.map (fun _ -> TNever) e.Payload
 
-        | StructPat(_) -> failwith "Not Implemented"
-        | OrPat(_) -> failwith "Not Implemented"
-        | RestPat(_) -> failwith "Not Implemented"
-        | SelfPat _
-        | RefSelfPat _ -> failwith "Unreachable"
+                    | ty ->
+                        error.Add(ExpectEnum(enumId, ty))
+
+                        Array.map (fun _ -> TNever) e.Payload
+
+                Array.fold2 proc sym payloadTy e.Payload
+            | StructPat(_) -> failwith "Not Implemented"
+            | RestPat span ->
+                if not isCond then
+                    error.Add(RefutablePat span)
+
+                sym
+            | SelfPat(_) -> failwith "Not Implemented"
+            | RefSelfPat(_) -> failwith "Not Implemented"
+
+        let map = proc Map.empty ty pat
+
+        for (id, ty) in map.Values do
+            if mayShadow && currScope.Var.ContainsKey id.Sym then
+                error.Add(DuplicateDefinition id)
+
+            currScope.AddVar id
+
+            sema.AddVar(id, ty, mut = mut, static_ = static_)
 
     member internal this.ResolveTy ty =
         let onvar tvar =
@@ -376,7 +386,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
         ty.Walk onvar
 
     member internal this.ProcessHoistedDecl (scope: ActiveScope) (decl: seq<Decl>) =
-        let currScope = scope.current
+        let currScope = scope.Current
 
         let topLevel =
             match currScope.Data with
@@ -583,7 +593,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                         TVar newTVar
 
                 valueMap.Add(l.Pat, ty)
-                this.ProcessDeclPat currScope l.Pat ty l.Mut (HashSet())
+                this.ProcessPat scope (LetPat { Mut = l.Mut; Static = true }) l.Pat ty
             | _ -> ()
 
         for item in staticItem do
@@ -612,7 +622,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                 | Some ty ->
                     let ty = this.ProcessTy scope ty
 
-                    scope.current.Constr.Add(
+                    scope.Current.Constr.Add(
                         CNormal
                             { Expect = ty
                               Actual = value
@@ -622,7 +632,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                     ty
                 | None -> value
 
-            this.ProcessDeclPat scope.current l.Pat ty l.Mut (HashSet())
+            this.ProcessPat scope (LetPat { Mut = l.Mut; Static = false }) l.Pat ty
 
         | Const _ -> failwith "Not Implemented"
         | Use _ -> failwith "Not Implemented"
@@ -633,8 +643,34 @@ type Checker(moduleMap: Map<string, ModuleType>) =
         | Trait _
         | Impl _ -> ()
 
+    member internal this.ProcessCond (scope: ActiveScope) cond block =
+        let currScope = scope.Current
+
+        match cond with
+        | BoolCond b ->
+            currScope.Constr.Add(
+                CNormal
+                    { Expect = TBool
+                      Actual = this.ProcessExpr scope b
+                      Span = b.Span }
+            )
+
+            this.ProcessBlock scope block
+        | LetCond c ->
+            let value = this.ProcessExpr scope c.Value
+            let newScope = this.NewScope BlockScope
+            let scope = scope.WithNew newScope
+
+            this.ProcessPat scope CondPat c.Pat value
+
+            let ty = this.ProcessBlock scope block
+
+            this.Unify newScope
+
+            this.ResolveTy ty
+
     member internal this.ProcessExpr (scope: ActiveScope) e =
-        let currScope = scope.current
+        let currScope = scope.Current
 
         match e with
         | Id id ->
@@ -734,43 +770,10 @@ type Checker(moduleMap: Map<string, ModuleType>) =
             | NegInt _ -> failwith "Unreachable"
 
         | If i ->
-            let processLetCond (c: LetCond) block =
-                let value = this.ProcessExpr scope c.Value
-                let newScope = this.NewScope BlockScope
-                let scope = scope.WithNew newScope
-
-                this.ProcessCondPat scope c.Pat value (HashSet())
-                let ty = this.ProcessBlock scope block
-
-                this.Unify newScope
-                this.ResolveTy ty
-
-            let then_ =
-                match i.Cond with
-                | BoolCond b ->
-                    currScope.Constr.Add(
-                        CNormal
-                            { Expect = TBool
-                              Actual = this.ProcessExpr scope b
-                              Span = b.Span }
-                    )
-
-                    this.ProcessBlock scope i.Then
-                | LetCond c -> processLetCond c i.Then
+            let then_ = this.ProcessCond scope i.Cond i.Then
 
             for br in i.ElseIf do
-                let elseif =
-                    match br.Cond with
-                    | BoolCond b ->
-                        currScope.Constr.Add(
-                            CNormal
-                                { Expect = TBool
-                                  Actual = this.ProcessExpr scope b
-                                  Span = b.Span }
-                        )
-
-                        this.ProcessBlock scope br.Block
-                    | LetCond c -> processLetCond c br.Block
+                let elseif = this.ProcessCond scope br.Cond br.Block
 
                 currScope.Constr.Add(
                     CNormal
@@ -805,7 +808,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                 let newScope = this.NewScope BlockScope
                 let scope = scope.WithNew newScope
 
-                this.ProcessCondPat scope br.Pat value (HashSet())
+                this.ProcessPat scope CondPat br.Pat value
 
                 match br.Guard with
                 | Some g ->
@@ -1008,14 +1011,12 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
             let closureScope = this.NewScope(FnScope { Fn = Right c; Ret = retTy })
 
-            let seen = HashSet()
+            let scope = scope.WithNew closureScope
 
             for (param, ty) in Array.zip c.Param paramTy do
-                this.ProcessDeclPat closureScope param.Pat ty true seen
+                this.ProcessPat scope ParamPat param.Pat ty
 
-            let newScope = scope.WithNew closureScope
-
-            let ret = this.ProcessExpr newScope c.Body
+            let ret = this.ProcessExpr scope c.Body
 
             closureScope.Constr.Add(
                 CNormal
@@ -1062,7 +1063,10 @@ type Checker(moduleMap: Map<string, ModuleType>) =
             TNever
         | Range(_) -> failwith "Not Implemented"
         | For(_) -> failwith "Not Implemented"
-        | While(_) -> failwith "Not Implemented"
+        | While w ->
+            let _ = this.ProcessCond scope w.Cond w.Body
+
+            UnitType
         | TryReturn(_) -> failwith "Not Implemented"
 
     member internal this.ProcessBlock (scope: ActiveScope) (b: Block) =
@@ -1099,12 +1103,10 @@ type Checker(moduleMap: Map<string, ModuleType>) =
             | TFn f -> f
             | _ -> failwith "Unreachable"
 
-        let currScope = scope.current
-
-        let seen = HashSet()
+        let currScope = scope.Current
 
         for (param, ty) in Array.zip f.Param fnTy.Param do
-            this.ProcessDeclPat currScope param.Pat ty true seen
+            this.ProcessPat scope ParamPat param.Pat ty
 
         let ret = this.ProcessBlock scope f.Body
 
@@ -1120,7 +1122,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
         let mapper ty =
             match this.ResolveTy ty with
             | TFn f ->
-                let f = TFn(f.Generalize scope.current.Id)
+                let f = TFn(f.Generalize scope.Current.Id)
                 f
             | _ -> failwith "Unreachable"
 

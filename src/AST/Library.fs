@@ -176,7 +176,7 @@ and AsPat = { Pat: Pat; Id: Id; Span: Span }
 
 and EnumPat =
     { Name: PathPat
-      Content: Pat[]
+      Payload: Pat[]
       Span: Span }
 
 and OrPat = { Pat: Pat[]; Span: Span }

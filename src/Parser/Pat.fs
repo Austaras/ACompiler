@@ -152,7 +152,7 @@ let rec internal parsePatInner (ctx: Context) input =
                 | Ok(content, paren) ->
                     let pat =
                         { Name = state.data
-                          Content = content.data
+                          Payload = content.data
                           Span = state.data.Span.WithLast paren.span.Last }
 
                     Ok
