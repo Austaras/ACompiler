@@ -229,3 +229,18 @@ let Match () =
         }
     "
         "Enum"
+
+    runInfer
+        "
+        enum Option<V> {
+            Some(V),
+            None
+        }
+
+        fn main() {
+            let mut o = Option::None
+
+            o = Option::Some(1)
+        }
+    "
+        "ValueRestriction"

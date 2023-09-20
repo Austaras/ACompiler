@@ -96,5 +96,9 @@
     "id": "|isize| -> isize",
     "main": "|| -> ()",
     "x": "isize"
+  },
+  "ValueRestriction": {
+    "main": "|| -> ()",
+    "o": "Option<isize>"
   }
 }

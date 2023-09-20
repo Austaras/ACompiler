@@ -8,6 +8,7 @@ open System.Collections.Generic
 // TODO: pipe and compose operator
 
 open Util.Util
+open Util.MultiMap
 open AST.AST
 open Semantic.Semantic
 
@@ -64,10 +65,11 @@ type internal ScopeData =
     | TopLevelScope
 
 type internal Scope =
-    { Ty: Dictionary<string, Id>
+    { Id: int
+      Ty: Dictionary<string, Id>
       Var: Dictionary<string, Id>
+      Field: MultiMap<string, Id>
       Constr: ResizeArray<Constraint>
-      Id: int
       Data: ScopeData
       mutable varId: int }
 
@@ -87,19 +89,21 @@ type internal Scope =
         tvar
 
     static member Empty id data =
-        { Ty = Dictionary()
+        { Id = id
+          Ty = Dictionary()
           Var = Dictionary()
+          Field = MultiMap()
           Constr = ResizeArray()
-          Id = id
           Data = data
           varId = 0 }
 
     static member Prelude =
         let scope =
-            { Ty = Dictionary()
+            { Id = 0
+              Ty = Dictionary()
               Var = Dictionary()
+              Field = MultiMap()
               Constr = ResizeArray()
-              Id = 0
               Data = TopLevelScope
               varId = 0 }
 
@@ -117,7 +121,7 @@ type internal ActiveScope =
 
     member this.Current = Array.last this.Scope
 
-    member this.PickCurrent picker = tryPickBack picker this.Scope
+    member this.Pick picker = tryPickBack picker this.Scope
 
     member this.ResolveTy(id: Id) =
         let pickId scope =
@@ -127,7 +131,7 @@ type internal ActiveScope =
             else
                 None
 
-        this.PickCurrent pickId
+        this.Pick pickId
 
     member this.ResolveVar(id: Id) =
         let pickId scope =
@@ -137,7 +141,7 @@ type internal ActiveScope =
             else
                 None
 
-        this.PickCurrent pickId
+        this.Pick pickId
 
 type internal LetPat = { Mut: bool; Static: bool }
 
@@ -412,6 +416,10 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
                 currScope.AddTy s.Id
                 let tvar = Array.map dummyTVar s.TyParam
+
+                for field in s.Field do
+                    currScope.Field.Add field.Name.Sym s.Id
+
                 sema.Ty.Add(s.Id, TStruct(s.Id, tvar))
             | EnumDecl e ->
                 if currScope.Ty.ContainsKey e.Id.Sym then
@@ -529,18 +537,15 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                 let newScope = this.NewScope TypeScope
 
                 let tvar =
-                    if f.TyParam.Length > 0 then
-                        let processParam (param: TypeParam) =
-                            let newTVar = newScope.NewTVar (Some param.Id.Sym) param.Id.Span
+                    let processParam (param: TypeParam) =
+                        let newTVar = newScope.NewTVar (Some param.Id.Sym) param.Id.Span
 
-                            sema.Ty.Add(param.Id, TVar newTVar)
-                            newScope.Ty.Add(param.Id.Sym, param.Id)
+                        sema.Ty.Add(param.Id, TVar newTVar)
+                        newScope.Ty.Add(param.Id.Sym, param.Id)
 
-                            newTVar
+                        newTVar
 
-                        Array.map processParam f.TyParam
-                    else
-                        [||]
+                    Array.map processParam f.TyParam
 
                 let scope = scope.WithNew newScope
 
@@ -950,22 +955,15 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
                     TNever
             | _ ->
-                let rec findStruct scope =
-                    let tySeq = scope.Ty |> Seq.map (|KeyValue|) |> Seq.rev
+                let findStruct scope =
+                    match scope.Field.Get key with
+                    | None -> None
+                    | Some s ->
+                        let id = Array.last s
 
-                    let find (_, ty) =
-                        if sema.Struct.ContainsKey ty then
-                            let stru = sema.Struct[ty]
+                        Some sema.Struct[id]
 
-                            match Map.tryFind key stru.Field with
-                            | Some t -> Some stru
-                            | None -> None
-                        else
-                            None
-
-                    Seq.tryPick find tySeq
-
-                let stru = scope.PickCurrent findStruct
+                let stru = scope.Pick findStruct
 
                 match stru with
                 | Some s ->
@@ -1034,7 +1032,47 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                   Ret = resolve retTy
                   TVar = [||] }
 
-        | Path _ -> failwith "Not Implemented"
+        | Path p ->
+            if p.Prefix <> None || p.Seg.Length <> 2 then
+                failwith "Not Implemented"
+
+            let enumId, _ = p.Seg[0]
+            let variant, _ = p.Seg[1]
+
+            let enumTy =
+                match scope.ResolveTy enumId with
+                | Some id -> sema.Ty[id]
+                | None ->
+                    error.Add(Undefined enumId)
+                    TNever
+
+            match enumTy with
+            | TEnum(enum, _) ->
+                let enumData = sema.Enum[enum]
+                let inst = Array.map (fun _ -> TVar(currScope.NewTVar None e.Span)) enumData.tvar
+
+                if enumData.variant.ContainsKey variant.Sym then
+                    let payload = enumData.variant[variant.Sym]
+
+                    if payload.Length = 0 then
+                        TEnum(enum, inst)
+                    else
+                        let payload = Array.map (fun (t: Type) -> t.Instantiate enumData.tvar inst) payload
+
+                        TFn
+                            { Param = payload
+                              Ret = TEnum(enum, inst)
+                              TVar = [||] }
+                else
+                    error.Add(UndefinedVariant(enumId, variant))
+
+                    TNever
+
+            | ty ->
+                error.Add(ExpectEnum(enumId, ty))
+
+                TNever
+
         | Break _ -> TNever
         | Continue _ -> TNever
         | Return r ->
@@ -1044,7 +1082,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                 | _ -> None
 
             let retTy =
-                match scope.PickCurrent pickFn with
+                match scope.Pick pickFn with
                 | Some { Ret = retTy } -> retTy
                 | None -> failwith "Unreachable"
 
