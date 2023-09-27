@@ -1,6 +1,7 @@
 module Util.MultiMap
 
 open System.Collections.Generic
+open System.Linq
 
 type MultiMap<'K, 'V when 'K: equality>() =
     let map = Dictionary<'K, ResizeArray<'V>>()
@@ -14,8 +15,11 @@ type MultiMap<'K, 'V when 'K: equality>() =
             map[key] <- arr
 
     member _.Get key =
+        if map.ContainsKey key then Some(map[key].Last()) else None
+
+    member _.GetAll key =
         if map.ContainsKey key then
-            Some(Array.ofSeq map[key])
+            map[key] |> Array.ofSeq |> Some
         else
             None
 

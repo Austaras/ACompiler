@@ -14,12 +14,12 @@ type Function = { Param: Type[]; Ret: Type }
 
 and Type =
     | TVoid
+    | TNever
     | TInt of Integer
     | TFloat of Float
     | TMany of Type[]
     | TFn of Function
     | TRef of Type
-    | TNever
 
 type MonoMode =
     | MonoSize of int

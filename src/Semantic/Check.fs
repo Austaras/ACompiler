@@ -143,6 +143,43 @@ type internal ActiveScope =
 
         this.Pick pickId
 
+type internal TyUnion() =
+    let pred = Dictionary<Var, Type>()
+
+    member _.Add k p = pred[k] <- p
+
+    member this.Find k =
+        if pred.ContainsKey k then
+            let p = pred[k]
+
+            match p with
+            | TVar v ->
+                let p = this.Find v
+
+                pred[k] <- p
+
+                p
+            | p -> p
+        else
+            TVar k
+
+    member this.Resolve ty =
+        let onvar tvar =
+            if pred.ContainsKey tvar then
+                let p = this.Resolve pred[tvar]
+
+                pred[tvar] <- p
+
+                p
+            else
+                TVar tvar
+
+        ty.Walk onvar
+
+    member this.TryFind k =
+        if pred.ContainsKey k then Some(this.Find k) else None
+
+
 type internal LetPat = { Mut: bool; Static: bool }
 
 type internal PatMode =
@@ -163,7 +200,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
         sema
 
-    let tVarMap = Dictionary<Var, Type>()
+    let tyUnion = TyUnion()
     let error = ResizeArray<Error>()
 
     member internal _.NewScope scopeData =
@@ -379,15 +416,6 @@ type Checker(moduleMap: Map<string, ModuleType>) =
             currScope.AddVar id
 
             sema.AddVar(id, ty, mut = mut, static_ = static_)
-
-    member internal this.ResolveTy ty =
-        let onvar tvar =
-            if tVarMap.ContainsKey tvar then
-                this.ResolveTy tVarMap[tvar]
-            else
-                TVar tvar
-
-        ty.Walk onvar
 
     member internal this.ProcessHoistedDecl (scope: ActiveScope) (decl: seq<Decl>) =
         let currScope = scope.Current
@@ -672,7 +700,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
             this.Unify newScope
 
-            this.ResolveTy ty
+            tyUnion.Resolve ty
 
     member internal this.ProcessExpr (scope: ActiveScope) e =
         let currScope = scope.Current
@@ -829,7 +857,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
                 this.Unify newScope
 
-                this.ResolveTy brTy
+                tyUnion.Resolve brTy
 
             if Array.length m.branch = 0 then
                 UnitType
@@ -958,10 +986,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                 let findStruct scope =
                     match scope.Field.Get key with
                     | None -> None
-                    | Some s ->
-                        let id = Array.last s
-
-                        Some sema.Struct[id]
+                    | Some id -> Some sema.Struct[id]
 
                 let stru = scope.Pick findStruct
 
@@ -1025,7 +1050,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
             this.Unify closureScope
 
-            let resolve ty = this.ResolveTy ty
+            let resolve ty = tyUnion.Resolve ty
 
             TFn
                 { Param = Array.map resolve paramTy
@@ -1133,7 +1158,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
         this.Unify blockScope
 
-        this.ResolveTy ty
+        tyUnion.Resolve ty
 
     member internal this.ProcessFn (scope: ActiveScope) (f: Fn) =
         let fnTy =
@@ -1157,78 +1182,71 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
         this.Unify currScope
 
-        let mapper ty =
-            match this.ResolveTy ty with
-            | TFn f ->
-                let f = TFn(f.Generalize scope.Current.Id)
-                f
+        let generalize ty =
+            match tyUnion.Resolve ty with
+            | TFn f -> TFn(f.Generalize scope.Current.Id)
             | _ -> failwith "Unreachable"
 
-        sema.ModifyVarTy f.Name mapper
+        sema.ModifyVarTy f.Name generalize
 
     member internal this.Unify scope =
-        let rec unify_normal c may_deref =
-            let addMap v ty =
-                if tVarMap.ContainsKey v then
-                    let oldTy = tVarMap[v]
-
-                    unify_normal
+        let rec unifyNormal c deref =
+            let addUnion v ty =
+                match tyUnion.TryFind v with
+                | None -> tyUnion.Add v ty
+                | Some prev ->
+                    unifyNormal
                         { Expect = ty
-                          Actual = oldTy
+                          Actual = prev
                           Span = c.Span }
-                        may_deref
+                        deref
 
-                    tVarMap[v] <- this.ResolveTy oldTy
-                else
-                    tVarMap[v] <- ty
+                    tyUnion.Add v (tyUnion.Resolve prev)
 
             match c.Expect, c.Actual with
             | p1, p2 when p1 = p2 -> ()
-            | TVar v1, TVar v2 ->
+            | TVar v1 as t1, (TVar v2 as t2) ->
                 if v1.Scope > v2.Scope then
-                    addMap v1 (TVar v2)
+                    addUnion v1 t2
                 else if v1.Scope = v2.Scope then
-                    if v1.Id > v2.Id then
-                        addMap v1 (TVar v2)
-                    else
-                        addMap v2 (TVar v1)
+                    if v1.Id > v2.Id then addUnion v1 t2 else addUnion v2 t1
                 else
-                    addMap v2 (TVar v1)
+                    addUnion v2 t1
             | TVar v, ty
             | ty, TVar v ->
-                let ty = this.ResolveTy ty
+                // let ty = tyUnion.Resolve ty
 
                 match ty.FindTVar |> Seq.tryFind ((=) v) with
                 | Some _ -> error.Add(FailToUnify(c.Expect, c.Actual, c.Span))
-                | None -> addMap v ty
+                | None -> addUnion v ty
 
             | TFn f1, TFn f2 ->
                 if f1.Param.Length <> f2.Param.Length then
                     error.Add(TypeMismatch(c.Expect, c.Actual, c.Span))
                 else
                     for (p1, p2) in (Array.zip f1.Param f2.Param) do
-                        unify_normal
+                        unifyNormal
                             { Expect = p1
                               Actual = p2
                               Span = c.Span }
-                            may_deref
+                            deref
 
-                    unify_normal
+                    unifyNormal
                         { Expect = f1.Ret
                           Actual = f2.Ret
                           Span = c.Span }
                         false
 
             | TRef r1, TRef r2 ->
-                unify_normal
+                unifyNormal
                     { Expect = r1
                       Actual = r2
                       Span = c.Span }
                     false
 
             | TRef r, t
-            | t, TRef r when may_deref ->
-                unify_normal
+            | t, TRef r when deref ->
+                unifyNormal
                     { Expect = r.StripRef
                       Actual = t
                       Span = c.Span }
@@ -1238,7 +1256,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
             | TStruct(id1, v1), TStruct(id2, v2)
             | TEnum(id1, v1), TEnum(id2, v2) when id1 = id2 ->
                 for (v1, v2) in Array.zip v1 v2 do
-                    unify_normal
+                    unifyNormal
                         { Expect = v1
                           Actual = v2
                           Span = c.Span }
@@ -1248,7 +1266,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
                     error.Add(TupleLengthMismatch(c.Span, t1.Length, t2.Length))
                 else
                     for (t1, t2) in Array.zip t1 t2 do
-                        unify_normal
+                        unifyNormal
                             { Expect = t1
                               Actual = t2
                               Span = c.Span }
@@ -1257,8 +1275,8 @@ type Checker(moduleMap: Map<string, ModuleType>) =
 
         for c in scope.Constr do
             match c with
-            | CNormal c -> unify_normal c false
-            | CDeref c -> unify_normal c true
+            | CNormal c -> unifyNormal c false
+            | CDeref c -> unifyNormal c true
 
     member this.Check m =
         let topLevel = this.NewScope TopLevelScope
@@ -1273,7 +1291,7 @@ type Checker(moduleMap: Map<string, ModuleType>) =
         this.Unify topLevel
 
         for id in sema.Var.Keys do
-            sema.ModifyVarTy id this.ResolveTy
+            sema.ModifyVarTy id tyUnion.Resolve
 
     member _.GetInfo = sema
 
