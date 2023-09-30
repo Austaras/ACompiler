@@ -16,12 +16,12 @@ pub struct WeakPtr<T> {
 }
 
 pub struct Span<T> {
-    pub ptr: NonZeroUsize
+    pub ptr: usize
     pub len: usize
 }
 
 pub struct RawArray<T> {
-    pub ptr: NonZeroUsize,
+    pub ptr: usize,
     pub len: usize,
     pub cap: usize
 }

@@ -185,6 +185,19 @@ let Poly () =
     "
         "HoistedMono"
 
+    runInfer
+        "
+    fn main() {
+        id(1)
+        let _ = id(true)
+    }
+
+    fn id<T>(x: T) -> T { 
+        x 
+    }
+    "
+        "HoistedTyped"
+
     runInfer "fn double(f, x) { f(f(x)) }" "PolyDouble"
 
     runInfer

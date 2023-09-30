@@ -20,6 +20,45 @@ pub trait PartialEq {
 
 pub trait Eq: PartialEq { }
 
+pub enum Ordering {
+    Less = -1,
+    Equal = 0,
+    Greater = 1,
+}
+
+use Ordering::*;
+
+pub trait PartialOrd: PartialEq {
+    // Required method
+    fn partial_cmp(&self, other: &Self) -> Option<Ordering>
+
+    // Provided methods
+    fn lt(&self, other: &Self) -> bool { 
+        match self.partial_cmp(other) {
+            Some(Less) => true,
+            _ => false
+        }
+     }
+    fn le(&self, other: &Self) -> bool { 
+        match self.partial_cmp(other) {
+            Some(Less|Equal) => true,
+            _ => false
+        }
+     }
+    fn gt(&self, other: &Self) -> bool { 
+        match self.partial_cmp(other) {
+            Some(Greater) => true,
+            _ => false
+        }
+     }
+    fn ge(&self, other: &Self) -> bool { 
+        match self.partial_cmp(other) {
+            Some(Greater|Equal) => true,
+            _ => false
+        }
+     }
+}
+
 pub trait Add {
     fn add(self, rhs: Self) -> Self
 }

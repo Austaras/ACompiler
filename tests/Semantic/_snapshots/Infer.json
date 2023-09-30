@@ -34,6 +34,11 @@
     "one": "|isize| -> isize",
     "x": "isize"
   },
+  "HoistedTyped": {
+    "id": "<T>|T| -> T",
+    "main": "|| -> ()",
+    "x": "T"
+  },
   "TopLevel": {
     "f": "isize",
     "foo": "|| -> isize"
