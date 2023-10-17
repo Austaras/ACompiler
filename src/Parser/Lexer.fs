@@ -1,8 +1,8 @@
 module Parser.Lexer
 
-// TODO: table driven lexer
-
 open System.Globalization
+
+open Common.Span
 open AST
 
 type Pair =
@@ -72,21 +72,21 @@ type TokenData =
 
 type Token =
     { data: TokenData
-      span: AST.Span }
+      span: Span }
 
     static member Make data span = { data = data; span = span }
 
 type Error =
-    | IncompleteExp of AST.Span
-    | IncompleteEscapeSeq of AST.Span
-    | IncompleteMultilineComment of AST.Span
-    | UnrecognizablePattern of AST.Span * char
-    | Unmatched of AST.Span * char
-    | MissingIntContent of AST.Span
-    | MissingExpContent of AST.Span
-    | CharEmpty of AST.Span
-    | CharTooMany of AST.Span
-    | UnknownNumberPrefix of AST.Span * char
+    | IncompleteExp of Span
+    | IncompleteEscapeSeq of Span
+    | IncompleteMultilineComment of Span
+    | UnrecognizablePattern of Span * char
+    | Unmatched of Span * char
+    | MissingIntContent of Span
+    | MissingExpContent of Span
+    | CharEmpty of Span
+    | CharTooMany of Span
+    | UnknownNumberPrefix of Span * char
 
 let internal parseIdentifier input =
     match input with
@@ -154,7 +154,7 @@ type private State =
 
 let internal lex_inner offset (input: string) =
     let len = input.Length
-    let makeSpan i j = AST.Span.Make (offset + i) (offset + j)
+    let makeSpan i j = Span.Make (offset + i) (offset + j)
 
     let rec lex state =
         let i = state.i

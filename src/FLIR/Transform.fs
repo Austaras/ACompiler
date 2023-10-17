@@ -1,7 +1,15 @@
 module FLIR.Transform
 
-open Config
+open Common
 open AST
 open Semantic.Semantic
 
-let transformAST (arch: Config.Arch) (ast: AST.Module) (sema: SemanticInfo) = failwith "Not Implemented"
+type TransForm(arch: Config.Arch) =
+
+    let ptrSize = arch.PtrSize
+
+    member internal this.ProcessPat(p: AST.Pat) = 123
+
+    member internal this.ProcessExpr(e: AST.Expr) = 123
+
+    member this.TransForm (m: AST.Module) (sema: SemanticInfo) = failwith "Not Implemented"

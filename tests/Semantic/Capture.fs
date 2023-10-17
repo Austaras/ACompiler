@@ -24,7 +24,7 @@ let runCheck input name =
         | Ok m -> m
         | Error(e, _) -> failwithf "parse error %A" e
 
-    let checker = Checker(Map.empty)
+    let checker = TypeCheck(Map.empty)
 
     checker.Check m
 

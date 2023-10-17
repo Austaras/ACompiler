@@ -1,7 +1,7 @@
 module Parser.Expr
 
-open AST
-open AST
+open Common.Span
+open AST.AST
 open Lexer
 
 open Parser.Common
@@ -595,7 +595,7 @@ and internal parsePrefix ctx input =
         | Error e -> Error e
         | Ok(state: State<Expr>) ->
             let expr =
-                { Op = AST.Not
+                { Op = AST.AST.Not
                   Expr = state.data
                   Span = Span.Make span.First state.data.Span.Last }
 

@@ -1,10 +1,10 @@
 module Parser.Type
 
+open Common.Span
 open AST.AST
 open Lexer
 
 open Parser.Common
-open Parser.Pat
 
 let rec internal parsePathTypeInner (ctx: Context) (state: State<Path>) =
     let parseTypeParam (state: State<Path>) =

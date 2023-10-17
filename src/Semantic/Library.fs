@@ -2,7 +2,8 @@
 
 open System.Collections.Generic
 
-open AST
+open Common.Span
+open AST.AST
 open Util.Util
 open Util.MultiMap
 
@@ -48,19 +49,19 @@ type Function =
           Param = Array.map (fun (t: Type) -> t.Walk getMap) this.Param }
 
 and Struct =
-    { Name: AST.Id
+    { Name: Id
       Field: Map<string, Type>
       TVar: Var[] }
 
 and Enum =
-    { name: AST.Id
+    { name: Id
       variant: Map<string, Type[]>
       tvar: Var[] }
 
 and Var =
     { Scope: int
       Id: int
-      Span: AST.Span
+      Span: Span
       Sym: Option<string> }
 
     member this.ToString =
@@ -75,8 +76,8 @@ and Type =
     | TBool
     | TChar
     /// named type can refer each other
-    | TStruct of AST.Id * Type[]
-    | TEnum of AST.Id * Type[]
+    | TStruct of Id * Type[]
+    | TEnum of Id * Type[]
     | TTuple of Type[]
     | TFn of Function
     | TRef of Type
@@ -204,11 +205,11 @@ type Location =
 type VarInfo = { Ty: Type; Mut: bool; Loc: Location }
 
 type SemanticInfo =
-    { Var: Dictionary<AST.Id, VarInfo>
-      Ty: Dictionary<AST.Id, Type>
-      Struct: Dictionary<AST.Id, Struct>
-      Enum: Dictionary<AST.Id, Enum>
-      Capture: MultiMap<Either<AST.Fn, AST.Closure>, AST.Id> }
+    { Var: Dictionary<Id, VarInfo>
+      Ty: Dictionary<Id, Type>
+      Struct: Dictionary<Id, Struct>
+      Enum: Dictionary<Id, Enum>
+      Capture: MultiMap<Either<Fn, Closure>, Id> }
 
     static member Empty() =
         { Var = Dictionary()
@@ -258,3 +259,24 @@ type SemanticInfo =
         | TStruct(_, _) -> failwith "Not Implemented"
         | TEnum(_, _) -> failwith "Not Implemented"
         | TTuple(_) -> failwith "Not Implemented"
+
+type Error =
+    | Undefined of Id
+    | UndefinedField of Span * string
+    | UndefinedVariant of Id * Id
+    | DuplicateDefinition of Id
+    | DuplicateField of Id
+    | DuplicateVariant of Id
+    | LoopInDefintion of Id * Id
+    | PrivatecInPublic of Id * Id
+    | ExpectEnum of Id * Type
+    | OrPatDifferent of Span * string[] * string[]
+    | PayloadMismatch of Span * Enum
+    | TupleLengthMismatch of Span * int * int
+    | TypeMismatch of Type * Type * Span
+    | GenericMismatch of Type * Type[] * Span
+    | FailToUnify of Type * Type * Span
+    | CalleeNotCallable of Type * Span
+    | AssignImmutable of Id * Span
+    | RefutablePat of Span
+    | LoopInType of Id[]

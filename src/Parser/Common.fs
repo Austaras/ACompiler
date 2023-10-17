@@ -1,5 +1,6 @@
 module Parser.Common
 
+open Common.Span
 open AST.AST
 open Lexer
 

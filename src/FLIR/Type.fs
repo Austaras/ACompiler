@@ -24,5 +24,3 @@ and Type =
 type MonoMode =
     | MonoSize of int
     | MonoType of Type
-    /// has capture or not
-    | MonoFn of bool

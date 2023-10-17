@@ -7,31 +7,11 @@ open System.Collections.Generic
 // TODO: trait, operator overloading and type alias
 // TODO: pipe and compose operator
 
+open Common.Span
 open Util.Util
 open Util.MultiMap
 open AST.AST
 open Semantic.Semantic
-
-type Error =
-    | Undefined of Id
-    | UndefinedField of Span * string
-    | UndefinedVariant of Id * Id
-    | DuplicateDefinition of Id
-    | DuplicateField of Id
-    | DuplicateVariant of Id
-    | LoopInDefintion of Id * Id
-    | PrivatecInPublic of Id * Id
-    | ExpectEnum of Id * Type
-    | OrPatDifferent of Span * string[] * string[]
-    | PayloadMismatch of Span * Enum
-    | TupleLengthMismatch of Span * int * int
-    | TypeMismatch of Type * Type * Span
-    | GenericMismatch of Type * Type[] * Span
-    | FailToUnify of Type * Type * Span
-    | CalleeNotCallable of Type * Span
-    | AssignImmutable of Id * Span
-    | RefutablePat of Span
-    | LoopInType of Id[]
 
 let internal primitive =
     [| TInt(true, I8)
@@ -187,7 +167,7 @@ type internal PatMode =
     | CondPat
     | LetPat of LetPat
 
-type Checker(moduleMap: Map<string, ModuleType>) =
+type TypeCheck(moduleMap: Map<string, ModuleType>) =
     let mutable scopeId = 0
 
     let sema =

@@ -4,12 +4,8 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Config.fs" />
+    <Compile Include="Span.fs" />
     <Compile Include="Library.fs" />
-    <Compile Include="Check.fs" />
-  </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\Common\Common.fsproj" />
-    <ProjectReference Include="..\AST\AST.fsproj" />
-    <ProjectReference Include="..\Util\Util.fsproj" />
   </ItemGroup>
 </Project>

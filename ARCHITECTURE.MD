@@ -17,5 +17,6 @@
    - eliminates ADT, operator overloading, assign operator and pattern
    - lambda lifting
    - monotyped
+   - register based
    - basic block
    - De Bruijn index
