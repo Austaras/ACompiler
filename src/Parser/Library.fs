@@ -1,4 +1,4 @@
-﻿module Parser.Parser
+module Parser.Parser
 
 open Common.Span
 open AST.AST

@@ -1,4 +1,4 @@
-﻿module Semantic.Semantic
+module Semantic.Semantic
 
 open System.Collections.Generic
 

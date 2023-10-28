@@ -1,4 +1,4 @@
-﻿module Util.Util
+module Util.Util
 
 let tryPickBack chooser (array: _[]) =
     let rec loop i =

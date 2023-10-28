@@ -1,4 +1,4 @@
-﻿module AST.AST
+module AST.AST
 
 open Common.Span
 

@@ -1,4 +1,4 @@
-﻿module Regex.Regex
+module Regex.Regex
 
 type internal RegexUnit =
     | Empty

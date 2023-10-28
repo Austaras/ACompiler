@@ -1,3 +1,3 @@
-﻿module Parser.Generator
+module Parser.Generator
 
 let a = 1

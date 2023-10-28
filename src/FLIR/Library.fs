@@ -1,7 +1,6 @@
-﻿module FLIR.FLIR
+module FLIR.FLIR
 
 open Common.Span
-open AST
 
 type BinOp =
     | Add
@@ -23,9 +22,9 @@ type CmpOp =
     | GtEq of bool
     | Gt of bool
 
-type Label = { Name: string; id: int; span: Span }
+type Label = { Name: string; Id: int; Span: Span }
 
-type Var = { Name: string; id: int; span: Span }
+type Var = { Name: string; Id: int; Span: Span }
 
 type Bin =
     { Op: BinOp
