@@ -152,6 +152,7 @@ type private State =
       data: ResizeArray<Token>
       error: Error[] }
 
+[<TailCall>]
 let internal lex_inner offset (input: string) =
     let len = input.Length
     let makeSpan i j = Span.Make (offset + i) (offset + j)
