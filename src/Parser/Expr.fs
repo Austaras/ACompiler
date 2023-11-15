@@ -33,6 +33,29 @@ let internal maybeStruct ctx input =
         | Some({ data = Curly Open }, i) -> Some i
         | _ -> None
 
+let precedence op =
+    match op with
+    | As -> 10
+    | Arithmetic Mul
+    | Arithmetic Div
+    | Arithmetic Mod -> 9
+    | Arithmetic Add
+    | Arithmetic Sub -> 8
+    | Arithmetic Shl
+    | Arithmetic Shr -> 7
+    | Arithmetic BitAnd -> 6
+    | Arithmetic BitXor -> 5
+    | Arithmetic BitOr -> 4
+    | EqEq
+    | NotEq
+    | Lt
+    | Gt
+    | LtEq
+    | GtEq -> 3
+    | Arithmetic LogicalAnd -> 2
+    | Arithmetic LogicalOr -> 1
+    | Pipe -> 0
+
 let internal rangeCtor (from: Option<Expr>) (to_: Option<Expr>) exclusive span =
     let first =
         match from with
@@ -844,11 +867,11 @@ and internal parseFollow prec ctx (state: State<Expr>) =
             (rangeParser ctx)
             rangeCtor
 
-    | Some({ data = Operator op }, i) when prec < op.precedence ->
+    | Some({ data = Operator op }, i) when prec < precedence op ->
         match peek state.rest[i..] with
         | None -> state.FatalError(Incomplete(state.data.Span, "binary expression"))
         | _ ->
-            match parseWithPrec op.precedence ctx state.rest[i..] with
+            match parseWithPrec (precedence op) ctx state.rest[i..] with
             | Error e -> Error e
             | Ok right ->
                 let span = Span.Make state.data.Span.First right.data.Span.Last
@@ -955,7 +978,7 @@ and internal parseRecursive prec ctx state =
     | Error e -> Error e
     | Ok newState ->
         match peek newState.rest with
-        | Some({ data = Operator op }, _) when prec < op.precedence -> parseRecursive prec ctx newState
+        | Some({ data = Operator op }, _) when prec < precedence op -> parseRecursive prec ctx newState
         | Some({ data = DotDot | DotDotCaret }, _) when prec <= -1 -> parseRecursive prec ctx newState
         | Some({ data = AssignOp _ | Eq }, _) when prec <= -2 -> parseRecursive prec ctx newState
         | _ -> Ok newState

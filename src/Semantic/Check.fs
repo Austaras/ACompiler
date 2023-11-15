@@ -51,7 +51,7 @@ type internal Scope =
       Field: MultiMap<string, Id>
       Constr: ResizeArray<Constraint>
       Data: ScopeData
-      mutable varId: int }
+      mutable VarId: int }
 
     member this.AddTy(id: Id) = this.Ty[id.Sym] <- id
 
@@ -60,11 +60,11 @@ type internal Scope =
     member this.NewTVar sym span =
         let tvar =
             { Scope = this.Id
-              Id = this.varId
+              Id = this.VarId
               Sym = sym
               Span = span }
 
-        this.varId <- this.varId + 1
+        this.VarId <- this.VarId + 1
 
         tvar
 
@@ -75,7 +75,7 @@ type internal Scope =
           Field = MultiMap()
           Constr = ResizeArray()
           Data = data
-          varId = 0 }
+          VarId = 0 }
 
     static member Prelude =
         let scope =
@@ -85,7 +85,7 @@ type internal Scope =
               Field = MultiMap()
               Constr = ResizeArray()
               Data = TopLevelScope
-              varId = 0 }
+              VarId = 0 }
 
         for p in primitive do
             let name = p.ToString
@@ -226,11 +226,11 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
         | FnType _ -> failwith "Not Implemented"
 
     member internal this.ProcessPat (scope: ActiveScope) mode pat ty =
-        let mut, static_, mayShadow, isCond =
+        let mut, mayShadow, isCond =
             match mode with
-            | LetPat { Mut = mut; Static = static_ } -> mut, static_, not static_, false
-            | ParamPat -> true, false, false, false
-            | CondPat -> true, false, true, true
+            | LetPat { Mut = mut; Static = static_ } -> mut, not static_, false
+            | ParamPat -> true, false, false
+            | CondPat -> true, true, true
 
         let addSym sym (i: Id) (ty: Type) =
             if Map.containsKey i.Sym sym then
@@ -395,7 +395,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
 
             currScope.AddVar id
 
-            sema.AddVar(id, ty, mut = mut, static_ = static_)
+            sema.AddVar(id, ty, mut = mut)
 
     member internal this.ProcessHoistedDecl (scope: ActiveScope) (decl: seq<Decl>) =
         let currScope = scope.Current
@@ -589,7 +589,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                           Ret = ret
                           TVar = tvar }
 
-                sema.AddVar(f.Name, fnTy, static_ = true)
+                sema.AddVar(f.Name, fnTy)
 
             | Let l ->
                 let ty =
@@ -707,10 +707,8 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                 error.Add(Undefined id)
                 TNever
             | Some(id, captured) ->
-                if sema.Var[id].Loc <> Static then
-                    for c in captured do
-                        sema.Capture.Add c id
-                        sema.AddRef id
+                for c in captured do
+                    sema.Capture.Add c id
 
                 match sema.TypeOfVar id with
                 | TFn f ->
@@ -900,16 +898,14 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                     | Unary { Op = Deref; Expr = expr } -> getVar expr
                     | _ -> None
 
-                match getVar u.Expr with
-                | None -> ()
-                | Some id ->
-                    match scope.ResolveVar id with
-                    | None -> ()
-                    | Some id -> sema.AddRef id
-
                 TRef(this.ProcessExpr scope u.Expr)
             | Deref ->
-                let ptr = TVar(currScope.NewTVar None u.Expr.Span)
+                let sym =
+                    match u.Expr with
+                    | Id i -> Some i.Sym
+                    | _ -> None
+
+                let ptr = TVar(currScope.NewTVar sym u.Expr.Span)
 
                 currScope.Constr.Add(
                     CNormal
@@ -998,7 +994,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                 | None ->
                     let sym =
                         match p.Pat with
-                        | IdPat i -> Some(i.Sym)
+                        | IdPat i -> Some i.Sym
                         | _ -> None
 
                     let newTVar = currScope.NewTVar sym p.Span

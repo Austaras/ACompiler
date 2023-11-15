@@ -144,8 +144,7 @@ and Type =
             if f.TVar.Length = 0 then
                 fstr
             else
-                let tvar = Array.map (fun (v: Var) -> v.ToString) f.TVar
-                let tvar = String.concat "," tvar
+                let tvar = f.TVar |> Array.map (fun (v: Var) -> v.ToString) |> String.concat ","
                 $"<{tvar}>{fstr}"
         | TRef r -> $"&{r.ToString}"
         | TVar v -> v.ToString
@@ -196,13 +195,7 @@ type ModuleType =
       var: Map<string, Type>
       module_: Map<string, ModuleType> }
 
-type Location =
-    | Static
-    | Any
-    | Stack
-    | Heap
-
-type VarInfo = { Ty: Type; Mut: bool; Loc: Location }
+type VarInfo = { Ty: Type; Mut: bool }
 
 type SemanticInfo =
     { Var: Dictionary<Id, VarInfo>
@@ -218,31 +211,19 @@ type SemanticInfo =
           Enum = Dictionary()
           Capture = MultiMap() }
 
-    member this.AddVar(id, ty, ?mut, ?static_) =
+    member this.AddVar(id, ty, ?mut) =
         let mut =
             match mut with
             | Some m -> m
             | None -> false
 
-        let loc =
-            match static_ with
-            | Some true -> Static
-            | _ -> Any
-
-        this.Var[id] <- { Ty = ty; Mut = mut; Loc = loc }
+        this.Var[id] <- { Ty = ty; Mut = mut }
 
     member this.TypeOfVar id = this.Var[id].Ty
 
     member this.ModifyVarTy id mapper =
         let old = this.Var[id]
-        this.Var[id] <- { old with Ty = mapper this.Var[id].Ty }
-
-    member this.AddRef id =
-        let old = this.Var[id]
-
-        match old.Loc with
-        | Any -> this.Var[id] <- { old with Loc = Stack }
-        | _ -> ()
+        this.Var[id] <- { old with Ty = mapper old.Ty }
 
     member internal this.DetectLoop id =
         let visited = HashSet<Type>()

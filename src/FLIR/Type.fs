@@ -13,8 +13,6 @@ type Float =
 type Function = { Param: Type[]; Ret: Type }
 
 and Type =
-    | TVoid
-    | TNever
     | TInt of Integer
     | TFloat of Float
     | TMany of Type[]
@@ -22,5 +20,11 @@ and Type =
     | TRef of Type
 
 type MonoMode =
-    | MonoSize of int
-    | MonoType of Type
+    | MSize of int
+    | MType of Type
+
+type Location =
+    | Static
+    | Any
+    | Stack
+    | Heap

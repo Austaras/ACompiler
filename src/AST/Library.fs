@@ -33,8 +33,6 @@ type ArithmeticOp =
     | Shl
     | Shr
 
-    member this.mayShortCircut = this = LogicalOr || this = LogicalAnd
-
 type BinaryOp =
     | Arithmetic of ArithmeticOp
     | EqEq
@@ -45,34 +43,6 @@ type BinaryOp =
     | GtEq
     | Pipe
     | As
-
-    member this.mayShortCircut =
-        match this with
-        | Arithmetic a -> a.mayShortCircut
-        | _ -> false
-
-    member this.precedence =
-        match this with
-        | As -> 10
-        | Arithmetic Mul
-        | Arithmetic Div
-        | Arithmetic Mod -> 9
-        | Arithmetic Add
-        | Arithmetic Sub -> 8
-        | Arithmetic Shl
-        | Arithmetic Shr -> 7
-        | Arithmetic BitAnd -> 6
-        | Arithmetic BitXor -> 5
-        | Arithmetic BitOr -> 4
-        | EqEq
-        | NotEq
-        | Lt
-        | Gt
-        | LtEq
-        | GtEq -> 3
-        | Arithmetic LogicalAnd -> 2
-        | Arithmetic LogicalOr -> 1
-        | Pipe -> 0
 
 type Visibility =
     | Public
