@@ -27,8 +27,7 @@ type MultiMap<'K, 'V when 'K: equality>() =
 
     interface System.Collections.IEnumerable with
 
-        member _.GetEnumerator() =
-            ((map :> seq<_>).GetEnumerator() :> System.Collections.IEnumerator)
+        member _.GetEnumerator() = map.GetEnumerator()
 
     interface IEnumerable<KeyValuePair<'K, ResizeArray<'V>>> with
 
@@ -38,4 +37,4 @@ type MultiMap<'K, 'V when 'K: equality>() =
             for kvp in map do
                 elems.Add(kvp)
 
-            (elems.GetEnumerator() :> IEnumerator<_>)
+            elems.GetEnumerator()

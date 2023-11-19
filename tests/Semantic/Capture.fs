@@ -38,9 +38,7 @@ let runCheck input name =
             | Left f -> f.Name.Sym
             | Right _ ->
                 let key = $"Closure{cid}"
-
                 cid <- cid + 1
-
                 key
 
         key, Array.ofSeq value

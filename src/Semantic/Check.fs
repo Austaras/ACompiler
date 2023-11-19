@@ -171,7 +171,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
     let mutable scopeId = 0
 
     let sema =
-        let sema = SemanticInfo.Empty()
+        let sema = SemanticInfo.Create()
 
         for t in primitive do
             let id = { Sym = t.ToString; Span = Span.dummy }
@@ -691,6 +691,11 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                 let curr = scope.Scope[i]
 
                 if curr.Var.ContainsKey id.Sym then
+                    let captured =
+                        match curr.Data with
+                        | TopLevelScope -> [||]
+                        | _ -> captured
+
                     Some(curr.Var[id.Sym], captured)
                 else if i = 0 then
                     None

@@ -1,0 +1,3 @@
+fn thin_air<T: Default>() {
+    T::default()
+}

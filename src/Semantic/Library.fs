@@ -109,8 +109,6 @@ and Type =
         }
 
     member this.ToString =
-        let toString (t: Type) = t.ToString
-
         match this with
         | TInt(true, I8) -> "i8"
         | TInt(false, I8) -> "u8"
@@ -129,22 +127,22 @@ and Type =
             if v.Length = 0 then
                 t.Sym
             else
-                let tvar = Array.map toString v
+                let tvar = v |> Array.map _.ToString
                 let tvar = String.concat "," tvar
                 $"{t.Sym}<{tvar}>"
         | TTuple t ->
-            let element = t |> Array.map toString |> String.concat ", "
+            let element = t |> Array.map _.ToString |> String.concat ", "
 
             $"({element})"
         | TFn f ->
-            let param = f.Param |> Array.map toString |> String.concat ", "
+            let param = f.Param |> Array.map _.ToString |> String.concat ", "
 
             let fstr = $"|{param}| -> {f.Ret.ToString}"
 
             if f.TVar.Length = 0 then
                 fstr
             else
-                let tvar = f.TVar |> Array.map (fun (v: Var) -> v.ToString) |> String.concat ","
+                let tvar = f.TVar |> Array.map _.ToString |> String.concat ","
                 $"<{tvar}>{fstr}"
         | TRef r -> $"&{r.ToString}"
         | TVar v -> v.ToString
@@ -160,7 +158,7 @@ and Type =
         | TChar -> this
         | TStruct(s, v) -> TStruct(s, Array.map walk v)
         | TEnum(e, v) -> TEnum(e, Array.map walk v)
-        | TTuple t -> Array.map walk t |> TTuple
+        | TTuple t -> t |> Array.map walk |> TTuple
         | TFn f ->
             let param = Array.map walk f.Param
             let ret = f.Ret.Walk onVar
@@ -204,7 +202,7 @@ type SemanticInfo =
       Enum: Dictionary<Id, Enum>
       Capture: MultiMap<Either<Fn, Closure>, Id> }
 
-    static member Empty() =
+    static member Create() =
         { Var = Dictionary()
           Ty = Dictionary()
           Struct = Dictionary()

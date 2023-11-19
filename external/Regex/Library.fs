@@ -247,8 +247,7 @@ let internal minifyDFA (dfa: DFAUnit[]) =
             if nextGroup.Length = 1 then
                 None
             else
-                let getNodeSet (_, nodeToNext) =
-                    Array.map (fun (node, _) -> node) nodeToNext |> Set.ofArray
+                let getNodeSet (_, nodeToNext) = Array.map fst nodeToNext |> Set.ofArray
 
                 Some(Array.map getNodeSet nextGroup)
 

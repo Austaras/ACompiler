@@ -73,6 +73,13 @@ let Call () =
     (parseTest "-a.b()").ShouldMatchChildSnapshot("Unary")
     (parseTest "a() + c(d)").ShouldMatchChildSnapshot("Bin")
 
+    (parseTest
+        "{
+        a()
+        ()
+    }")
+        .ShouldMatchChildSnapshot("Block")
+
 [<Fact>]
 let Path () =
     (parseTest "Vec::<i32>>>1").ShouldMatchChildSnapshot("GenericShr")

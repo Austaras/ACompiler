@@ -100,3 +100,7 @@ pub trait Xor {
 pub trait Not {
     fn not(self) -> Self
 }
+
+pub trait Default {
+    fn default() -> Self;
+}

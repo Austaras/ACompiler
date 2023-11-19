@@ -124,5 +124,46 @@
         "Last": 9
       }
     }
+  },
+  "Block": {
+    "Block": {
+      "Stmt": [
+        {
+          "ExprStmt": {
+            "Call": {
+              "Callee": {
+                "Id": {
+                  "Sym": "a",
+                  "Span": {
+                    "First": 10,
+                    "Last": 10
+                  }
+                }
+              },
+              "Arg": [],
+              "Span": {
+                "First": 10,
+                "Last": 12
+              }
+            }
+          }
+        },
+        {
+          "ExprStmt": {
+            "Tuple": {
+              "element": [],
+              "span": {
+                "First": 22,
+                "Last": 23
+              }
+            }
+          }
+        }
+      ],
+      "Span": {
+        "First": 0,
+        "Last": 29
+      }
+    }
   }
 }
