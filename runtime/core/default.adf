@@ -1,0 +1,15 @@
+pub trait Default {
+    fn default() -> Self;
+}
+
+impl Default for bool {
+    fn default() {
+        false
+    }
+}
+
+impl Default for usize {
+    fn default() {
+        0
+    }
+}

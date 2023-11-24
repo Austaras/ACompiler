@@ -4,6 +4,7 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Target.fs" />
     <Compile Include="Config.fs" />
     <Compile Include="Span.fs" />
     <Compile Include="Library.fs" />

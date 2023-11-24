@@ -30,7 +30,7 @@ let runInfer input name =
 
     Assert.Empty checker.GetError
 
-    let reform (key: AST.Id, value: VarInfo) = key.Sym, value.Ty.ToString
+    let reform (key: AST.Id, value: Type) = key.Sym, value.ToString
 
     (checker.GetInfo.Var
      |> Seq.map (|KeyValue|)

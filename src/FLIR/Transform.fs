@@ -4,9 +4,7 @@ open Common
 open AST
 open Semantic.Semantic
 
-type TransForm(arch: Config.Arch) =
-
-    let ptrSize = arch.PtrSize
+type TransForm(arch: Target.Arch) =
 
     member internal this.ProcessPat(p: AST.Pat) = 123
 

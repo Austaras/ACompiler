@@ -79,12 +79,6 @@ pub trait Rem {
     fn rem(self, rhs: Self) -> Self
 }
 
-pub trait Neg {
-    fn neg(self) -> Self
-}
-
-pub trait Num: Add + Sub + Mul + Div + Rem + Neg {}
-
 pub trait And {
     fn and(self, other: Self) -> Self
 }
@@ -97,10 +91,10 @@ pub trait Xor {
     fn xor(self, other: Self) -> Self
 }
 
-pub trait Not {
-    fn not(self) -> Self
+pub trait Neg {
+    fn neg(self) -> Self
 }
 
-pub trait Default {
-    fn default() -> Self;
+pub trait Not {
+    fn not(self) -> Self
 }

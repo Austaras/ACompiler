@@ -46,7 +46,7 @@ type Function =
 
         { TVar = [||]
           Ret = this.Ret.Walk getMap
-          Param = Array.map (fun (t: Type) -> t.Walk getMap) this.Param }
+          Param = this.Param |> Array.map _.Walk(getMap) }
 
 and Struct =
     { Name: Id
@@ -149,18 +149,16 @@ and Type =
         | TNever -> "!"
 
     member this.Walk onVar =
-        let walk (t: Type) = t.Walk onVar
-
         match this with
         | TInt _
         | TFloat _
         | TBool
         | TChar -> this
-        | TStruct(s, v) -> TStruct(s, Array.map walk v)
-        | TEnum(e, v) -> TEnum(e, Array.map walk v)
-        | TTuple t -> t |> Array.map walk |> TTuple
+        | TStruct(s, v) -> TStruct(s, v |> Array.map _.Walk(onVar))
+        | TEnum(e, v) -> TEnum(e, v |> Array.map _.Walk(onVar))
+        | TTuple t -> t |> Array.map _.Walk(onVar) |> TTuple
         | TFn f ->
-            let param = Array.map walk f.Param
+            let param = f.Param |> Array.map _.Walk(onVar)
             let ret = f.Ret.Walk onVar
 
             TFn { f with Param = param; Ret = ret }
@@ -193,51 +191,17 @@ type ModuleType =
       var: Map<string, Type>
       module_: Map<string, ModuleType> }
 
-type VarInfo = { Ty: Type; Mut: bool }
-
 type SemanticInfo =
-    { Var: Dictionary<Id, VarInfo>
-      Ty: Dictionary<Id, Type>
+    { Var: Dictionary<Id, Type>
       Struct: Dictionary<Id, Struct>
       Enum: Dictionary<Id, Enum>
       Capture: MultiMap<Either<Fn, Closure>, Id> }
 
     static member Create() =
-        { Var = Dictionary()
-          Ty = Dictionary()
-          Struct = Dictionary()
-          Enum = Dictionary()
+        { Var = Dictionary(HashIdentity.Reference)
+          Struct = Dictionary(HashIdentity.Reference)
+          Enum = Dictionary(HashIdentity.Reference)
           Capture = MultiMap() }
-
-    member this.AddVar(id, ty, ?mut) =
-        let mut =
-            match mut with
-            | Some m -> m
-            | None -> false
-
-        this.Var[id] <- { Ty = ty; Mut = mut }
-
-    member this.TypeOfVar id = this.Var[id].Ty
-
-    member this.ModifyVarTy id mapper =
-        let old = this.Var[id]
-        this.Var[id] <- { old with Ty = mapper old.Ty }
-
-    member internal this.DetectLoop id =
-        let visited = HashSet<Type>()
-
-        match this.Ty[id] with
-        | TVar _
-        | TInt _
-        | TFloat _
-        | TBool
-        | TChar
-        | TRef _
-        | TFn _
-        | TNever -> None
-        | TStruct(_, _) -> failwith "Not Implemented"
-        | TEnum(_, _) -> failwith "Not Implemented"
-        | TTuple(_) -> failwith "Not Implemented"
 
 type Error =
     | Undefined of Id

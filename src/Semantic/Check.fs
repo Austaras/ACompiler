@@ -46,16 +46,20 @@ type internal ScopeData =
 
 type internal Scope =
     { Id: int
-      Ty: Dictionary<string, Id>
-      Var: Dictionary<string, Id>
+      Ty: Dictionary<string, Type>
+      Var: Dictionary<string, Id * bool>
       Field: MultiMap<string, Id>
       Constr: ResizeArray<Constraint>
       Data: ScopeData
       mutable VarId: int }
 
-    member this.AddTy(id: Id) = this.Ty[id.Sym] <- id
+    member this.AddVar(id: Id, ?mut) =
+        let mut =
+            match mut with
+            | Some m -> m
+            | None -> false
 
-    member this.AddVar(id: Id) = this.Var[id.Sym] <- id
+        this.Var[id.Sym] <- id, mut
 
     member this.NewTVar sym span =
         let tvar =
@@ -88,8 +92,7 @@ type internal Scope =
               VarId = 0 }
 
         for p in primitive do
-            let name = p.ToString
-            scope.Ty[name] <- { Sym = name; Span = Span.dummy }
+            scope.Ty[p.ToString] <- p
 
         scope
 
@@ -123,6 +126,7 @@ type internal ActiveScope =
 
         this.Pick pickId
 
+// union find set
 type internal TyUnion() =
     let pred = Dictionary<Var, Type>()
 
@@ -159,7 +163,6 @@ type internal TyUnion() =
     member this.TryFind k =
         if pred.ContainsKey k then Some(this.Find k) else None
 
-
 type internal LetPat = { Mut: bool; Static: bool }
 
 type internal PatMode =
@@ -170,15 +173,7 @@ type internal PatMode =
 type TypeCheck(moduleMap: Map<string, ModuleType>) =
     let mutable scopeId = 0
 
-    let sema =
-        let sema = SemanticInfo.Create()
-
-        for t in primitive do
-            let id = { Sym = t.ToString; Span = Span.dummy }
-
-            sema.Ty[id] <- t
-
-        sema
+    let sema = SemanticInfo.Create()
 
     let tyUnion = TyUnion()
     let error = ResizeArray<Error>()
@@ -190,7 +185,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
     member internal this.ProcessTy (scope: ActiveScope) ty =
         let resolve id =
             match scope.ResolveTy id with
-            | Some id -> sema.Ty[id]
+            | Some ty -> ty
             | None ->
                 error.Add(Undefined id)
                 TNever
@@ -336,7 +331,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
 
                 let enumTy =
                     match scope.ResolveTy enumId with
-                    | Some id -> sema.Ty[id]
+                    | Some ty -> ty
                     | None ->
                         error.Add(Undefined enumId)
                         TNever
@@ -393,9 +388,8 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
             if mayShadow && currScope.Var.ContainsKey id.Sym then
                 error.Add(DuplicateDefinition id)
 
-            currScope.AddVar id
-
-            sema.AddVar(id, ty, mut = mut)
+            currScope.AddVar(id, mut)
+            sema.Var[id] <- ty
 
     member internal this.ProcessHoistedDecl (scope: ActiveScope) (decl: seq<Decl>) =
         let currScope = scope.Current
@@ -422,25 +416,23 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                 if currScope.Ty.ContainsKey s.Id.Sym then
                     error.Add(DuplicateDefinition s.Id)
 
-                currScope.AddTy s.Id
                 let tvar = Array.map dummyTVar s.TyParam
+                currScope.Ty[s.Id.Sym] <- TStruct(s.Id, tvar)
 
                 for field in s.Field do
                     currScope.Field.Add field.Name.Sym s.Id
 
-                sema.Ty.Add(s.Id, TStruct(s.Id, tvar))
             | EnumDecl e ->
                 if currScope.Ty.ContainsKey e.Id.Sym then
                     error.Add(DuplicateDefinition e.Id)
 
-                currScope.AddTy e.Id
                 let tvar = Array.map dummyTVar e.TyParam
-                sema.Ty.Add(e.Id, TEnum(e.Id, tvar))
+                currScope.Ty[e.Id.Sym] <- TEnum(e.Id, tvar)
             | TypeDecl t ->
                 if currScope.Ty.ContainsKey t.Name.Sym then
                     error.Add(DuplicateDefinition t.Name)
 
-                currScope.AddTy t.Name
+                currScope.Ty[t.Name.Sym] <- TNever
             | Use _ -> failwith "Not Implemented"
             | Trait _ -> failwith "Not Implemented"
             | Impl _ -> failwith "Not Implemented"
@@ -463,8 +455,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                         let processParam (param: TypeParam) =
                             let newTVar = newScope.NewTVar (Some param.Id.Sym) param.Id.Span
 
-                            sema.Ty.Add(param.Id, TVar newTVar)
-                            newScope.Ty.Add(param.Id.Sym, param.Id)
+                            newScope.Ty[param.Id.Sym] <- TVar newTVar
 
                             newTVar
 
@@ -497,8 +488,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                         let processParam (param: TypeParam) =
                             let newTVar = newScope.NewTVar (Some param.Id.Sym) param.Id.Span
 
-                            sema.Ty.Add(param.Id, TVar newTVar)
-                            newScope.Ty.Add(param.Id.Sym, param.Id)
+                            newScope.Ty[param.Id.Sym] <- TVar newTVar
 
                             newTVar
 
@@ -525,11 +515,11 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
 
                 sema.Enum[e.Id] <- enum
 
-            | TypeDecl t -> sema.Ty[t.Name] <- this.ProcessTy scope t.Ty
+            | TypeDecl t -> currScope.Ty[t.Name.Sym] <- this.ProcessTy scope t.Ty
 
-            | Use(_) -> failwith "Not Implemented"
-            | Trait(_) -> failwith "Not Implemented"
-            | Impl(_) -> failwith "Not Implemented"
+            | Use _ -> failwith "Not Implemented"
+            | Trait _ -> failwith "Not Implemented"
+            | Impl _ -> failwith "Not Implemented"
 
         let valueMap = Dictionary()
         let scopeMap = Dictionary()
@@ -548,8 +538,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                     let processParam (param: TypeParam) =
                         let newTVar = newScope.NewTVar (Some param.Id.Sym) param.Id.Span
 
-                        sema.Ty.Add(param.Id, TVar newTVar)
-                        newScope.Ty.Add(param.Id.Sym, param.Id)
+                        newScope.Ty.Add(param.Id.Sym, TVar newTVar)
 
                         newTVar
 
@@ -589,7 +578,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                           Ret = ret
                           TVar = tvar }
 
-                sema.AddVar(f.Name, fnTy)
+                sema.Var[f.Name] <- fnTy
 
             | Let l ->
                 let ty =
@@ -711,11 +700,11 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
             | None ->
                 error.Add(Undefined id)
                 TNever
-            | Some(id, captured) ->
+            | Some((id, _), captured) ->
                 for c in captured do
                     sema.Capture.Add c id
 
-                match sema.TypeOfVar id with
+                match sema.Var[id] with
                 | TFn f ->
                     let newTVar = Array.map (fun _ -> currScope.NewTVar None id.Span) f.TVar
                     TFn(f.Instantiate newTVar)
@@ -944,8 +933,8 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
             | Some id ->
                 match scope.ResolveVar id with
                 | None -> ()
-                | Some id ->
-                    if not sema.Var[id].Mut then
+                | Some(id, mut) ->
+                    if not mut then
                         error.Add(AssignImmutable(id, a.Span))
 
             UnitType
@@ -1047,7 +1036,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
 
             let enumTy =
                 match scope.ResolveTy enumId with
-                | Some id -> sema.Ty[id]
+                | Some ty -> ty
                 | None ->
                     error.Add(Undefined enumId)
                     TNever
@@ -1143,7 +1132,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
 
     member internal this.ProcessFn (scope: ActiveScope) (f: Fn) =
         let fnTy =
-            match sema.TypeOfVar f.Name with
+            match sema.Var[f.Name] with
             | TFn f -> f
             | _ -> failwith "Unreachable"
 
@@ -1168,7 +1157,8 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
             | TFn f -> TFn(f.Generalize scope.Current.Id)
             | _ -> failwith "Unreachable"
 
-        sema.ModifyVarTy f.Name generalize
+        let oldTy = sema.Var[f.Name]
+        sema.Var[f.Name] <- generalize oldTy
 
     member internal this.Unify scope =
         let rec unifyNormal c deref =
@@ -1272,7 +1262,8 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
         this.Unify topLevel
 
         for id in sema.Var.Keys do
-            sema.ModifyVarTy id tyUnion.Resolve
+            let oldTy = sema.Var[id]
+            sema.Var[id] <- tyUnion.Resolve oldTy
 
     member _.GetInfo = sema
 

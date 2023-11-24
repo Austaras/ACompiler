@@ -20,3 +20,5 @@ impl NonZeroUSize {
         self.inner as &T
     }
 }
+
+pub trait Num: Add + Sub + Mul + Div + Rem {}

@@ -18,17 +18,15 @@ Test out various compiler technology with a toy compiler for a toy language **in
    - no auto boxing, provide general reference type(s) tracked by GC
    - user can roll their own container like in Rust
    - impl block, but user need to import that module to work
+   - string is UTF8 and char is UTF32
 3. Pratically functional
    - provide immutable std lib and tail call optimization
    - but also mutable std lib and for loop with control keyword
 4. suffix is .adf which stands for Advanced Dominance Functional language
 5. Major TODO
    - [ ] f-string
-   - [ ] optional and position argument
    - [ ] effect system. Algebraic effect?
-   - [ ] generator
    - [ ] const generic
-   - [ ] try trait
    - [ ] GC
    - [ ] macro
    - [ ] curry and pipe

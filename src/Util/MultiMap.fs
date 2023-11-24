@@ -3,8 +3,12 @@ module Util.MultiMap
 open System.Collections.Generic
 open System.Linq
 
-type MultiMap<'K, 'V when 'K: equality>() =
-    let map = Dictionary<'K, ResizeArray<'V>>()
+type MultiMap<'K, 'V when 'K: equality>(?comparer: IEqualityComparer<'K>) =
+
+    let map =
+        match comparer with
+        | Some c -> Dictionary<'K, ResizeArray<'V>>(c)
+        | None -> Dictionary<'K, ResizeArray<'V>>()
 
     member _.Add key value =
         if map.ContainsKey key then
