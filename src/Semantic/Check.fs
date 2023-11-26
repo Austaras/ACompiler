@@ -82,14 +82,7 @@ type internal Scope =
           VarId = 0 }
 
     static member Prelude =
-        let scope =
-            { Id = 0
-              Ty = Dictionary()
-              Var = Dictionary()
-              Field = MultiMap()
-              Constr = ResizeArray()
-              Data = TopLevelScope
-              VarId = 0 }
+        let scope = Scope.Empty 0 TopLevelScope
 
         for p in primitive do
             scope.Ty[p.ToString] <- p

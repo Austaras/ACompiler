@@ -20,3 +20,9 @@
    - register based
    - basic block
    - De Bruijn index
+
+5. TIR, which stands for Tree Intermediate Representation
+
+   [TIR](./src/TIR)
+
+   - originates from Tiger Book

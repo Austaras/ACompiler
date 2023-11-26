@@ -1,4 +1,6 @@
-module FLIR.Type
+module IR.Type
+
+// TODO: niche
 
 open Common.Target
 

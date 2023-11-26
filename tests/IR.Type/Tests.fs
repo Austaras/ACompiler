@@ -2,7 +2,7 @@ module FLIR.Tests.Type
 
 open Xunit
 
-open FLIR.Type
+open IR.Type
 
 let arch = Common.Target.Arch.X86_64
 
@@ -21,3 +21,9 @@ let ReLayout () =
     let ty = ty.OptLayout arch
 
     Assert.Equal(ty.Size arch, 16)
+
+// [<Fact>]
+// let Niche () =
+//     let ty = TMany [| TInt I1; TRef(TInt I64); |]
+
+//     Assert.Equal(ty.Size arch, 8)
