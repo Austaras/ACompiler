@@ -1,0 +1,24 @@
+{
+  "Struct": {
+    "add": "|Point3D| -> isize",
+    "p": "Point3D"
+  },
+  "AutoDeref": {
+    "f": "Foo",
+    "foo": "|Foo| -> &Foo"
+  },
+  "DerefParam": {
+    "f": "&Foo",
+    "foo": "|&Foo| -> usize"
+  },
+  "Tuple": {
+    "a": "isize",
+    "b": "isize",
+    "c": "isize",
+    "foo": "|(isize, isize, isize)| -> bool"
+  },
+  "InferedType": {
+    "f": "Foo<usize>",
+    "foo": "|Foo<usize>| -> usize"
+  }
+}

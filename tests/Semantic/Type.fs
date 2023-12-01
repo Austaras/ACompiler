@@ -11,8 +11,6 @@ open Parser.Parser
 open Semantic.Semantic
 open Semantic.Check
 
-let settings = SnapshotSettings.New().SnapshotFileName("Infer")
-
 let runInfer input name =
     let token =
         match lex 0 input with
@@ -37,17 +35,15 @@ let runInfer input name =
      |> Seq.map reform
      |> Map.ofSeq
      |> Json.serialize)
-        .ShouldMatchChildSnapshot(name, settings)
+        .ShouldMatchChildSnapshot(name)
 
 let runInferFromExample path =
     File.ReadAllText(__SOURCE_DIRECTORY__ + "/../../examples/" + path) |> runInfer
 
 [<Fact>]
-let MutualRec () =
+let Closure () =
     runInferFromExample "function/mutual_rec.adf" "MutualRec"
 
-[<Fact>]
-let Closure () =
     runInfer "fn call(c) { c(0) + 1 }" "Closure"
 
     runInfer
@@ -81,6 +77,18 @@ let Closure () =
     let f = 1
     "
         "TopLevel"
+
+
+    runInfer
+        "
+        fn foo(i) { 
+            if i == 0 {
+                return 0
+            }
+
+            i + 1
+        }"
+        "Return"
 
 [<Fact>]
 let Reference () =
@@ -147,19 +155,6 @@ let ADT () =
     }
     "
         "InferedType"
-
-[<Fact>]
-let Return () =
-    runInfer
-        "
-        fn foo(i) { 
-            if i == 0 {
-                return 0
-            }
-
-            i + 1
-        }"
-        "Return"
 
 [<Fact>]
 let Poly () =
@@ -257,3 +252,14 @@ let Match () =
         }
     "
         "ValueRestriction"
+
+    runInfer
+        "
+        fn foo(f) {
+            match f {
+                true => |t, f| t,
+                false => |t, f| f
+            }
+        }
+    "
+        "Closure"

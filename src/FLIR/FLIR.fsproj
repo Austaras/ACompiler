@@ -6,12 +6,11 @@
   <ItemGroup>
     <Compile Include="Library.fs" />
     <Compile Include="Transform.fs" />
-    <Compile Include="Canonicalize.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.fsproj" />
     <ProjectReference Include="..\AST\AST.fsproj" />
     <ProjectReference Include="..\Semantic\Semantic.fsproj" />
-    <ProjectReference Include="..\IR.Type\IR.Type.fsproj" />
+    <ProjectReference Include="..\Intermediate\Intermediate.fsproj" />
   </ItemGroup>
 </Project>

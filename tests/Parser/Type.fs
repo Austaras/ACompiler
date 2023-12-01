@@ -1,7 +1,6 @@
 module Parser.Tests.Type
 
 open Parser.Type
-open Parser.Stmt
 
 open Snapper
 open Xunit

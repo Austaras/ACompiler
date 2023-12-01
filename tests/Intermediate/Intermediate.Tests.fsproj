@@ -9,7 +9,7 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <Compile Include="Tests.fs" />
+    <Compile Include="Type.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
 
@@ -28,7 +28,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\..\src\Common\Common.fsproj" />
-    <ProjectReference Include="..\..\src\IR.Type\IR.Type.fsproj" />
+    <ProjectReference Include="..\..\src\Intermediate\Intermediate.fsproj" />
   </ItemGroup>
 
 </Project>

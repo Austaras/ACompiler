@@ -1,0 +1,30 @@
+{
+  "Closure": {
+    "c": "|isize| -> isize",
+    "call": "||isize| -> isize| -> isize"
+  },
+  "Curry": {
+    "equal": "<Tx>|Tx| -> |Tx| -> bool",
+    "equal1": "|Tx| -> bool",
+    "x": "Tx",
+    "y": "Tx"
+  },
+  "MonoClosure": {
+    "id": "|isize| -> isize",
+    "main": "|| -> ()",
+    "x": "isize"
+  },
+  "TopLevel": {
+    "f": "isize",
+    "foo": "|| -> isize"
+  },
+  "MutualRec": {
+    "is_even": "|isize| -> bool",
+    "is_odd": "|isize| -> bool",
+    "n": "isize"
+  },
+  "Return": {
+    "foo": "|isize| -> isize",
+    "i": "isize"
+  }
+}

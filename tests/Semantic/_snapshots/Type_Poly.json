@@ -1,0 +1,37 @@
+{
+  "Poly": {
+    "id": "<Tx>|Tx| -> Tx",
+    "main": "|| -> ()",
+    "x": "Tx"
+  },
+  "HoistedMono": {
+    "main": "|| -> ()",
+    "one": "|isize| -> isize",
+    "x": "isize"
+  },
+  "HoistedTyped": {
+    "id": "<T>|T| -> T",
+    "main": "|| -> ()",
+    "x": "T"
+  },
+  "PolyDouble": {
+    "double": "<Tx>||Tx| -> Tx, Tx| -> Tx",
+    "f": "|Tx| -> Tx",
+    "x": "Tx"
+  },
+  "PolyRec": {
+    "bar": "|isize| -> isize",
+    "foo": "<Tx>|Tx| -> Tx",
+    "x": "isize"
+  },
+  "WeirdRec": {
+    "weird_rec": "<T21>|isize| -> T21",
+    "x": "isize"
+  },
+  "Explicit": {
+    "fst": "T1",
+    "snd": "T2",
+    "swap": "<T1,T2>|(T1, T2)| -> (T2, T1)",
+    "t": "(T1, T2)"
+  }
+}

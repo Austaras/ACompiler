@@ -21,8 +21,11 @@
    - basic block
    - De Bruijn index
 
-5. TIR, which stands for Tree Intermediate Representation
+5. ATIR, which stands for A Tiger Intermediate Representation
 
-   [TIR](./src/TIR)
+   [ATIR](./src/ATIR)
 
    - originates from Tiger Book
+   - tree style
+   - stack based
+   - subject to be removed

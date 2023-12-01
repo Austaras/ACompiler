@@ -15,19 +15,22 @@ Test out various compiler technology with a toy compiler for a toy language **in
    - HM type inference with trait and operator overloading
    - c style function declaration that are hoisted and can only refer to values in outer scope
    - internal mutable
-   - no auto boxing, provide general reference type(s) tracked by GC
-   - user can roll their own container like in Rust
    - impl block, but user need to import that module to work
    - string is UTF8 and char is UTF32
 3. Pratically functional
    - provide immutable std lib and tail call optimization
-   - but also mutable std lib and for loop with control keyword
-4. suffix is .adf which stands for Advanced Dominance Functional language
-5. Major TODO
-   - [ ] f-string
+   - but also mutable std lib and control keyword
+4. Focus on performance and optimization
+   - no auto boxing, provide general reference type(s) tracked by GC
+   - user can roll their own container like in Rust
+5. suffix is .adf which stands for Advanced Dominance Functional language
+6. Major decisions TODO
+   - [ ] template string
    - [ ] effect system. Algebraic effect?
    - [ ] const generic
    - [ ] GC
    - [ ] macro
    - [ ] curry and pipe
    - [ ] IR. How many? What kind?
+   - [ ] Fn trait?
+   - [ ] Immtuable mark?

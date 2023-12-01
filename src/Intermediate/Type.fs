@@ -1,14 +1,14 @@
-module IR.Type
-
-// TODO: niche
+module Intermediate.Type
 
 open Common.Target
+open Semantic
 
 type Integer =
     | I1
     | I8
     | I32
     | I64
+    | I128
 
 type Float =
     | F32
@@ -30,6 +30,7 @@ and Type =
         | TInt I32 -> 4, arch.I32Align
         | TFloat F32 -> 4, arch.F32Align
         | TInt I64 -> 8, arch.I64Align
+        | TInt I128 -> 16, arch.I64Align
         | TFloat F64 -> 8, arch.F64Align
         | TFn _
         | TRef _ -> arch.PtrSize, arch.PtrAlign
@@ -63,12 +64,29 @@ and Type =
             TMany t
         | t -> t
 
-type MonoMode =
-    | MSize of int
-    | MType of Type
-
-type Location =
-    | Static
-    | Unambiguous
-    | Automatic
-    | Irregular
+    static member FromTy (semantic: Semantic.SemanticInfo) (arch: Arch) (ty: Semantic.Type) =
+        match ty with
+        | Semantic.TBool -> TInt I1
+        | Semantic.TInt(_, Semantic.I8) -> TInt I8
+        | Semantic.TInt(_, Semantic.I32) -> TInt I32
+        | Semantic.TInt(_, Semantic.I64) -> TInt I64
+        | Semantic.TInt(_, Semantic.ISize) ->
+            match arch.PtrSize with
+            | 4 -> I32
+            | 8 -> I64
+            | _ -> failwith "Not Implemented"
+            |> TInt
+        | Semantic.TFloat Semantic.F32 -> TFloat F32
+        | Semantic.TFloat Semantic.F64 -> TFloat F64
+        | Semantic.TChar -> TInt I128
+        | Semantic.TRef t -> TRef(Type.FromTy semantic arch t)
+        | Semantic.TFn f -> failwith "Not Implemented"
+        | Semantic.TTuple t -> t |> Array.map (Type.FromTy semantic arch) |> TMany
+        | Semantic.TStruct(s, p) ->
+            let strukt = semantic.Struct[s]
+            failwith "Not Implemented"
+        | Semantic.TEnum(e, p) ->
+            let enum = semantic.Enum[e]
+            failwith "Not Implemented"
+        | Semantic.TNever
+        | Semantic.TVar _ -> failwith "unreachable"

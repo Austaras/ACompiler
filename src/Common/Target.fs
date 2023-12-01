@@ -10,6 +10,7 @@ type Arch =
       I8Align: int
       I32Align: int
       I64Align: int
+      I128Align: int
       F32Align: int
       F64Align: int
       PtrAlign: int
@@ -22,6 +23,7 @@ type Arch =
           I8Align = 1
           I32Align = 4
           I64Align = 8
+          I128Align = 8
           F32Align = 4
           F64Align = 8
           PtrAlign = 8 }
@@ -33,6 +35,7 @@ type Arch =
           I8Align = 1
           I32Align = 4
           I64Align = 8
+          I128Align = 8
           F32Align = 4
           F64Align = 8
           PtrAlign = 8 }
@@ -44,6 +47,7 @@ type Arch =
           I8Align = 1
           I32Align = 4
           I64Align = 8
+          I128Align = 8
           F32Align = 4
           F64Align = 8
           PtrAlign = 4 }
