@@ -5,7 +5,7 @@ struct Tree<T> {
 }
 
 impl<T: Add> Tree<T> {
-    fn sum(&self) -> usize {
+    fn sum(&self) -> uint {
         let mut res = self.val
 
         if let Some(l) = self.left {

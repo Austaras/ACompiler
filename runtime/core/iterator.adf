@@ -11,7 +11,7 @@ pub trait DoubleEndedIterator: Iterator {
 
 pub trait ExactSizeIterator: Iterator {
     // Required methods
-    fn len(&self) -> usize
+    fn len(&self) -> uint
 
     fn is_empty(&self) -> bool { 
         self.len == 0

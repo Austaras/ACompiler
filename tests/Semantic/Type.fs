@@ -28,10 +28,16 @@ let runInfer input name =
 
     Assert.Empty checker.GetError
 
+    let isFn (id: AST.Id, t) =
+        match t with
+        | TFn _ -> id.Sym <> "main"
+        | _ -> false
+
     let reform (key: AST.Id, value: Type) = key.Sym, value.ToString
 
     (checker.GetInfo.Var
      |> Seq.map (|KeyValue|)
+     |> Seq.filter isFn
      |> Seq.map reform
      |> Map.ofSeq
      |> Json.serialize)
@@ -49,11 +55,7 @@ let Closure () =
     runInfer
         "
     fn equal(x) {
-        fn equal1(y) {
-            x == y
-        }
-
-        equal1
+        |y| x == y
     }
     "
         "Curry"
@@ -97,7 +99,7 @@ let Reference () =
     runInfer
         "
     struct Foo {
-        f: usize
+        f: uint
     }
 
     fn get_f(f) { &f.f }
@@ -127,7 +129,7 @@ let ADT () =
     runInfer
         "
         struct Foo {
-            b: usize
+            b: uint
         }
 
         fn foo(f: &Foo) {
@@ -150,7 +152,7 @@ let ADT () =
         f: T
     }
     
-    fn foo(f: Foo<_>) -> usize {
+    fn foo(f: Foo<_>) -> uint {
         f.f
     }
     "
@@ -257,7 +259,7 @@ let Match () =
         "
         fn foo(f) {
             match f {
-                true => |t, f| t,
+                true => |t, f| -> uint t,
                 false => |t, f| f
             }
         }

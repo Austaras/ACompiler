@@ -1,26 +1,12 @@
 {
   "Fib": {
-    "fib": "|isize| -> isize",
-    "n": "isize"
+    "fib": "|int| -> int"
   },
   "Enum": {
-    "e": "Either<isize,f64>",
-    "f": "f64",
-    "i": "isize",
-    "is_zero": "|Either<isize,f64>| -> bool"
+    "is_zero": "|Either<int,f64>| -> bool"
   },
-  "ValueRestriction": {
-    "main": "|| -> ()",
-    "o": "Option<isize>"
-  },
-  "ClosureUnion": {
-    "f": "Tt",
-    "foo": "|bool| -> |Tt, Tt| -> Tt",
-    "t": "Tt"
-  },
+  "ValueRestriction": {},
   "Closure": {
-    "f": "Tt",
-    "foo": "|bool| -> |Tt, Tt| -> Tt",
-    "t": "Tt"
+    "foo": "|bool| -> |uint, uint| -> uint"
   }
 }

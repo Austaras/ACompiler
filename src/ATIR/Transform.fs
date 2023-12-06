@@ -110,6 +110,9 @@ type internal ExpRes =
 
 let transform (arch: Arch) (sema: Semantic.SemanticInfo) (ast: AST.Module) =
 
-    let transformExp (exp: AST.Expr) = 456
+    let transformExp (exp: AST.Expr) =
+        match exp with
+        | AST.Binary b -> ()
+        | _ -> ()
 
     123

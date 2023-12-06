@@ -28,6 +28,7 @@ Test out various compiler technology with a toy compiler for a toy language **in
    - [ ] template string
    - [ ] effect system. Algebraic effect?
    - [ ] const generic
+   - [ ] refinement type
    - [ ] GC
    - [ ] macro
    - [ ] curry and pipe

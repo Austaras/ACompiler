@@ -1,24 +1,17 @@
 {
   "Struct": {
-    "add": "|Point3D| -> isize",
-    "p": "Point3D"
+    "add": "|Point3D| -> int"
   },
   "AutoDeref": {
-    "f": "Foo",
     "foo": "|Foo| -> &Foo"
   },
   "DerefParam": {
-    "f": "&Foo",
-    "foo": "|&Foo| -> usize"
+    "foo": "|&Foo| -> uint"
   },
   "Tuple": {
-    "a": "isize",
-    "b": "isize",
-    "c": "isize",
-    "foo": "|(isize, isize, isize)| -> bool"
+    "foo": "|(int, int, int)| -> bool"
   },
   "InferedType": {
-    "f": "Foo<usize>",
-    "foo": "|Foo<usize>| -> usize"
+    "foo": "|Foo<uint>| -> uint"
   }
 }

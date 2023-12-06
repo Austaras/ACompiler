@@ -11,7 +11,7 @@ impl<T> Array<T> {
         }
     }
 
-    pub fn with_capacity(n: usize) {
+    pub fn with_capacity(n: uint) {
         Self {
             inner: RawArray::malloc(n)
         }
@@ -39,7 +39,7 @@ impl<T> Array<T> {
         }
     }
 
-    pub fn reserve(&self, n: usize) {
+    pub fn reserve(&self, n: uint) {
         if self.inner.cap < n {
             self.inner.realloc(n)
         }

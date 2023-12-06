@@ -29,4 +29,4 @@ let Path () =
 [<Fact>]
 let Arr () =
     (parseTest "&[&[i32];4]").ShouldMatchChildSnapshot("Slice")
-    (parseTest "&&[usize]").ShouldMatchChildSnapshot("Ref")
+    (parseTest "&&[uint]").ShouldMatchChildSnapshot("Ref")

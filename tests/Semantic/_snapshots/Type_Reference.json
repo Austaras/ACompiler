@@ -1,10 +1,8 @@
 {
   "Reference": {
-    "a": "&isize",
-    "deref": "|&isize| -> isize"
+    "deref": "|&int| -> int"
   },
   "RefField": {
-    "f": "Foo",
-    "get_f": "|Foo| -> &usize"
+    "get_f": "|Foo| -> &uint"
   }
 }

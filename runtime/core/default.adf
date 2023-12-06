@@ -8,7 +8,7 @@ impl Default for bool {
     }
 }
 
-impl Default for usize {
+impl Default for uint {
     fn default() {
         0
     }

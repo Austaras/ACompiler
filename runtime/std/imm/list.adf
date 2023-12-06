@@ -6,7 +6,7 @@ pub enum List<T> {
 pub use List::*
 
 impl<T> List<T> {
-    pub fn len(self) -> usize {
+    pub fn len(self) -> uint {
         fn aux(list, len) {
             match list {
                 Empty => len,

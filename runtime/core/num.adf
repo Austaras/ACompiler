@@ -1,16 +1,16 @@
 // #[compiler_builtin::range_start=1]
 struct NonZeroUSize {
-    inner: usize
+    inner: uint
 }
 
 impl NonZeroUSize {
-    pub fn new_unchecked(i: usize) -> Self {
+    pub fn new_unchecked(i: uint) -> Self {
         Self {
             inner: i
         }
     }
 
-    pub fn add(self, count: usize) -> Self {
+    pub fn add(self, count: uint) -> Self {
         Self {
             inner: self.inner + count
         }

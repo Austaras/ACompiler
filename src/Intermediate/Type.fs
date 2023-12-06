@@ -21,6 +21,7 @@ and Type =
     | TFloat of Float
     | TFn of Function
     | TRef of Type
+    | TSame of Type * int
     | TMany of Type[]
 
     member internal this.SizeAndAlign(arch: Arch) =
@@ -34,6 +35,10 @@ and Type =
         | TFloat F64 -> 8, arch.F64Align
         | TFn _
         | TRef _ -> arch.PtrSize, arch.PtrAlign
+        | TSame(s, n) ->
+            let size, align = s.SizeAndAlign arch
+
+            size * n, align
         | TMany ty ->
             let sum (size, align) (ty: Type) =
                 let s, a = ty.SizeAndAlign arch
