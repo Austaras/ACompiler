@@ -4,7 +4,7 @@ type Endian =
     | LittleEndian
     | BigEndian
 
-type Arch =
+type Layout =
     { PtrSize: int
       I1Align: int
       I8Align: int
@@ -16,41 +16,51 @@ type Arch =
       PtrAlign: int
       Endian: Endian }
 
-    static member X86_64 =
-        { PtrSize = 8
-          Endian = LittleEndian
-          I1Align = 1
-          I8Align = 1
-          I32Align = 4
-          I64Align = 8
-          I128Align = 8
-          F32Align = 4
-          F64Align = 8
-          PtrAlign = 8 }
+type Arch =
+    | X86_64
+    | AArch64
+    | RiscV64
+    | Wasm
 
-    static member AArch64 =
-        { PtrSize = 8
-          Endian = LittleEndian
-          I1Align = 1
-          I8Align = 1
-          I32Align = 4
-          I64Align = 8
-          I128Align = 8
-          F32Align = 4
-          F64Align = 8
-          PtrAlign = 8 }
+    member this.Layout =
+        match this with
+        | X86_64 ->
+            { PtrSize = 8
+              Endian = LittleEndian
+              I1Align = 1
+              I8Align = 1
+              I32Align = 4
+              I64Align = 8
+              I128Align = 8
+              F32Align = 4
+              F64Align = 8
+              PtrAlign = 8 }
 
-    static member Wasm =
-        { PtrSize = 4
-          Endian = LittleEndian
-          I1Align = 1
-          I8Align = 1
-          I32Align = 4
-          I64Align = 8
-          I128Align = 8
-          F32Align = 4
-          F64Align = 8
-          PtrAlign = 4 }
+        | AArch64 ->
+            { PtrSize = 8
+              Endian = LittleEndian
+              I1Align = 1
+              I8Align = 1
+              I32Align = 4
+              I64Align = 8
+              I128Align = 8
+              F32Align = 4
+              F64Align = 8
+              PtrAlign = 8 }
+
+        | RiscV64 -> failwith "123"
+
+        | Wasm ->
+            { PtrSize = 4
+              Endian = LittleEndian
+              I1Align = 1
+              I8Align = 1
+              I32Align = 4
+              I64Align = 8
+              I128Align = 8
+              F32Align = 4
+              F64Align = 8
+              PtrAlign = 4 }
 
 type OS =
     | Linux

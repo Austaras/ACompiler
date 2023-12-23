@@ -1,4 +1,4 @@
-module Intermediate.Op
+module FLIR.Op
 
 type BinOp =
     | Add

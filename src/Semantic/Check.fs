@@ -163,19 +163,19 @@ type internal PatMode =
     | CondPat
     | LetPat of LetPat
 
-type TypeCheck(moduleMap: Map<string, ModuleType>) =
+let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
     let mutable scopeId = 0
 
     let sema = SemanticInfo.Create()
 
-    let tyUnion = TyUnion()
+    let union = TyUnion()
     let error = ResizeArray<Error>()
 
-    member internal _.NewScope scopeData =
+    let newScope scopeData =
         scopeId <- scopeId + 1
         Scope.Empty scopeId scopeData
 
-    member internal this.ProcessTy (scope: ActiveScope) ty =
+    let rec checkType (scope: ActiveScope) ty =
         let resolve id =
             match scope.ResolveTy id with
             | Some ty -> ty
@@ -192,7 +192,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
 
             let id, ty = p.Seg[0]
 
-            let instType = Array.map (this.ProcessTy scope) ty
+            let instType = Array.map (checkType scope) ty
 
             let container = resolve id
 
@@ -203,8 +203,8 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                 error.Add(GenericMismatch(container, instType, p.Span))
 
                 TNever
-        | TupleType t -> TTuple(Array.map (this.ProcessTy scope) t.Ele)
-        | RefType r -> TRef(this.ProcessTy scope r.Ty)
+        | TupleType t -> TTuple(Array.map (checkType scope) t.Ele)
+        | RefType r -> TRef(checkType scope r.Ty)
         | InferedType span ->
             let newTVar = scope.Current.NewTVar None span
 
@@ -213,7 +213,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
         | ArrayType _ -> failwith "Not Implemented"
         | FnType _ -> failwith "Not Implemented"
 
-    member internal this.ProcessPat (scope: ActiveScope) mode pat ty =
+    let checkPat (scope: ActiveScope) mode pat ty =
         let mut, mayShadow, isCond =
             match mode with
             | LetPat { Mut = mut; Static = static_ } -> mut, not static_, false
@@ -384,7 +384,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
             currScope.AddVar(id, mut)
             sema.Var[id] <- ty
 
-    member internal this.ProcessHoistedDecl (scope: ActiveScope) (decl: seq<Decl>) =
+    let rec hoistDecl (scope: ActiveScope) (decl: seq<Decl>) =
         let currScope = scope.Current
 
         let topLevel =
@@ -443,7 +443,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
             | StructDecl s ->
                 let scope, tvar =
                     if s.TyParam.Length > 0 then
-                        let newScope = this.NewScope TypeScope
+                        let newScope = newScope TypeScope
 
                         let processParam (param: TypeParam) =
                             let newTVar = newScope.NewTVar (Some param.Id.Sym) param.Id.Span
@@ -462,7 +462,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                     if Map.containsKey name m then
                         error.Add(DuplicateField field.Name)
 
-                    Map.add name (this.ProcessTy scope field.Ty) m
+                    Map.add name (checkType scope field.Ty) m
 
                 let field = Array.fold processField Map.empty s.Field
 
@@ -476,7 +476,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
             | EnumDecl e ->
                 let scope, tvar =
                     if e.TyParam.Length > 0 then
-                        let newScope = this.NewScope TypeScope
+                        let newScope = newScope TypeScope
 
                         let processParam (param: TypeParam) =
                             let newTVar = newScope.NewTVar (Some param.Id.Sym) param.Id.Span
@@ -495,7 +495,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                     if Map.containsKey name m then
                         error.Add(DuplicateVariant variant.Id)
 
-                    let payload = Array.map (this.ProcessTy scope) variant.Payload
+                    let payload = Array.map (checkType scope) variant.Payload
 
                     Map.add name payload m
 
@@ -508,7 +508,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
 
                 sema.Enum[e.Id] <- enum
 
-            | TypeDecl t -> currScope.Ty[t.Name.Sym] <- this.ProcessTy scope t.Ty
+            | TypeDecl t -> currScope.Ty[t.Name.Sym] <- checkType scope t.Ty
 
             | Use _ -> failwith "Not Implemented"
             | Trait _ -> failwith "Not Implemented"
@@ -525,7 +525,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
 
                 currScope.AddVar f.Name
 
-                let newScope = this.NewScope TypeScope
+                let newScope = newScope TypeScope
 
                 let tvar =
                     let processParam (param: TypeParam) =
@@ -541,7 +541,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
 
                 let paramTy (p: Param) =
                     match p.Ty with
-                    | Some ty -> this.ProcessTy scope ty
+                    | Some ty -> checkType scope ty
                     | None ->
                         let sym =
                             match p.Pat with
@@ -556,7 +556,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
 
                 let ret =
                     match f.Ret with
-                    | Some ty -> this.ProcessTy scope ty
+                    | Some ty -> checkType scope ty
                     | None -> TVar(newScope.NewTVar None f.Span)
 
                 let newScope =
@@ -576,7 +576,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
             | Let l ->
                 let ty =
                     match l.Ty with
-                    | Some ty -> this.ProcessTy scope ty
+                    | Some ty -> checkType scope ty
                     | None ->
                         let sym =
                             match l.Pat with
@@ -588,16 +588,16 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                         TVar newTVar
 
                 valueMap.Add(l.Pat, ty)
-                this.ProcessPat scope (LetPat { Mut = l.Mut; Static = true }) l.Pat ty
+                checkPat scope (LetPat { Mut = l.Mut; Static = true }) l.Pat ty
             | _ -> ()
 
         for item in staticItem do
             match item with
             | FnDecl f ->
                 let newScope = scope.WithNew scopeMap[f]
-                this.ProcessFn newScope f
+                checkFn newScope f
             | Let l ->
-                let value = this.ProcessExpr scope l.Value
+                let value = checkExpr scope l.Value
 
                 currScope.Constr.Add(
                     CNormal
@@ -607,15 +607,15 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                 )
             | _ -> ()
 
-    member internal this.ProcessDecl (scope: ActiveScope) d =
+    and checkDecl (scope: ActiveScope) d =
         match d with
         | Let l ->
-            let value = this.ProcessExpr scope l.Value
+            let value = checkExpr scope l.Value
 
             let ty =
                 match l.Ty with
                 | Some ty ->
-                    let ty = this.ProcessTy scope ty
+                    let ty = checkType scope ty
 
                     scope.Current.Constr.Add(
                         CNormal
@@ -627,7 +627,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                     ty
                 | None -> value
 
-            this.ProcessPat scope (LetPat { Mut = l.Mut; Static = false }) l.Pat ty
+            checkPat scope (LetPat { Mut = l.Mut; Static = false }) l.Pat ty
 
         | Const _ -> failwith "Not Implemented"
         | Use _ -> failwith "Not Implemented"
@@ -638,7 +638,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
         | Trait _
         | Impl _ -> ()
 
-    member internal this.ProcessCond (scope: ActiveScope) cond block =
+    and checkCond (scope: ActiveScope) cond block =
         let currScope = scope.Current
 
         match cond with
@@ -646,25 +646,25 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
             currScope.Constr.Add(
                 CNormal
                     { Expect = TBool
-                      Actual = this.ProcessExpr scope b
+                      Actual = checkExpr scope b
                       Span = b.Span }
             )
 
-            this.ProcessBlock scope block
+            checkBlock scope block
         | LetCond c ->
-            let value = this.ProcessExpr scope c.Value
-            let newScope = this.NewScope BlockScope
+            let value = checkExpr scope c.Value
+            let newScope = newScope BlockScope
             let scope = scope.WithNew newScope
 
-            this.ProcessPat scope CondPat c.Pat value
+            checkPat scope CondPat c.Pat value
 
-            let ty = this.ProcessBlock scope block
+            let ty = checkBlock scope block
 
-            this.Unify newScope
+            unify newScope
 
-            tyUnion.Resolve ty
+            union.Resolve ty
 
-    member internal this.ProcessExpr (scope: ActiveScope) e =
+    and checkExpr (scope: ActiveScope) e =
         let currScope = scope.Current
 
         match e with
@@ -704,8 +704,8 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                 | t -> t
 
         | Binary b ->
-            let l = this.ProcessExpr scope b.Left
-            let r = this.ProcessExpr scope b.Right
+            let l = checkExpr scope b.Left
+            let r = checkExpr scope b.Right
 
             match b.Op with
             | Arithmetic(LogicalAnd | LogicalOr) ->
@@ -768,10 +768,10 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
             | NegInt _ -> failwith "Unreachable"
 
         | If i ->
-            let then_ = this.ProcessCond scope i.Cond i.Then
+            let then_ = checkCond scope i.Cond i.Then
 
             for br in i.ElseIf do
-                let elseif = this.ProcessCond scope br.Cond br.Block
+                let elseif = checkCond scope br.Cond br.Block
 
                 currScope.Constr.Add(
                     CNormal
@@ -782,7 +782,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
 
             match i.Else with
             | Some else_ ->
-                let else_ = this.ProcessBlock scope else_
+                let else_ = checkBlock scope else_
 
                 currScope.Constr.Add(
                     CNormal
@@ -800,29 +800,29 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
 
             then_
         | Match m ->
-            let value = this.ProcessExpr scope m.expr
+            let value = checkExpr scope m.expr
 
             let typeOfBranch (br: MatchBranch) =
-                let newScope = this.NewScope BlockScope
+                let newScope = newScope BlockScope
                 let scope = scope.WithNew newScope
 
-                this.ProcessPat scope CondPat br.Pat value
+                checkPat scope CondPat br.Pat value
 
                 match br.Guard with
                 | Some g ->
                     newScope.Constr.Add(
                         CNormal
-                            { Actual = this.ProcessExpr scope g
+                            { Actual = checkExpr scope g
                               Expect = TBool
                               Span = g.Span }
                     )
                 | None -> ()
 
-                let brTy = this.ProcessExpr scope br.Expr
+                let brTy = checkExpr scope br.Expr
 
-                this.Unify newScope
+                unify newScope
 
-                tyUnion.Resolve brTy
+                union.Resolve brTy
 
             if Array.length m.branch = 0 then
                 UnitType
@@ -841,11 +841,11 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
 
                 first
 
-        | Block b -> this.ProcessBlock scope b
+        | Block b -> checkBlock scope b
         | Call c ->
-            let callee = this.ProcessExpr scope c.Callee
+            let callee = checkExpr scope c.Callee
 
-            let arg = Array.map (this.ProcessExpr scope) c.Arg
+            let arg = Array.map (checkExpr scope) c.Arg
             let ret = TVar(currScope.NewTVar None c.Span)
 
             currScope.Constr.Add(
@@ -862,7 +862,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                 currScope.Constr.Add(
                     CNormal
                         { Expect = TBool
-                          Actual = this.ProcessExpr scope u.Expr
+                          Actual = checkExpr scope u.Expr
                           Span = u.Span }
                 )
 
@@ -871,7 +871,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                 currScope.Constr.Add(
                     CNormal
                         { Expect = TInt(true, ISize)
-                          Actual = this.ProcessExpr scope u.Expr
+                          Actual = checkExpr scope u.Expr
                           Span = u.Span }
                 )
 
@@ -885,7 +885,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                     | Unary { Op = Deref; Expr = expr } -> getVar expr
                     | _ -> None
 
-                TRef(this.ProcessExpr scope u.Expr)
+                TRef(checkExpr scope u.Expr)
             | Deref ->
                 let sym =
                     match u.Expr with
@@ -897,14 +897,14 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                 currScope.Constr.Add(
                     CNormal
                         { Expect = TRef ptr
-                          Actual = this.ProcessExpr scope u.Expr
+                          Actual = checkExpr scope u.Expr
                           Span = u.Span }
                 )
 
                 ptr
         | Assign a ->
-            let value = this.ProcessExpr scope a.Value
-            let place = this.ProcessExpr scope a.Place
+            let value = checkExpr scope a.Value
+            let place = checkExpr scope a.Place
 
             currScope.Constr.Add(
                 CNormal
@@ -932,7 +932,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
 
             UnitType
         | Field f ->
-            let receiver = this.ProcessExpr scope f.Receiver
+            let receiver = checkExpr scope f.Receiver
             let key = f.Prop.Sym
 
             match receiver with
@@ -973,11 +973,11 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
         | Array(_) -> failwith "Not Implemented"
         | ArrayRepeat(_) -> failwith "Not Implemented"
         | StructLit(_) -> failwith "Not Implemented"
-        | Tuple s -> Array.map (this.ProcessExpr scope) s.element |> TTuple
+        | Tuple s -> s.element |> Array.map (checkExpr scope) |> TTuple
         | Closure c ->
             let paramTy (p: Param) =
                 match p.Ty with
-                | Some ty -> this.ProcessTy scope ty
+                | Some ty -> checkType scope ty
                 | None ->
                     let sym =
                         match p.Pat with
@@ -992,17 +992,17 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
 
             let retTy =
                 match c.Ret with
-                | Some ty -> this.ProcessTy scope ty
+                | Some ty -> checkType scope ty
                 | None -> TVar(currScope.NewTVar None c.Span)
 
-            let closureScope = this.NewScope(FnScope { Fn = Right c; Ret = retTy })
+            let closureScope = newScope (FnScope { Fn = Right c; Ret = retTy })
 
             let scope = scope.WithNew closureScope
 
             for (param, ty) in Array.zip c.Param paramTy do
-                this.ProcessPat scope ParamPat param.Pat ty
+                checkPat scope ParamPat param.Pat ty
 
-            let ret = this.ProcessExpr scope c.Body
+            let ret = checkExpr scope c.Body
 
             closureScope.Constr.Add(
                 CNormal
@@ -1011,9 +1011,9 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                       Span = c.Span }
             )
 
-            this.Unify closureScope
+            unify closureScope
 
-            let resolve ty = tyUnion.Resolve ty
+            let resolve ty = union.Resolve ty
 
             TFn
                 { Param = Array.map resolve paramTy
@@ -1076,7 +1076,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
 
             let ty =
                 match r.Value with
-                | Some v -> this.ProcessExpr scope v
+                | Some v -> checkExpr scope v
                 | None -> UnitType
 
             currScope.Constr.Add(
@@ -1090,13 +1090,13 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
         | Range(_) -> failwith "Not Implemented"
         | For(_) -> failwith "Not Implemented"
         | While w ->
-            let _ = this.ProcessCond scope w.Cond w.Body
+            let _ = checkCond scope w.Cond w.Body
 
             UnitType
         | TryReturn(_) -> failwith "Not Implemented"
 
-    member internal this.ProcessBlock (scope: ActiveScope) (b: Block) =
-        let blockScope = this.NewScope BlockScope
+    and checkBlock (scope: ActiveScope) (b: Block) =
+        let blockScope = newScope BlockScope
 
         let scope = scope.WithNew blockScope
 
@@ -1107,23 +1107,23 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
 
         let decl = Seq.choose chooseDecl b.Stmt
 
-        this.ProcessHoistedDecl scope decl
+        hoistDecl scope decl
 
         let typeof _ stmt =
             match stmt with
             | DeclStmt d ->
-                this.ProcessDecl scope d
+                checkDecl scope d
 
                 UnitType
-            | ExprStmt e -> this.ProcessExpr scope e
+            | ExprStmt e -> checkExpr scope e
 
         let ty = Array.fold typeof UnitType b.Stmt
 
-        this.Unify blockScope
+        unify blockScope
 
-        tyUnion.Resolve ty
+        union.Resolve ty
 
-    member internal this.ProcessFn (scope: ActiveScope) (f: Fn) =
+    and checkFn (scope: ActiveScope) (f: Fn) =
         let fnTy =
             match sema.Var[f.Name] with
             | TFn f -> f
@@ -1132,9 +1132,9 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
         let currScope = scope.Current
 
         for (param, ty) in Array.zip f.Param fnTy.Param do
-            this.ProcessPat scope ParamPat param.Pat ty
+            checkPat scope ParamPat param.Pat ty
 
-        let ret = this.ProcessBlock scope f.Body
+        let ret = checkBlock scope f.Body
 
         currScope.Constr.Add(
             CNormal
@@ -1143,21 +1143,21 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                   Span = f.Name.Span }
         )
 
-        this.Unify currScope
+        unify currScope
 
         let generalize ty =
-            match tyUnion.Resolve ty with
+            match union.Resolve ty with
             | TFn f -> TFn(f.Generalize scope.Current.Id)
             | _ -> failwith "Unreachable"
 
         let oldTy = sema.Var[f.Name]
         sema.Var[f.Name] <- generalize oldTy
 
-    member internal this.Unify scope =
+    and unify scope =
         let rec unifyNormal c deref =
             let addUnion v ty =
-                match tyUnion.TryFind v with
-                | None -> tyUnion.Add v ty
+                match union.TryFind v with
+                | None -> union.Add v ty
                 | Some prev ->
                     unifyNormal
                         { Expect = ty
@@ -1165,7 +1165,7 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
                           Span = c.Span }
                         deref
 
-                    tyUnion.Add v (tyUnion.Resolve prev)
+                    union.Add v (union.Resolve prev)
 
             match c.Expect, c.Actual with
             | p1, p2 when p1 = p2 -> ()
@@ -1242,22 +1242,18 @@ type TypeCheck(moduleMap: Map<string, ModuleType>) =
             | CNormal c -> unifyNormal c false
             | CDeref c -> unifyNormal c true
 
-    member this.Check m =
-        let topLevel = this.NewScope TopLevelScope
-        let scope = { Scope = [| Scope.Prelude; topLevel |] }
 
-        let getDecl m = m.Decl
+    let topLevel = newScope TopLevelScope
+    let scope = { Scope = [| Scope.Prelude; topLevel |] }
 
-        let decl = Array.map getDecl m.Item
+    let decl = m.Item |> Array.map _.Decl
 
-        this.ProcessHoistedDecl scope decl
+    hoistDecl scope decl
 
-        this.Unify topLevel
+    unify topLevel
 
-        for id in sema.Var.Keys do
-            let oldTy = sema.Var[id]
-            sema.Var[id] <- tyUnion.Resolve oldTy
+    for id in sema.Var.Keys do
+        let oldTy = sema.Var[id]
+        sema.Var[id] <- union.Resolve oldTy
 
-    member _.GetInfo = sema
-
-    member _.GetError = error
+    sema, Array.ofSeq error

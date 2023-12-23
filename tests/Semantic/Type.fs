@@ -1,5 +1,7 @@
 module Semantic.Tests.Type
 
+open System.Collections.Generic
+
 open FSharp.Json
 open Snapper
 open System.IO
@@ -22,11 +24,9 @@ let runInfer input name =
         | Ok m -> m
         | Error(e, _) -> failwithf "parse error %A" e
 
-    let checker = TypeCheck(Map.empty)
+    let sema, error = typeCheck (Dictionary()) m
 
-    checker.Check m
-
-    Assert.Empty checker.GetError
+    Assert.Empty error
 
     let isFn (id: AST.Id, t) =
         match t with
@@ -35,7 +35,7 @@ let runInfer input name =
 
     let reform (key: AST.Id, value: Type) = key.Sym, value.ToString
 
-    (checker.GetInfo.Var
+    (sema.Var
      |> Seq.map (|KeyValue|)
      |> Seq.filter isFn
      |> Seq.map reform

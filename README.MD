@@ -23,12 +23,13 @@ Test out various compiler technology with a toy compiler for a toy language **in
 4. Focus on performance and optimization
    - no auto boxing, provide general reference type(s) tracked by GC
    - user can roll their own container like in Rust
-5. suffix is .adf which stands for Advanced Dominance Functional language
+5. suffix is .adf which stands for **A**dvanced **D**ominance **F**unctional language
 6. Major decisions TODO
    - [ ] template string
    - [ ] effect system. Algebraic effect?
    - [ ] const generic
    - [ ] refinement type
+   - [ ] ABI
    - [ ] GC
    - [ ] macro
    - [ ] curry and pipe

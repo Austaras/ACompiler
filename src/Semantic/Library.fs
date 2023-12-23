@@ -19,10 +19,11 @@ type Float =
 
 type Function =
     {
-      // type variables waiting to be instantiated
-      TVar: Var[]
-      Param: Type[]
-      Ret: Type }
+        /// type variables waiting to be instantiated
+        TVar: Var[]
+        Param: Type[]
+        Ret: Type
+    }
 
     member this.Generalize scopeId =
         let ofScope (v: Var) = v.Scope = scopeId
@@ -187,21 +188,26 @@ and Type =
 let UnitType = TTuple [||]
 
 type ModuleType =
-    { ty: Map<string, Type>
-      var: Map<string, Type>
-      module_: Map<string, ModuleType> }
+    { Ty: Map<string, Type>
+      Var: Map<string, Type>
+      Module: Map<string, ModuleType> }
 
 type SemanticInfo =
     { Var: Dictionary<Id, Type>
       Struct: Dictionary<Id, Struct>
       Enum: Dictionary<Id, Enum>
-      Capture: MultiMap<Either<Fn, Closure>, Id> }
+      Capture: MultiMap<Either<Fn, Closure>, Id>
+      Module: ModuleType }
 
     static member Create() =
         { Var = Dictionary(HashIdentity.Reference)
           Struct = Dictionary(HashIdentity.Reference)
           Enum = Dictionary(HashIdentity.Reference)
-          Capture = MultiMap() }
+          Capture = MultiMap()
+          Module =
+            { Ty = Map.empty
+              Var = Map.empty
+              Module = Map.empty } }
 
 type Error =
     | Undefined of Id

@@ -1,5 +1,7 @@
 module Semantic.Tests.Capture
 
+open System.Collections.Generic
+
 open FSharp.Json
 open Snapper
 open Xunit
@@ -24,11 +26,9 @@ let runCheck input name =
         | Ok m -> m
         | Error(e, _) -> failwithf "parse error %A" e
 
-    let checker = TypeCheck(Map.empty)
+    let sema, error = typeCheck (Dictionary()) m
 
-    checker.Check m
-
-    Assert.Empty checker.GetError
+    Assert.Empty error
 
     let mutable cid = 0
 
@@ -43,7 +43,7 @@ let runCheck input name =
 
         key, Array.ofSeq value
 
-    (checker.GetInfo.Capture
+    (sema.Capture
      |> Seq.map (|KeyValue|)
      |> Seq.map reform
      |> Map.ofSeq

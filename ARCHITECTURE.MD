@@ -18,14 +18,5 @@
    - lambda lifting
    - monotyped
    - register based
-   - basic block
-   - De Bruijn index
-
-5. ATIR, which stands for A Tiger Intermediate Representation
-
-   [ATIR](./src/ATIR)
-
-   - originates from Tiger Book
-   - tree style
-   - stack based
-   - subject to be removed
+   - linear with basic block
+   - SSA

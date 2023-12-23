@@ -4,6 +4,8 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
+    <Compile Include="Op.fs" />
+    <Compile Include="Type.fs" />
     <Compile Include="Library.fs" />
     <Compile Include="Transform.fs" />
   </ItemGroup>
@@ -11,6 +13,5 @@
     <ProjectReference Include="..\Common\Common.fsproj" />
     <ProjectReference Include="..\AST\AST.fsproj" />
     <ProjectReference Include="..\Semantic\Semantic.fsproj" />
-    <ProjectReference Include="..\Intermediate\Intermediate.fsproj" />
   </ItemGroup>
 </Project>

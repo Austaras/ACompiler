@@ -1,4 +1,4 @@
-module Intermediate.Type
+module FLIR.Type
 
 open Common.Target
 open Semantic
@@ -24,24 +24,24 @@ and Type =
     | TSame of Type * int
     | TMany of Type[]
 
-    member internal this.SizeAndAlign(arch: Arch) =
+    member internal this.SizeAndAlign(layout: Layout) =
         match this with
-        | TInt I1 -> 1, arch.I1Align
-        | TInt I8 -> 1, arch.I8Align
-        | TInt I32 -> 4, arch.I32Align
-        | TFloat F32 -> 4, arch.F32Align
-        | TInt I64 -> 8, arch.I64Align
-        | TInt I128 -> 16, arch.I64Align
-        | TFloat F64 -> 8, arch.F64Align
+        | TInt I1 -> 1, layout.I1Align
+        | TInt I8 -> 1, layout.I8Align
+        | TInt I32 -> 4, layout.I32Align
+        | TFloat F32 -> 4, layout.F32Align
+        | TInt I64 -> 8, layout.I64Align
+        | TInt I128 -> 16, layout.I64Align
+        | TFloat F64 -> 8, layout.F64Align
         | TFn _
-        | TRef _ -> arch.PtrSize, arch.PtrAlign
+        | TRef _ -> layout.PtrSize, layout.PtrAlign
         | TSame(s, n) ->
-            let size, align = s.SizeAndAlign arch
+            let size, align = s.SizeAndAlign layout
 
             size * n, align
         | TMany ty ->
             let sum (size, align) (ty: Type) =
-                let s, a = ty.SizeAndAlign arch
+                let s, a = ty.SizeAndAlign layout
 
                 let padding = if size % a = 0 then 0 else s - size % s
 
@@ -51,32 +51,32 @@ and Type =
 
             Array.fold sum (0, 0) ty
 
-    member this.Size(arch: Arch) =
-        let size, align = this.SizeAndAlign arch
+    member this.Size(layout: Layout) =
+        let size, align = this.SizeAndAlign layout
 
         if size % align = 0 then
             size
         else
             (size / align + 1) * align
 
-    member this.Align(arch: Arch) = snd (this.SizeAndAlign arch)
+    member this.Align(layout: Layout) = snd (this.SizeAndAlign layout)
 
-    member this.OptLayout(arch: Arch) =
+    member this.OptLayout(layout: Layout) =
         match this with
         | TMany t ->
-            let t = t |> Array.sortByDescending _.Size(arch)
+            let t = t |> Array.sortByDescending _.Size(layout)
 
             TMany t
         | t -> t
 
-    static member FromTy (semantic: Semantic.SemanticInfo) (arch: Arch) (ty: Semantic.Type) =
+    static member FromSema (semantic: Semantic.SemanticInfo) (layout: Layout) (ty: Semantic.Type) =
         match ty with
         | Semantic.TBool -> TInt I1
         | Semantic.TInt(_, Semantic.I8) -> TInt I8
         | Semantic.TInt(_, Semantic.I32) -> TInt I32
         | Semantic.TInt(_, Semantic.I64) -> TInt I64
         | Semantic.TInt(_, Semantic.ISize) ->
-            match arch.PtrSize with
+            match layout.PtrSize with
             | 4 -> I32
             | 8 -> I64
             | _ -> failwith "Not Implemented"
@@ -84,12 +84,16 @@ and Type =
         | Semantic.TFloat Semantic.F32 -> TFloat F32
         | Semantic.TFloat Semantic.F64 -> TFloat F64
         | Semantic.TChar -> TInt I128
-        | Semantic.TRef t -> TRef(Type.FromTy semantic arch t)
+        | Semantic.TRef t -> TRef(Type.FromSema semantic layout t)
         | Semantic.TFn f -> failwith "Not Implemented"
-        | Semantic.TTuple t -> t |> Array.map (Type.FromTy semantic arch) |> TMany
+        | Semantic.TTuple t -> t |> Array.map (Type.FromSema semantic layout) |> TMany
         | Semantic.TStruct(s, p) ->
             let strukt = semantic.Struct[s]
-            failwith "Not Implemented"
+
+            let trans (ty: Semantic.Type) =
+                ty.Instantiate strukt.TVar p |> Type.FromSema semantic layout
+
+            strukt.Field.Values |> Seq.map trans |> Array.ofSeq |> TMany
         | Semantic.TEnum(e, p) ->
             let enum = semantic.Enum[e]
             failwith "Not Implemented"
