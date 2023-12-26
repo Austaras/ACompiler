@@ -350,7 +350,7 @@ let internal lex_inner offset (input: string) =
                 withNewToken token j
 
             | '+' -> maybeAssign AST.Add
-            | '%' -> maybeAssign AST.Mod
+            | '%' -> maybeAssign AST.Rem
             | '^' -> maybeAssign AST.BitXor
 
             | '*' -> maybeAssign AST.Mul
@@ -528,7 +528,7 @@ let internal lex_inner offset (input: string) =
 
                         let token, j =
                             if str.EndsWith '.' && j < len && (isIdStart input[j] || input[j] = '.') then
-                                let token = Lit(AST.Int(uint str[.. (str.Length - 2)]))
+                                let token = Lit(AST.Int(uint64 str[.. (str.Length - 2)]))
 
                                 token, j - 1
                             else
@@ -539,7 +539,7 @@ let internal lex_inner offset (input: string) =
                                     then
                                         Lit(AST.Float(float str))
                                     else
-                                        Lit(AST.Int(uint str))
+                                        Lit(AST.Int(uint64 str))
 
                                 token, j
 

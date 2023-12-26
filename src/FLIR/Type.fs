@@ -20,9 +20,44 @@ and Type =
     | TInt of Integer
     | TFloat of Float
     | TFn of Function
-    | TRef of Type
+    | TRef
     | TSame of Type * int
     | TMany of Type[]
+
+    static member FromSema (semantic: Semantic.SemanticInfo) (layout: Layout) (ty: Semantic.Type) =
+        match ty with
+        | Semantic.TBool -> TInt I1
+        | Semantic.TInt(_, Semantic.I8) -> TInt I8
+        | Semantic.TInt(_, Semantic.I32) -> TInt I32
+        | Semantic.TInt(_, Semantic.I64) -> TInt I64
+        | Semantic.TInt(_, Semantic.ISize) ->
+            match layout.PtrSize with
+            | 4 -> I32
+            | 8 -> I64
+            | _ -> failwith "Not Implemented"
+            |> TInt
+        | Semantic.TFloat Semantic.F32 -> TFloat F32
+        | Semantic.TFloat Semantic.F64 -> TFloat F64
+        | Semantic.TChar -> TInt I128
+        | Semantic.TRef _
+        | Semantic.TFn _ -> TRef
+        | Semantic.TTuple t -> t |> Array.map (Type.FromSema semantic layout) |> TMany
+        | Semantic.TStruct(s, p) ->
+            let strukt = semantic.Struct[s]
+
+            let trans (ty: Semantic.Type) =
+                ty.Instantiate strukt.TVar p |> Type.FromSema semantic layout
+
+            strukt.Field.Values
+            |> Seq.map trans
+            |> Array.ofSeq
+            |> TMany
+            |> _.OptLayout(layout)
+        | Semantic.TEnum(e, p) ->
+            let enum = semantic.Enum[e]
+            failwith "Not Implemented"
+        | Semantic.TNever
+        | Semantic.TVar _ -> failwith "unreachable"
 
     member internal this.SizeAndAlign(layout: Layout) =
         match this with
@@ -34,7 +69,7 @@ and Type =
         | TInt I128 -> 16, layout.I64Align
         | TFloat F64 -> 8, layout.F64Align
         | TFn _
-        | TRef _ -> layout.PtrSize, layout.PtrAlign
+        | TRef -> layout.PtrSize, layout.PtrAlign
         | TSame(s, n) ->
             let size, align = s.SizeAndAlign layout
 
@@ -69,33 +104,19 @@ and Type =
             TMany t
         | t -> t
 
-    static member FromSema (semantic: Semantic.SemanticInfo) (layout: Layout) (ty: Semantic.Type) =
-        match ty with
-        | Semantic.TBool -> TInt I1
-        | Semantic.TInt(_, Semantic.I8) -> TInt I8
-        | Semantic.TInt(_, Semantic.I32) -> TInt I32
-        | Semantic.TInt(_, Semantic.I64) -> TInt I64
-        | Semantic.TInt(_, Semantic.ISize) ->
-            match layout.PtrSize with
-            | 4 -> I32
-            | 8 -> I64
-            | _ -> failwith "Not Implemented"
-            |> TInt
-        | Semantic.TFloat Semantic.F32 -> TFloat F32
-        | Semantic.TFloat Semantic.F64 -> TFloat F64
-        | Semantic.TChar -> TInt I128
-        | Semantic.TRef t -> TRef(Type.FromSema semantic layout t)
-        | Semantic.TFn f -> failwith "Not Implemented"
-        | Semantic.TTuple t -> t |> Array.map (Type.FromSema semantic layout) |> TMany
-        | Semantic.TStruct(s, p) ->
-            let strukt = semantic.Struct[s]
+    member this.ToString =
+        match this with
+        | TInt I1 -> "i1"
+        | TInt I8 -> "i8"
+        | TInt I32 -> "i32"
+        | TInt I64 -> "i64"
+        | TInt I128 -> "i128"
+        | TFloat F32 -> "f32"
+        | TFloat F64 -> "f64"
+        | TFn(_) -> "fn"
+        | TRef -> "ptr"
+        | TSame(t, n) -> $"[{t.ToString}; {n}]"
+        | TMany t ->
+            let t = t |> Array.map _.ToString |> String.concat ", "
 
-            let trans (ty: Semantic.Type) =
-                ty.Instantiate strukt.TVar p |> Type.FromSema semantic layout
-
-            strukt.Field.Values |> Seq.map trans |> Array.ofSeq |> TMany
-        | Semantic.TEnum(e, p) ->
-            let enum = semantic.Enum[e]
-            failwith "Not Implemented"
-        | Semantic.TNever
-        | Semantic.TVar _ -> failwith "unreachable"
+            $"({t})"

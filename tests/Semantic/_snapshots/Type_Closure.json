@@ -18,5 +18,8 @@
   },
   "Return": {
     "foo": "|int| -> int"
+  },
+  "Never": {
+    "foo": "|int| -> int"
   }
 }

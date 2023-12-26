@@ -28,19 +28,12 @@ let runInfer input name =
 
     Assert.Empty error
 
-    let isFn (id: AST.Id, t) =
+    let pickFn (id: AST.Id, t) =
         match t with
-        | TFn _ -> id.Sym <> "main"
-        | _ -> false
+        | TFn fn when id.Sym <> "main" -> Some(id.Sym, t.ToString)
+        | _ -> None
 
-    let reform (key: AST.Id, value: Type) = key.Sym, value.ToString
-
-    (sema.Var
-     |> Seq.map (|KeyValue|)
-     |> Seq.filter isFn
-     |> Seq.map reform
-     |> Map.ofSeq
-     |> Json.serialize)
+    (sema.Var |> Map.toSeq |> Seq.choose pickFn |> Map.ofSeq |> Json.serialize)
         .ShouldMatchChildSnapshot(name)
 
 let runInferFromExample path =
@@ -91,6 +84,21 @@ let Closure () =
             i + 1
         }"
         "Return"
+
+    runInfer
+        "
+        fn foo(i) {
+            let mut i = i
+
+            while i > 0 {
+                if i % 2 == 0 {
+                    return i / 2
+                }
+
+                i -= 1
+            }
+        }"
+        "Never"
 
 [<Fact>]
 let Reference () =

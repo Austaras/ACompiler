@@ -55,9 +55,9 @@ and Struct =
       TVar: Var[] }
 
 and Enum =
-    { name: Id
-      variant: Map<string, Type[]>
-      tvar: Var[] }
+    { Name: Id
+      Variant: Map<string, Type[]>
+      TVar: Var[] }
 
 and Var =
     { Scope: int
@@ -193,21 +193,11 @@ type ModuleType =
       Module: Map<string, ModuleType> }
 
 type SemanticInfo =
-    { Var: Dictionary<Id, Type>
-      Struct: Dictionary<Id, Struct>
-      Enum: Dictionary<Id, Enum>
+    { Var: Map<Id, Type>
+      Struct: Map<Id, Struct>
+      Enum: Map<Id, Enum>
       Capture: MultiMap<Either<Fn, Closure>, Id>
       Module: ModuleType }
-
-    static member Create() =
-        { Var = Dictionary(HashIdentity.Reference)
-          Struct = Dictionary(HashIdentity.Reference)
-          Enum = Dictionary(HashIdentity.Reference)
-          Capture = MultiMap()
-          Module =
-            { Ty = Map.empty
-              Var = Map.empty
-              Module = Map.empty } }
 
 type Error =
     | Undefined of Id

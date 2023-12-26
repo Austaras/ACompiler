@@ -11,3 +11,6 @@ let tryPickBack chooser (array: _[]) =
 type Either<'L, 'R> =
     | Left of 'L
     | Right of 'R
+
+let dictToMap (dict: System.Collections.Generic.Dictionary<'a, 'b>) =
+    dict |> Seq.map (|KeyValue|) |> Map.ofSeq

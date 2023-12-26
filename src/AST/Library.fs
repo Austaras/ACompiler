@@ -5,9 +5,9 @@ open Common.Span
 type Lit =
     | String of string
     | Char of char
-    | Int of uint
+    | Int of uint64
     /// only used in const generic
-    | NegInt of uint
+    | NegInt of uint64
     | Float of double
     | Bool of bool
 
@@ -24,7 +24,7 @@ type ArithmeticOp =
     | Sub
     | Mul
     | Div
-    | Mod
+    | Rem
     | BitOr
     | BitAnd
     | BitXor
@@ -74,7 +74,7 @@ and RefType = { Ty: Type; Span: Span }
 
 and ArrayType =
     { Ele: Type
-      Len: Option<uint>
+      Len: Option<uint64>
       Span: Span }
 
 and TupleType = { Ele: Type[]; Span: Span }
@@ -175,6 +175,11 @@ and Pat =
         | SelfPat s -> s
         | RefSelfPat s -> s
 
+    member this.Name =
+        match this with
+        | IdPat i -> Some i.Sym
+        | _ -> None
+
 type Param =
     { Pat: Pat
       Ty: Option<Type>
@@ -195,6 +200,11 @@ and LetCond = { Pat: Pat; Value: Expr; Span: Span }
 and Cond =
     | BoolCond of Expr
     | LetCond of LetCond
+
+    member this.Span =
+        match this with
+        | BoolCond b -> b.Span
+        | LetCond l -> l.Span
 
 and Elseif =
     { Cond: Cond; Block: Block; Span: Span }

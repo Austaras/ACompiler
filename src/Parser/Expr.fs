@@ -38,7 +38,7 @@ let precedence op =
     | As -> 10
     | Arithmetic Mul
     | Arithmetic Div
-    | Arithmetic Mod -> 9
+    | Arithmetic Rem -> 9
     | Arithmetic Add
     | Arithmetic Sub -> 8
     | Arithmetic Shl

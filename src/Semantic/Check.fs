@@ -166,7 +166,10 @@ type internal PatMode =
 let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
     let mutable scopeId = 0
 
-    let sema = SemanticInfo.Create()
+    let varRec = Dictionary(HashIdentity.Reference)
+    let structRec = Dictionary(HashIdentity.Reference)
+    let enumRec = Dictionary(HashIdentity.Reference)
+    let captureRec = MultiMap()
 
     let union = TyUnion()
     let error = ResizeArray<Error>()
@@ -255,12 +258,8 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
             | RangePat { Span = span } -> failwith "Not Implemented"
             | CatchAllPat _ -> sym
             | TuplePat t ->
-                let addBinding pat =
-                    let sym =
-                        match pat with
-                        | IdPat id -> Some id.Sym
-                        | _ -> None
-
+                let addBinding (pat: Pat) =
+                    let sym = pat.Name
                     let newVar = currScope.NewTVar sym pat.Span |> TVar
 
                     newVar
@@ -332,10 +331,10 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                 let payloadTy =
                     match enumTy with
                     | TEnum(enum, v) ->
-                        let enumData = sema.Enum[enum]
+                        let enumData = enumRec[enum]
                         let inst = Array.map (fun _ -> TVar(currScope.NewTVar None e.Span)) v
 
-                        if enumData.variant.ContainsKey variant.Sym then
+                        if enumData.Variant.ContainsKey variant.Sym then
                             currScope.Constr.Add(
                                 CNormal
                                     { Expect = TEnum(enum, inst)
@@ -343,14 +342,14 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                                       Span = e.Span }
                             )
 
-                            let payload = enumData.variant[variant.Sym]
+                            let payload = enumData.Variant[variant.Sym]
 
                             if payload.Length <> e.Payload.Length then
                                 error.Add(PayloadMismatch(e.Span, enumData))
 
                             let getTy idx _ =
                                 if idx < payload.Length then
-                                    payload[idx].Instantiate enumData.tvar inst
+                                    payload[idx].Instantiate enumData.TVar inst
                                 else
                                     TNever
 
@@ -382,7 +381,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                 error.Add(DuplicateDefinition id)
 
             currScope.AddVar(id, mut)
-            sema.Var[id] <- ty
+            varRec[id] <- ty
 
     let rec hoistDecl (scope: ActiveScope) (decl: seq<Decl>) =
         let currScope = scope.Current
@@ -471,7 +470,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                       Field = field
                       TVar = tvar }
 
-                sema.Struct[s.Id] <- stru
+                structRec[s.Id] <- stru
 
             | EnumDecl e ->
                 let scope, tvar =
@@ -502,11 +501,11 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                 let variant = Array.fold processVariant Map.empty e.Variant
 
                 let enum =
-                    { name = e.Id
-                      variant = variant
-                      tvar = tvar }
+                    { Name = e.Id
+                      Variant = variant
+                      TVar = tvar }
 
-                sema.Enum[e.Id] <- enum
+                enumRec[e.Id] <- enum
 
             | TypeDecl t -> currScope.Ty[t.Name.Sym] <- checkType scope t.Ty
 
@@ -543,11 +542,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                     match p.Ty with
                     | Some ty -> checkType scope ty
                     | None ->
-                        let sym =
-                            match p.Pat with
-                            | IdPat i -> Some(i.Sym)
-                            | _ -> None
-
+                        let sym = p.Pat.Name
                         let newTVar = newScope.NewTVar sym p.Span
 
                         TVar newTVar
@@ -571,18 +566,14 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                           Ret = ret
                           TVar = tvar }
 
-                sema.Var[f.Name] <- fnTy
+                varRec[f.Name] <- fnTy
 
             | Let l ->
                 let ty =
                     match l.Ty with
                     | Some ty -> checkType scope ty
                     | None ->
-                        let sym =
-                            match l.Pat with
-                            | IdPat i -> Some(i.Sym)
-                            | _ -> None
-
+                        let sym = l.Pat.Name
                         let newTVar = currScope.NewTVar sym l.Span
 
                         TVar newTVar
@@ -695,9 +686,9 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                 TNever
             | Some((id, _), captured) ->
                 for c in captured do
-                    sema.Capture.Add c id
+                    captureRec.Add c id
 
-                match sema.Var[id] with
+                match varRec[id] with
                 | TFn f ->
                     let newTVar = Array.map (fun _ -> currScope.NewTVar None id.Span) f.TVar
                     TFn(f.Instantiate newTVar)
@@ -937,7 +928,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
             match receiver with
             | TStruct(i, inst) ->
-                let stru = sema.Struct[i]
+                let stru = structRec[i]
 
                 match Map.tryFind key stru.Field with
                 | Some f -> f.Instantiate stru.TVar inst
@@ -949,7 +940,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                 let findStruct scope =
                     match scope.Field.Get key with
                     | None -> None
-                    | Some id -> Some sema.Struct[id]
+                    | Some id -> Some structRec[id]
 
                 let stru = scope.Pick findStruct
 
@@ -979,11 +970,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                 match p.Ty with
                 | Some ty -> checkType scope ty
                 | None ->
-                    let sym =
-                        match p.Pat with
-                        | IdPat i -> Some i.Sym
-                        | _ -> None
-
+                    let sym = p.Pat.Name
                     let newTVar = currScope.NewTVar sym p.Span
 
                     TVar newTVar
@@ -1036,16 +1023,16 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
             match enumTy with
             | TEnum(enum, _) ->
-                let enumData = sema.Enum[enum]
-                let inst = Array.map (fun _ -> TVar(currScope.NewTVar None e.Span)) enumData.tvar
+                let enumData = enumRec[enum]
+                let inst = Array.map (fun _ -> TVar(currScope.NewTVar None e.Span)) enumData.TVar
 
-                if enumData.variant.ContainsKey variant.Sym then
-                    let payload = enumData.variant[variant.Sym]
+                if enumData.Variant.ContainsKey variant.Sym then
+                    let payload = enumData.Variant[variant.Sym]
 
                     if payload.Length = 0 then
                         TEnum(enum, inst)
                     else
-                        let payload = Array.map (fun (t: Type) -> t.Instantiate enumData.tvar inst) payload
+                        let payload = Array.map (fun (t: Type) -> t.Instantiate enumData.TVar inst) payload
 
                         TFn
                             { Param = payload
@@ -1088,11 +1075,11 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
             TNever
         | Range(_) -> failwith "Not Implemented"
-        | For(_) -> failwith "Not Implemented"
+        | For(_) -> TNever
         | While w ->
             let _ = checkCond scope w.Cond w.Body
 
-            UnitType
+            TNever
         | TryReturn(_) -> failwith "Not Implemented"
 
     and checkBlock (scope: ActiveScope) (b: Block) =
@@ -1125,7 +1112,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
     and checkFn (scope: ActiveScope) (f: Fn) =
         let fnTy =
-            match sema.Var[f.Name] with
+            match varRec[f.Name] with
             | TFn f -> f
             | _ -> failwith "Unreachable"
 
@@ -1150,8 +1137,8 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
             | TFn f -> TFn(f.Generalize scope.Current.Id)
             | _ -> failwith "Unreachable"
 
-        let oldTy = sema.Var[f.Name]
-        sema.Var[f.Name] <- generalize oldTy
+        let oldTy = varRec[f.Name]
+        varRec[f.Name] <- generalize oldTy
 
     and unify scope =
         let rec unifyNormal c deref =
@@ -1242,7 +1229,6 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
             | CNormal c -> unifyNormal c false
             | CDeref c -> unifyNormal c true
 
-
     let topLevel = newScope TopLevelScope
     let scope = { Scope = [| Scope.Prelude; topLevel |] }
 
@@ -1252,8 +1238,18 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
     unify topLevel
 
-    for id in sema.Var.Keys do
-        let oldTy = sema.Var[id]
-        sema.Var[id] <- union.Resolve oldTy
+    for id in varRec.Keys do
+        let oldTy = varRec[id]
+        varRec[id] <- union.Resolve oldTy
+
+    let sema =
+        { Var = dictToMap varRec
+          Struct = dictToMap structRec
+          Enum = dictToMap enumRec
+          Capture = captureRec
+          Module =
+            { Ty = Map.empty
+              Var = Map.empty
+              Module = Map.empty } }
 
     sema, Array.ofSeq error

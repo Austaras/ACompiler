@@ -14,9 +14,8 @@
 
    [FLIR](./src/FLIR)
 
+   - three address code, basic block, SSA
    - eliminates ADT, operator overloading, assign operator and pattern
    - lambda lifting
    - monotyped
    - register based
-   - linear with basic block
-   - SSA
