@@ -14,7 +14,7 @@ let arch = Common.Target.X86_64
 
 let runTansform input =
     let token =
-        match lex 0 input with
+        match lex input with
         | Ok tok -> tok
         | Error e -> failwithf "lex error %A" e
 

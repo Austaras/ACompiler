@@ -120,7 +120,14 @@ let transform (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
             | None -> ()
 
             v
-        | AST.LitExpr(AST.Int i, _) -> Const i
+        | AST.LitExpr(AST.Int i, span) ->
+            let v = Const i
+
+            match target with
+            | Some t -> env.AddInstr(Assign { Target = t; Value = v; Span = span })
+            | None -> ()
+
+            v
         | AST.Binary bin ->
             let l = processExpr env bin.Left None
             let r = processExpr env bin.Right None
@@ -259,15 +266,7 @@ let transform (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
                 res <- Some value
             | AST.DeclStmt(AST.Let l) ->
                 let name = env.AddVar (TInt I64) l.Pat.Name
-                let value = processExpr env l.Value (Some name)
-
-                if l.Mut then
-                    env.AddInstr(
-                        Assign
-                            { Target = name
-                              Value = value
-                              Span = l.Span }
-                    )
+                let _ = processExpr env l.Value (Some name)
 
                 res <- None
             | _ -> ()

@@ -153,9 +153,9 @@ type private State =
       error: Error[] }
 
 [<TailCall>]
-let internal lex_inner offset (input: string) =
+let internal lex_inner (input: string) =
     let len = input.Length
-    let makeSpan i j = Span.Make (offset + i) (offset + j)
+    let makeSpan i j = Span.Make i j
 
     let rec lex state =
         let i = state.i
@@ -558,7 +558,7 @@ let internal lex_inner offset (input: string) =
           data = ResizeArray()
           error = [||] }
 
-let lex offset input =
-    match lex_inner offset input with
+let lex input =
+    match lex_inner input with
     | Ok o -> Ok(o.ToArray())
     | Error e -> Error e

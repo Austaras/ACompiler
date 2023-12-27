@@ -17,7 +17,7 @@ let settings = SnapshotSettings.New().SnapshotFileName("Capture")
 
 let runCheck input name =
     let token =
-        match lex 0 input with
+        match lex input with
         | Ok tok -> tok
         | Error e -> failwithf "lex error %A" e
 

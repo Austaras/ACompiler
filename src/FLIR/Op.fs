@@ -1,7 +1,5 @@
 module FLIR.Op
 
-open AST
-
 type BinOp =
     | Add
     | Sub

@@ -1,32 +1,40 @@
 module Parser.Tests.Module
 
+open System.IO
+
+open Xunit
+
 open Parser.Lexer
 open Parser.Parser
 open Parser.Common
 
-open System.IO
-open Xunit
-
-let parseModuleOk path =
+let getAllFile path =
     let path = __SOURCE_DIRECTORY__ + "/../../" + path
 
-    let files = Directory.EnumerateFiles(path, "*.adf", SearchOption.AllDirectories)
+    Directory.EnumerateFiles(path, "*.adf", SearchOption.AllDirectories)
+    |> Seq.map (Path.GetFullPath >> (Array.create 1))
 
-    for path in files do
-        let path = Path.GetFullPath path
+let parseModuleOk path =
+    let path = Path.GetFullPath path
 
-        let error =
-            match lex 0 (File.ReadAllText path) with
-            | Error error -> Array.map LexerError error
-            | Ok token ->
-                match parse token with
-                | Error(error, _) -> error
-                | Ok _ -> [||]
+    let error =
+        match lex (File.ReadAllText path) with
+        | Error error -> Array.map LexerError error
+        | Ok token ->
+            match parse token with
+            | Error(error, _) -> error
+            | Ok _ -> [||]
 
-        Assert.Empty error
+    Assert.Empty error
 
-[<Fact>]
-let Example () =
-    parseModuleOk "examples"
+let example = getAllFile "examples"
 
-    parseModuleOk "runtime/std"
+[<Theory>]
+[<MemberData(nameof (example))>]
+let Example path = parseModuleOk path
+
+let std = getAllFile "runtime/std"
+
+[<Theory>]
+[<MemberData(nameof (std))>]
+let Std path = parseModuleOk path
