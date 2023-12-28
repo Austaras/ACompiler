@@ -15,8 +15,6 @@ let getAllFile path =
     |> Seq.map (Path.GetFullPath >> (Array.create 1))
 
 let parseModuleOk path =
-    let path = Path.GetFullPath path
-
     let error =
         match lex (File.ReadAllText path) with
         | Error error -> Array.map LexerError error

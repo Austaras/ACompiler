@@ -99,6 +99,8 @@ type Func =
             | Const c -> string c
             | Binding i -> varToString i
 
+        let res = Text.StringBuilder()
+
         let param = this.Param |> Array.map paramToString |> String.concat ", "
 
         let header =
@@ -108,31 +110,35 @@ type Func =
               | None -> ""
             + " {"
 
-        let printStm (stm: Stm) =
-            String.replicate 8 " "
-            + varToString stm.Target
-            + " "
-            + match stm with
-              | Binary bin ->
-                  let left = valueToString bin.Left
-                  let op = bin.Op.ToString
-                  let right = valueToString bin.Right
-                  $"= {left} {op} {right}"
-              | Assign a ->
-                  let v = valueToString a.Value
-                  $"= {v}"
-              | Negative n ->
-                  let v = valueToString n.Value
-                  $"= ! {v}"
-              | Load -> failwith "Not Implemented"
-              | Store -> failwith "Not Implemented"
-              | Call -> failwith "Not Implemented"
-              | Alloc -> failwith "Not Implemented"
+        let _ = res.AppendLine(header)
 
-        let printBlock (buffer: string[]) (idx: int, block: Block) =
+        for (idx, block) in Array.indexed this.Block do
             let id = labelToString idx
-            let header = $"    {id}: {{"
-            let content = Array.map printStm block.Stm
+            let _ = res.AppendLine $"    {id}: {{"
+
+            for stm in block.Stm do
+                let stm =
+                    String.replicate 8 " "
+                    + varToString stm.Target
+                    + " "
+                    + match stm with
+                      | Binary bin ->
+                          let left = valueToString bin.Left
+                          let op = bin.Op.ToString
+                          let right = valueToString bin.Right
+                          $"= {left} {op} {right}"
+                      | Assign a ->
+                          let v = valueToString a.Value
+                          $"= {v}"
+                      | Negative n ->
+                          let v = valueToString n.Value
+                          $"= ! {v}"
+                      | Load -> failwith "Not Implemented"
+                      | Store -> failwith "Not Implemented"
+                      | Call -> failwith "Not Implemented"
+                      | Alloc -> failwith "Not Implemented"
+
+                res.AppendLine(stm) |> ignore
 
             let trans =
                 String.replicate 8 " "
@@ -151,16 +157,13 @@ type Func =
                         | Some i -> $" {varToString i}"
                         | None -> ""
 
-            let footer = "    }"
-            Array.concat [ buffer; [| header |]; content; [| trans |]; [| footer |] ]
+            res.AppendLine trans |> ignore
 
-        let res =
-            this.Block
-            |> Array.indexed
-            |> Array.fold printBlock [| header |]
-            |> String.concat "\n"
+            res.AppendLine "    }" |> ignore
 
-        res + "\n}"
+        let _ = res.AppendLine("}")
+
+        res.ToString()
 
 type Module =
     { Func: Func[]
