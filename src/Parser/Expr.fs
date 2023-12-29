@@ -18,7 +18,7 @@ let internal canStartExpr token =
     | Paren Open
     | Bracket Open
     | Curly Open
-    | Operator(Arithmetic Sub | Arithmetic Mul | Arithmetic BitAnd | Arithmetic BitOr | Arithmetic LogicalOr | Gt)
+    | Operator(Arith Sub | Arith Mul | Arith BitAnd | Arith BitOr | Logic Or | Cmp Gt)
     | Not
     | Reserved(PACKAGE | SELF | LOWSELF | IF | MATCH | FOR | WHILE | RETURN | BREAK | CONTINUE)
     | DotDot
@@ -36,24 +36,19 @@ let internal maybeStruct ctx input =
 let precedence op =
     match op with
     | As -> 10
-    | Arithmetic Mul
-    | Arithmetic Div
-    | Arithmetic Rem -> 9
-    | Arithmetic Add
-    | Arithmetic Sub -> 8
-    | Arithmetic Shl
-    | Arithmetic Shr -> 7
-    | Arithmetic BitAnd -> 6
-    | Arithmetic BitXor -> 5
-    | Arithmetic BitOr -> 4
-    | EqEq
-    | NotEq
-    | Lt
-    | Gt
-    | LtEq
-    | GtEq -> 3
-    | Arithmetic LogicalAnd -> 2
-    | Arithmetic LogicalOr -> 1
+    | Arith Mul
+    | Arith Div
+    | Arith Rem -> 9
+    | Arith Add
+    | Arith Sub -> 8
+    | Arith Shl
+    | Arith Shr -> 7
+    | Arith BitAnd -> 6
+    | Arith BitXor -> 5
+    | Arith BitOr -> 4
+    | Cmp _ -> 3
+    | Logic And -> 2
+    | Logic Or -> 1
     | Pipe -> 0
 
 let internal rangeCtor (from: Option<Expr>) (to_: Option<Expr>) exclusive span =
@@ -182,7 +177,7 @@ and internal parsePath (ctx: Context) (state: State<Path>) =
                 let curr = curr[i..]
 
                 match peek curr with
-                | Some({ data = Operator Lt | Operator(Arithmetic Shl) }, i) ->
+                | Some({ data = Operator(Cmp Lt | Arith Shl) }, i) ->
                     let generic =
                         parseLtGt curr[i - 1 ..] (parseType ctx.InTypeInst) "type instantiation"
 
@@ -270,14 +265,14 @@ and internal parseClosure ctx (input: Token[]) =
 
     let param =
         match op.data with
-        | Operator(Arithmetic BitOr) ->
+        | Operator(Arith BitOr) ->
             let param =
-                parseCommaSeq input[1..] (parseParam ctx) (Operator(Arithmetic BitOr)) "function type parameter"
+                parseCommaSeq input[1..] (parseParam ctx) (Operator(Arith BitOr)) "function type parameter"
 
             match param with
             | Ok(s, _) -> Ok s
             | Error e -> Error e
-        | Operator(Arithmetic LogicalOr) ->
+        | Operator(Logic Or) ->
             Ok
                 { data = [||]
                   error = [||]
@@ -591,16 +586,16 @@ and internal parsePrefix ctx input =
                   error = b.error
                   rest = b.rest }
 
-    | Some({ data = Operator(Arithmetic(BitOr | LogicalOr)) }, i) -> parseClosure ctx input[i - 1 ..]
+    | Some({ data = Operator(Arith BitOr | Logic Or) }, i) -> parseClosure ctx input[i - 1 ..]
 
-    | Some({ data = Operator(Arithmetic Sub | Arithmetic Mul | Arithmetic BitAnd as op)
+    | Some({ data = Operator(Arith Sub | Arith Mul | Arith BitAnd as op)
              span = span },
            i) ->
         let op =
             match op with
-            | Arithmetic Sub -> Neg
-            | Arithmetic Mul -> Deref
-            | Arithmetic BitAnd -> Ref
+            | Arith Sub -> Neg
+            | Arith Mul -> Deref
+            | Arith BitAnd -> Ref
             | _ -> failwith "unreachable"
 
         match parseWithPrec 1000 ctx input[i..] with
@@ -624,7 +619,7 @@ and internal parsePrefix ctx input =
 
             Ok { state with data = Unary expr }
 
-    | Some({ data = Operator(Arithmetic LogicalAnd)
+    | Some({ data = Operator(Logic And)
              span = span },
            i) ->
         match parseWithPrec 1000 ctx input[i..] with

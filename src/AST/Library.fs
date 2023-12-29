@@ -19,7 +19,7 @@ type UnaryOp =
     | Ref
     | Deref
 
-type ArithmeticOp =
+type ArithOp =
     | Add
     | Sub
     | Mul
@@ -28,19 +28,25 @@ type ArithmeticOp =
     | BitOr
     | BitAnd
     | BitXor
-    | LogicalOr
-    | LogicalAnd
     | Shl
     | Shr
 
-type BinaryOp =
-    | Arithmetic of ArithmeticOp
+type LogicOp =
+    | And
+    | Or
+
+type CmpOp =
     | EqEq
     | NotEq
     | Lt
     | Gt
     | LtEq
     | GtEq
+
+type BinaryOp =
+    | Arith of ArithOp
+    | Logic of LogicOp
+    | Cmp of CmpOp
     | Pipe
     | As
 
@@ -220,7 +226,7 @@ and Unary = { Op: UnaryOp; Expr: Expr; Span: Span }
 
 and Assign =
     { Place: Expr
-      Op: Option<ArithmeticOp>
+      Op: Option<ArithOp>
       Value: Expr
       Span: Span }
 

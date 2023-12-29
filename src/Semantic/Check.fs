@@ -699,23 +699,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
             let r = checkExpr scope b.Right
 
             match b.Op with
-            | Arithmetic(LogicalAnd | LogicalOr) ->
-                currScope.Constr.Add(
-                    CNormal
-                        { Expect = TBool
-                          Actual = l
-                          Span = b.Left.Span }
-                )
-
-                currScope.Constr.Add(
-                    CNormal
-                        { Expect = TBool
-                          Actual = r
-                          Span = b.Right.Span }
-                )
-
-                TBool
-            | Arithmetic _ ->
+            | Arith _ ->
                 currScope.Constr.Add(
                     CNormal
                         { Expect = TInt(true, ISize)
@@ -731,12 +715,25 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                 )
 
                 TInt(true, ISize)
-            | EqEq
-            | NotEq
-            | Lt
-            | Gt
-            | LtEq
-            | GtEq ->
+
+            | Logic _ ->
+                currScope.Constr.Add(
+                    CNormal
+                        { Expect = TBool
+                          Actual = l
+                          Span = b.Left.Span }
+                )
+
+                currScope.Constr.Add(
+                    CNormal
+                        { Expect = TBool
+                          Actual = r
+                          Span = b.Right.Span }
+                )
+
+                TBool
+
+            | Cmp _ ->
                 currScope.Constr.Add(
                     CNormal
                         { Expect = l

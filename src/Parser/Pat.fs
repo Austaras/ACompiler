@@ -247,7 +247,7 @@ let rec internal parsePatInner (ctx: Context) input =
                   error = [||]
                   rest = input }
 
-        | Some({ data = Operator(Arithmetic Sub)
+        | Some({ data = Operator(Arith Sub)
                  span = span },
                i) ->
             let first = span.First
@@ -330,7 +330,7 @@ let rec internal parsePatInner (ctx: Context) input =
                       rest = ele.rest }
             | Error e -> Error e
 
-        | Some({ data = Operator(Arithmetic BitAnd)
+        | Some({ data = Operator(Arith BitAnd)
                  span = span },
                i) ->
             match consume input[i..] (Reserved LOWSELF) "reference self" with
@@ -386,7 +386,7 @@ let rec internal parsePatInner (ctx: Context) input =
     and parseOr (state: State<Pat>) =
         let rec parseOr (state: State<Pat[]>) =
             match peek state.rest with
-            | Some({ data = Operator(Arithmetic BitOr) }, i) ->
+            | Some({ data = Operator(Arith BitOr) }, i) ->
                 match parseRecursive state.rest[i..] with
                 | Ok(newState: State<_>) ->
                     Ok

@@ -42,7 +42,7 @@
                 ]
               },
               "Op": {
-                "Arithmetic": "Add"
+                "Arith": "Add"
               },
               "Right": {
                 "LitExpr": [
@@ -75,7 +75,7 @@
                 ]
               },
               "Op": {
-                "Arithmetic": "Mul"
+                "Arith": "Mul"
               },
               "Right": {
                 "LitExpr": [
@@ -175,7 +175,7 @@
                 ]
               },
               "Op": {
-                "Arithmetic": "Add"
+                "Arith": "Add"
               },
               "Right": {
                 "LitExpr": [

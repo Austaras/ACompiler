@@ -64,7 +64,7 @@ type TokenData =
     | Eq
     | Question
     | Operator of AST.BinaryOp
-    | AssignOp of AST.ArithmeticOp
+    | AssignOp of AST.ArithOp
     | Identifier of string
     | Reserved of Reserved
     | Comment of CommentKind * string
@@ -188,20 +188,20 @@ let internal lex_inner (input: string) =
                 if i + 1 < len && input[i + 1] = '=' then
                     AssignOp op, i + 2
                 else
-                    Operator(AST.Arithmetic op), i + 1
+                    Operator(AST.Arith op), i + 1
 
             withNewToken token j
 
         let maybeAssignOrDouble char op double =
             let token, j =
-                if i + 2 < len && input[i + 1] = char && input[i + 2] = '=' then
-                    AssignOp double, i + 3
-                else if i + 1 < len && input[i + 1] = char then
-                    Operator(AST.Arithmetic double), i + 2
+                // if i + 2 < len && input[i + 1] = char && input[i + 2] = '=' then
+                //     AssignOp double, i + 3
+                if i + 1 < len && input[i + 1] = char then
+                    Operator(AST.Logic double), i + 2
                 else if i + 1 < len && input[i + 1] = '=' then
                     AssignOp op, i + 2
                 else
-                    Operator(AST.Arithmetic op), i + 1
+                    Operator(AST.Arith op), i + 1
 
             withNewToken token j
 
@@ -333,7 +333,7 @@ let internal lex_inner (input: string) =
                     if i + 1 < len then
                         match input[i + 1] with
                         | '>' -> FatArrow, i + 2
-                        | '=' -> Operator(AST.EqEq), i + 2
+                        | '=' -> Operator(AST.Cmp AST.EqEq), i + 2
                         | _ -> Eq, i + 1
                     else
                         Eq, i + 1
@@ -343,7 +343,7 @@ let internal lex_inner (input: string) =
             | '!' ->
                 let token, j =
                     if i + 1 < len && input[i + 1] = '=' then
-                        Operator(AST.NotEq), i + 2
+                        Operator(AST.Cmp AST.NotEq), i + 2
                     else
                         Not, i + 1
 
@@ -361,24 +361,24 @@ let internal lex_inner (input: string) =
                 else
                     maybeAssign AST.Sub
 
-            | '&' -> maybeAssignOrDouble '&' AST.BitAnd AST.LogicalAnd
+            | '&' -> maybeAssignOrDouble '&' AST.BitAnd AST.And
 
             | '|' ->
                 if i + 1 < len && input[i + 1] = '>' then
                     withNewToken (Operator AST.Pipe) (i + 2)
                 else
-                    maybeAssignOrDouble '|' AST.BitOr AST.LogicalOr
+                    maybeAssignOrDouble '|' AST.BitOr AST.Or
 
             | '>' ->
                 let token, j =
                     if i + 2 < len && input[i + 1] = '>' && input[i + 2] = '=' then
                         AssignOp AST.Shr, i + 3
                     else if i + 1 < len && input[i + 1] = '>' then
-                        Operator(AST.Arithmetic AST.Shr), i + 2
+                        Operator(AST.Arith AST.Shr), i + 2
                     else if i + 1 < len && input[i + 1] = '=' then
-                        Operator(AST.GtEq), i + 2
+                        Operator(AST.Cmp AST.GtEq), i + 2
                     else
-                        Operator(AST.Gt), i + 1
+                        Operator(AST.Cmp AST.Gt), i + 1
 
                 withNewToken token j
 
@@ -387,11 +387,11 @@ let internal lex_inner (input: string) =
                     if i + 2 < len && input[i + 1] = '<' && input[i + 2] = '=' then
                         AssignOp AST.Shl, i + 3
                     else if i + 1 < len && input[i + 1] = '<' then
-                        Operator(AST.Arithmetic AST.Shl), i + 2
+                        Operator(AST.Arith AST.Shl), i + 2
                     else if i + 1 < len && input[i + 1] = '=' then
-                        Operator(AST.LtEq), i + 2
+                        Operator(AST.Cmp AST.LtEq), i + 2
                     else
-                        Operator(AST.Lt), i + 1
+                        Operator(AST.Cmp AST.Lt), i + 1
 
                 withNewToken token j
 
@@ -422,9 +422,9 @@ let internal lex_inner (input: string) =
 
                             takeWhen (i + 1)
                         | '=' -> Ok(AssignOp(AST.Div)), i + 2
-                        | _ -> Ok(Operator(AST.Arithmetic AST.Div)), i + 1
+                        | _ -> Ok(Operator(AST.Arith AST.Div)), i + 1
                     else
-                        Ok(Operator(AST.Arithmetic AST.Div)), i + 1
+                        Ok(Operator(AST.Arith AST.Div)), i + 1
 
                 match data with
                 | Ok token -> withNewToken token j

@@ -33,7 +33,7 @@
         }
       },
       "Op": {
-        "Arithmetic": "Shr"
+        "Arith": "Shr"
       },
       "Right": {
         "LitExpr": [
@@ -107,7 +107,9 @@
           }
         }
       },
-      "Op": "Gt",
+      "Op": {
+        "Cmp": "Gt"
+      },
       "Right": {
         "LitExpr": [
           {

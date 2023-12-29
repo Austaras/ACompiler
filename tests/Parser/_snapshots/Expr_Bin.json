@@ -13,7 +13,7 @@
         ]
       },
       "Op": {
-        "Arithmetic": "Add"
+        "Arith": "Add"
       },
       "Right": {
         "Binary": {
@@ -29,7 +29,7 @@
             ]
           },
           "Op": {
-            "Arithmetic": "Mul"
+            "Arith": "Mul"
           },
           "Right": {
             "LitExpr": [
@@ -70,7 +70,7 @@
             ]
           },
           "Op": {
-            "Arithmetic": "Sub"
+            "Arith": "Sub"
           },
           "Right": {
             "LitExpr": [
@@ -90,7 +90,7 @@
         }
       },
       "Op": {
-        "Arithmetic": "Sub"
+        "Arith": "Sub"
       },
       "Right": {
         "LitExpr": [
@@ -120,7 +120,9 @@
           }
         }
       },
-      "Op": "EqEq",
+      "Op": {
+        "Cmp": "EqEq"
+      },
       "Right": {
         "Binary": {
           "Left": {
@@ -133,7 +135,7 @@
             }
           },
           "Op": {
-            "Arithmetic": "Add"
+            "Arith": "Add"
           },
           "Right": {
             "Binary": {
@@ -147,7 +149,7 @@
                 }
               },
               "Op": {
-                "Arithmetic": "Mul"
+                "Arith": "Mul"
               },
               "Right": {
                 "LitExpr": [
@@ -202,7 +204,7 @@
             }
           },
           "Op": {
-            "Arithmetic": "Add"
+            "Arith": "Add"
           },
           "Right": {
             "Id": {
@@ -294,7 +296,7 @@
             }
           },
           "Op": {
-            "Arithmetic": "Add"
+            "Arith": "Add"
           },
           "Right": {
             "Id": {
@@ -333,7 +335,7 @@
             ]
           },
           "Op": {
-            "Arithmetic": "Add"
+            "Arith": "Add"
           },
           "Right": {
             "LitExpr": [
@@ -353,7 +355,7 @@
         }
       },
       "Op": {
-        "Arithmetic": "Mul"
+        "Arith": "Mul"
       },
       "Right": {
         "LitExpr": [
@@ -388,7 +390,7 @@
             ]
           },
           "Op": {
-            "Arithmetic": "Add"
+            "Arith": "Add"
           },
           "Right": {
             "LitExpr": [
@@ -408,7 +410,7 @@
         }
       },
       "Op": {
-        "Arithmetic": "Mul"
+        "Arith": "Mul"
       },
       "Right": {
         "LitExpr": [
@@ -441,7 +443,7 @@
         ]
       },
       "Op": {
-        "Arithmetic": "Add"
+        "Arith": "Add"
       },
       "Right": {
         "LitExpr": [
@@ -474,7 +476,7 @@
         ]
       },
       "Op": {
-        "Arithmetic": "Add"
+        "Arith": "Add"
       },
       "Right": {
         "Binary": {
@@ -490,7 +492,7 @@
             ]
           },
           "Op": {
-            "Arithmetic": "Mul"
+            "Arith": "Mul"
           },
           "Right": {
             "LitExpr": [

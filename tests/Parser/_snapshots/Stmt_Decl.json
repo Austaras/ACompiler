@@ -119,7 +119,7 @@
                   }
                 },
                 "Op": {
-                  "Arithmetic": "Add"
+                  "Arith": "Add"
                 },
                 "Right": {
                   "Id": {

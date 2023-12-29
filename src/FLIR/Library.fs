@@ -1,7 +1,6 @@
 module FLIR.FLIR
 
 open System
-open System.Collections.Generic
 
 open Common.Span
 open FLIR.Op

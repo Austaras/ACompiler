@@ -41,7 +41,7 @@ Literal :: IntLiteral | FloatLiteral | BoolLiteral | StringLiteral | CharLiteral
 Self :: self
 
 IDENTIFIER :: \uXID_Start[\uXID_Continue]
-ASSIGN :: += -= *= /= &= |= ^= &&= ||= <<= >>=
+ASSIGN :: += -= *= /= &= |= ^= <<= >>=
 BINARY :: + - * / & | ^ && || << >> == >= <= != < > |> as
 Unary :: - * &
 ```

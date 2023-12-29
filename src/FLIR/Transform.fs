@@ -135,13 +135,13 @@ let transform (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
             // TODO: trait
             let op, ty =
                 match bin.Op with
-                | AST.Arithmetic AST.Add -> Add, TInt I64
-                | AST.Arithmetic AST.Sub -> Sub, TInt I64
-                | AST.Arithmetic AST.Mul -> Mul, TInt I64
-                | AST.Gt -> Gt true, TInt I1
-                | AST.GtEq -> GtEq true, TInt I1
-                | AST.Lt -> Lt true, TInt I1
-                | AST.LtEq -> LtEq true, TInt I1
+                | AST.Arith AST.Add -> Add, TInt I64
+                | AST.Arith AST.Sub -> Sub, TInt I64
+                | AST.Arith AST.Mul -> Mul, TInt I64
+                | AST.Cmp AST.Gt -> Gt true, TInt I1
+                | AST.Cmp AST.GtEq -> GtEq true, TInt I1
+                | AST.Cmp AST.Lt -> Lt true, TInt I1
+                | AST.Cmp AST.LtEq -> LtEq true, TInt I1
 
             let target = makeTarget ty
 

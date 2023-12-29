@@ -88,7 +88,7 @@
         }
       },
       "Op": {
-        "Arithmetic": "Add"
+        "Arith": "Add"
       },
       "Right": {
         "LitExpr": [
@@ -211,7 +211,7 @@
             }
           },
           "Op": {
-            "Arithmetic": "Add"
+            "Arith": "Add"
           },
           "Right": {
             "Id": {
@@ -404,7 +404,7 @@
         }
       },
       "Op": {
-        "Arithmetic": "Add"
+        "Arith": "Add"
       },
       "Right": {
         "Id": {

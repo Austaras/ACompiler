@@ -22,7 +22,7 @@
         }
       },
       "Op": {
-        "Arithmetic": "Add"
+        "Arith": "Add"
       },
       "Right": {
         "Unary": {
@@ -62,7 +62,7 @@
         }
       },
       "Op": {
-        "Arithmetic": "Sub"
+        "Arith": "Sub"
       },
       "Right": {
         "LitExpr": [

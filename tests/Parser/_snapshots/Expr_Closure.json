@@ -34,7 +34,7 @@
                 }
               },
               "Op": {
-                "Arithmetic": "Mul"
+                "Arith": "Mul"
               },
               "Right": {
                 "LitExpr": [
@@ -60,7 +60,7 @@
         }
       },
       "Op": {
-        "Arithmetic": "Shr"
+        "Arith": "Shr"
       },
       "Right": {
         "Closure": {
@@ -177,7 +177,7 @@
                 }
               },
               "Op": {
-                "Arithmetic": "Add"
+                "Arith": "Add"
               },
               "Right": {
                 "Id": {
@@ -220,7 +220,7 @@
         ]
       },
       "Op": {
-        "Arithmetic": "LogicalOr"
+        "Logic": "Or"
       },
       "Right": {
         "Binary": {
@@ -234,7 +234,7 @@
             }
           },
           "Op": {
-            "Arithmetic": "BitOr"
+            "Arith": "BitOr"
           },
           "Right": {
             "Id": {

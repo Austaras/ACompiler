@@ -70,18 +70,15 @@ let NumDot () =
 
 [<Fact>]
 let Op () =
-    Assert.Equivalent([| Operator(Arithmetic Shl) |], lex_strip_span "<<")
+    Assert.Equivalent([| Operator(Arith Shl) |], lex_strip_span "<<")
     Assert.Equivalent([| Arrow; FatArrow |], lex_strip_span "-> =>")
 
     Assert.Equivalent(
-        [| Lit(Int 1UL)
-           Operator(Arithmetic Add)
-           Operator(Arithmetic Sub)
-           Lit(Int 1UL) |],
+        [| Lit(Int 1UL); Operator(Arith Add); Operator(Arith Sub); Lit(Int 1UL) |],
         lex_strip_span "1 +- 1"
     )
 
-    Assert.Equivalent([| Identifier "a"; AssignOp(LogicalOr); Lit(Bool true) |], lex_strip_span "a ||= true")
+    Assert.Equivalent([| Identifier "a"; AssignOp(BitOr); Lit(Bool true) |], lex_strip_span "a |= true")
 
 [<Fact>]
 let Composite () =

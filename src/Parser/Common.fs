@@ -150,12 +150,12 @@ let internal tryRecover canStart parser msg (input: Token[]) =
 
 let internal parseCommaSeq (input: Token[]) parser limiter error =
     let limiter =
-        if limiter = Operator Gt then
+        if limiter = Operator(Cmp Gt) then
             fun t ->
                 match t with
-                | Operator Gt
-                | Operator GtEq
-                | Operator(Arithmetic Shr)
+                | Operator(Cmp Gt)
+                | Operator(Cmp GtEq)
+                | Operator(Arith Shr)
                 | AssignOp Shr -> true
                 | _ -> false
         else
@@ -212,25 +212,25 @@ let internal parseCommaSeq (input: Token[]) parser limiter error =
 let internal parseLtGt (input: Token[]) parser error =
     let rest =
         match input[0].data with
-        | Operator Lt -> input[1..]
-        | Operator(Arithmetic Shl) ->
+        | Operator(Cmp Lt) -> input[1..]
+        | Operator(Arith Shl) ->
             Array.set
                 input
                 0
-                { data = Operator Lt
+                { data = Operator(Cmp Lt)
                   span = input[0].span.ShrinkFirst 1 }
 
             input
         | _ -> failwith "unreachable"
 
-    let param = parseCommaSeq rest parser (Operator Gt) error
+    let param = parseCommaSeq rest parser (Operator(Cmp Gt)) error
 
     let rec splitAndMerge op (span: Span) (input: Token[]) =
         let canMerge =
             match op with
-            | Operator Gt
+            | Operator(Cmp Gt)
             | Eq -> true
-            | Operator GtEq -> false
+            | Operator(Cmp GtEq) -> false
             | _ -> failwith "unreachable"
 
         let span = span.ShrinkFirst 1
@@ -245,57 +245,61 @@ let internal parseLtGt (input: Token[]) parser error =
 
                 match op, follow with
                 // >> >
-                | Operator Gt, (Some { data = Operator Gt; span = span }) ->
-                    { data = Operator(Arithmetic Shr)
+                | Operator(Cmp Gt), (Some { data = Operator(Cmp Gt); span = span }) ->
+                    { data = Operator(Arith Shr)
                       span = Span.Make (span.First - 1) (span.First) },
                     input[1..]
                 // >> =
-                | Operator Gt, (Some { data = Eq; span = span }) ->
+                | Operator(Cmp Gt), (Some { data = Eq; span = span }) ->
 
-                    { data = Operator GtEq
+                    { data = Operator(Cmp GtEq)
                       span = Span.Make (span.First - 1) (span.First) },
                     input[1..]
                 // >> >=
-                | Operator Gt, (Some { data = Operator GtEq; span = span }) ->
+                | Operator(Cmp Gt),
+                  (Some { data = Operator(Cmp GtEq)
+                          span = span }) ->
                     { data = AssignOp Shr
                       span = Span.Make (span.First - 1) (span.First) },
                     input[1..]
                 // >> >>
-                | Operator Gt,
-                  (Some { data = Operator(Arithmetic Shr)
+                | Operator(Cmp Gt),
+                  (Some { data = Operator(Arith Shr)
                           span = span }) ->
                     let first =
-                        { data = Operator(Arithmetic Shr)
+                        { data = Operator(Arith Shr)
                           span = Span.Make (span.First - 1) (span.First) }
 
-                    first, (splitAndMerge (Operator Gt) span input[1..])
+                    first, (splitAndMerge (Operator(Cmp Gt)) span input[1..])
                 // >> >>=
-                | Operator Gt, (Some { data = AssignOp Shr; span = span }) ->
+                | Operator(Cmp Gt), (Some { data = AssignOp Shr; span = span }) ->
                     let first =
-                        { data = Operator(Arithmetic Shr)
+                        { data = Operator(Arith Shr)
                           span = Span.Make (span.First - 1) (span.First) }
 
-                    first, (splitAndMerge (Operator GtEq) span input[1..])
+                    first, (splitAndMerge (Operator(Cmp GtEq)) span input[1..])
                 // >> =>
-                | Operator Gt, (Some { data = FatArrow; span = span }) ->
+                | Operator(Cmp Gt), (Some { data = FatArrow; span = span }) ->
                     let first =
-                        { data = Operator GtEq
+                        { data = Operator(Cmp GtEq)
                           span = Span.Make (span.First - 1) (span.First) }
 
-                    first, (splitAndMerge (Operator Gt) span input[1..])
+                    first, (splitAndMerge (Operator(Cmp Gt)) span input[1..])
 
                 // >= =
                 | Eq, (Some { data = Eq; span = span }) ->
-                    { data = Operator EqEq
+                    { data = Operator(Cmp EqEq)
                       span = Span.Make (span.First - 1) (span.First) },
                     input[1..]
                 // >= >
-                | Eq, (Some { data = Operator Gt; span = span }) ->
+                | Eq, (Some { data = Operator(Cmp Gt); span = span }) ->
                     { data = FatArrow
                       span = Span.Make (span.First - 1) (span.First) },
                     input[1..]
                 // >= >=
-                | Eq, (Some { data = Operator GtEq; span = span }) ->
+                | Eq,
+                  (Some { data = Operator(Cmp GtEq)
+                          span = span }) ->
                     let first =
                         { data = FatArrow
                           span = Span.Make (span.First - 1) (span.First) }
@@ -303,20 +307,20 @@ let internal parseLtGt (input: Token[]) parser error =
                     first, (splitAndMerge Eq span input[1..])
                 // >= >>
                 | Eq,
-                  (Some { data = Operator(Arithmetic Shr)
+                  (Some { data = Operator(Arith Shr)
                           span = span }) ->
                     let first =
                         { data = FatArrow
                           span = Span.Make (span.First - 1) (span.First) }
 
-                    first, (splitAndMerge (Operator Gt) span input[1..])
+                    first, (splitAndMerge (Operator(Cmp Gt)) span input[1..])
                 // >= >>=
                 | Eq, (Some { data = AssignOp Shr; span = span }) ->
                     let first =
                         { data = FatArrow
                           span = Span.Make (span.First - 1) (span.First) }
 
-                    first, (splitAndMerge (Operator GtEq) span input[1..])
+                    first, (splitAndMerge (Operator(Cmp GtEq)) span input[1..])
                 | _ -> { data = op; span = span }, input
 
             Array.insertAt 0 first rest
@@ -327,10 +331,10 @@ let internal parseLtGt (input: Token[]) parser error =
     | Ok(param, gt) ->
         let rest =
             match gt.data with
-            | Operator Gt -> param.rest
-            | Operator(Arithmetic Shr) -> splitAndMerge (Operator Gt) gt.span param.rest
-            | Operator GtEq -> splitAndMerge Eq gt.span param.rest
-            | AssignOp Shr -> splitAndMerge (Operator GtEq) gt.span param.rest
+            | Operator(Cmp Gt) -> param.rest
+            | Operator(Arith Shr) -> splitAndMerge (Operator(Cmp Gt)) gt.span param.rest
+            | Operator(Cmp GtEq) -> splitAndMerge Eq gt.span param.rest
+            | AssignOp Shr -> splitAndMerge (Operator(Cmp GtEq)) gt.span param.rest
             | _ -> failwith "unreachable"
 
         let span = Span.Make gt.span.First (gt.span.First + 1)

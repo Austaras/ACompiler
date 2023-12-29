@@ -64,12 +64,12 @@ let rec internal parsePathTypeInner (ctx: Context) (state: State<Path>) =
             let rest = newState.rest[i..]
 
             match peek rest with
-            | Some({ data = Operator(Lt | Arithmetic Shl) }, i) ->
+            | Some({ data = Operator(Cmp Lt | Arith Shl) }, i) ->
                 let newState = { newState with rest = rest[i - 1 ..] }
 
                 parseTypeParam newState
             | _ -> parsePathTypeInner ctx { newState with rest = rest }
-        | Some({ data = Operator(Lt | Arithmetic Shl) }, i) ->
+        | Some({ data = Operator(Cmp Lt | Arith Shl) }, i) ->
             let newState =
                 { newState with
                     rest = newState.rest[i - 1 ..] }
@@ -105,18 +105,14 @@ and internal parseType ctx input =
 
         let param =
             match op.data with
-            | Operator(Arithmetic BitOr) ->
+            | Operator(Arith BitOr) ->
                 let param =
-                    parseCommaSeq
-                        input[1..]
-                        (parseType normalCtx)
-                        (Operator(Arithmetic BitOr))
-                        "function type parameter"
+                    parseCommaSeq input[1..] (parseType normalCtx) (Operator(Arith BitOr)) "function type parameter"
 
                 match param with
                 | Ok(s, _) -> Ok s
                 | Error e -> Error e
-            | Operator(Arithmetic LogicalOr) ->
+            | Operator(Logic Or) ->
                 Ok
                     { data = [||]
                       error = [||]
@@ -186,7 +182,7 @@ and internal parseType ctx input =
                   Span = span }
               error = [||]
               rest = input }
-    | Some({ data = Operator(Arithmetic Sub)
+    | Some({ data = Operator(Arith Sub)
              span = span },
            i) ->
         let first = span.First
@@ -280,7 +276,7 @@ and internal parseType ctx input =
             | Error e -> Error [| e |]
         | Error e -> Error e
 
-    | Some({ data = Operator(Lt | Arithmetic Shr) }, i) ->
+    | Some({ data = Operator(Cmp Lt | Arith Shr) }, i) ->
         let typeParam =
             parseLtGt input[i - 1 ..] (parseTypeParam normalCtx) "closure type parameter"
 
@@ -297,9 +293,9 @@ and internal parseType ctx input =
             | Error e -> param.MergeFatalError e
         | Error e -> Error e
 
-    | Some({ data = Operator(Arithmetic(BitOr | LogicalOr)) }, i) -> parseClosure [||] input[i - 1 ..]
+    | Some({ data = Operator(Arith BitOr | Logic Or) }, i) -> parseClosure [||] input[i - 1 ..]
 
-    | Some({ data = Operator(Arithmetic(BitAnd | LogicalAnd as op))
+    | Some({ data = Operator(Arith BitAnd | Logic And as op)
              span = span },
            i) ->
         match parseType normalCtx input[i..] with
@@ -307,11 +303,11 @@ and internal parseType ctx input =
         | Ok ty ->
             let expr =
                 match op with
-                | BitAnd ->
+                | Arith BitAnd ->
                     RefType
                         { Ty = ty.data
                           Span = ty.data.span.WithFirst span.First }
-                | LogicalAnd ->
+                | Logic And ->
                     let span = ty.data.span.WithFirst span.First
 
                     RefType
@@ -404,7 +400,7 @@ and internal parseTypeBound ctx input =
                   rest = newState.rest }
 
             match peek newState.rest with
-            | Some({ data = Operator(Arithmetic Add) }, i) ->
+            | Some({ data = Operator(Arith Add) }, i) ->
                 parseRecursive (
                     { newState with
                         rest = newState.rest[i..] }

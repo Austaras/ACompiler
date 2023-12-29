@@ -89,7 +89,7 @@
         }
       },
       "Op": {
-        "Arithmetic": "Add"
+        "Arith": "Add"
       },
       "Right": {
         "Call": {

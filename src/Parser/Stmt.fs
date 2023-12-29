@@ -45,7 +45,7 @@ and internal parseFn ctx input span =
     | Ok id ->
         let typeParam =
             match peek id.rest with
-            | Some({ data = Operator(Lt | Arithmetic Shl) }, _) ->
+            | Some({ data = Operator(Cmp Lt | Arith Shl) }, _) ->
                 parseLtGt id.rest (parseTypeParam ctx) "function type paramater"
             | _ ->
                 Ok
@@ -246,7 +246,7 @@ and internal parseTraitItem input =
         | Ok id ->
             let typeParam =
                 match peek id.rest with
-                | Some({ data = Operator(Lt | Arithmetic Shl) }, _) ->
+                | Some({ data = Operator(Cmp Lt | Arith Shl) }, _) ->
                     parseLtGt id.rest (parseTypeParam ctx) "function type paramater"
                 | _ ->
                     Ok
@@ -495,7 +495,7 @@ and internal parseDecl (ctx: Context) input =
                                 rest = state.rest[i + j ..] }
 
                         parseSeg newState
-                    | Some({ data = Operator(Arithmetic Mul)
+                    | Some({ data = Operator(Arith Mul)
                              span = span },
                            j) ->
                         let data =
@@ -590,7 +590,7 @@ and internal parseDecl (ctx: Context) input =
         | Ok id ->
             match peek id.rest with
             | None -> id.FatalError(IncompleteAtEnd "struct")
-            | Some({ data = Operator(Lt | Arithmetic Shl) }, i) ->
+            | Some({ data = Operator(Cmp Lt | Arith Shl) }, i) ->
                 let tyParam =
                     parseLtGt id.rest[i - 1 ..] (parseTypeParam ctx) "struct type parameter"
 
@@ -674,7 +674,7 @@ and internal parseDecl (ctx: Context) input =
         | Ok id ->
             match peek id.rest with
             | None -> id.FatalError(IncompleteAtEnd "enum")
-            | Some({ data = Operator(Lt | Arithmetic Shl) }, i) ->
+            | Some({ data = Operator(Cmp Lt | Arith Shl) }, i) ->
                 let tyParam = parseLtGt id.rest[i - 1 ..] (parseTypeParam ctx) "enum type parameter"
 
                 match tyParam with
@@ -739,7 +739,7 @@ and internal parseDecl (ctx: Context) input =
             let rest = input[i..]
 
             match peek rest with
-            | Some({ data = Operator(Lt | Arithmetic Shl) }, i) ->
+            | Some({ data = Operator(Cmp Lt | Arith Shl) }, i) ->
                 parseLtGt rest[i - 1 ..] (parseTypeParam ctx) "impl type paramater"
             | _ ->
                 Ok
@@ -842,7 +842,7 @@ and internal parseDecl (ctx: Context) input =
                 let rest = id.rest
 
                 match peek id.rest with
-                | Some({ data = Operator(Lt | Arithmetic Shl) }, i) ->
+                | Some({ data = Operator(Cmp Lt | Arith Shl) }, i) ->
                     parseLtGt rest[i - 1 ..] (parseTypeParam ctx) "trait type paramater"
                 | _ ->
                     Ok
