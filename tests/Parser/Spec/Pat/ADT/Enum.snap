@@ -1,0 +1,6 @@
+Enum@0..20
+    variant@0..17
+        seg: core@0..3
+        seg: Option@6..11
+        seg: Some@14..17
+    payload: 1@19..19

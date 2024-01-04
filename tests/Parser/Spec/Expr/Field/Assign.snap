@@ -1,0 +1,8 @@
+Assign@0..8
+    place: Field@0..2
+        receiver: a@0..0
+        field: b@2..2
+    op: =
+    value: Field@6..8
+        receiver: c@6..6
+        field: d@8..8

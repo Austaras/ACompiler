@@ -1,0 +1,7 @@
+Assign@0..8
+    place: a@0..0
+    op: =
+    value: Binary@4..8
+        left: b@4..4
+        op: +
+        right: c@8..8

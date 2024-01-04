@@ -30,7 +30,7 @@ let internal maybeStruct ctx input =
         None
     else
         match peekInline input with
-        | Some({ data = Curly Open }, i) -> Some i
+        | Some({ Data = Curly Open }, i) -> Some i
         | _ -> None
 
 let precedence op =
@@ -73,7 +73,7 @@ let internal parseParam (ctx: Context) input =
     | Error e -> Error e
     | Ok p ->
         match peek p.rest with
-        | Some({ data = Colon }, i) ->
+        | Some({ Data = Colon }, i) ->
             match peek p.rest[i..] with
             | None -> p.FatalError(IncompleteAtEnd("type annotation"))
             | _ ->
@@ -83,7 +83,7 @@ let internal parseParam (ctx: Context) input =
                     let param =
                         { Pat = p.data
                           Ty = Some ty.data
-                          Span = ty.data.span.WithFirst p.data.Span.First }
+                          Span = ty.data.Span.WithFirst p.data.Span.First }
 
                     Ok
                         { data = param
@@ -100,7 +100,7 @@ let internal parseParam (ctx: Context) input =
 
 let rec internal parseStructField ctx input =
     match peek input with
-    | Some({ data = Identifier sym; span = span }, i) ->
+    | Some({ Data = Identifier sym; Span = span }, i) ->
         let id = { Sym = sym; Span = span }
 
         match peekWith input[i..] Colon with
@@ -111,7 +111,7 @@ let rec internal parseStructField ctx input =
                 Ok
                     { data =
                         KeyValueField
-                            { Name = id.Sym
+                            { Name = id
                               Value = v.data
                               Span = v.data.Span.WithFirst span.First }
                       error = v.error
@@ -122,7 +122,7 @@ let rec internal parseStructField ctx input =
                   error = [||]
                   rest = input[i..] }
 
-    | Some({ data = DotDot; span = span }, i) ->
+    | Some({ Data = DotDot; Span = span }, i) ->
         match parseExpr ctx input[i..] with
         | Error e -> Error e
         | Ok(v: State<Expr>) ->
@@ -145,7 +145,7 @@ and internal parseStruct ctx (state: State<Path>) =
         let str =
             { Ty = state.data
               Field = field.data
-              Span = state.data.Span.WithLast curly.span.Last }
+              Span = state.data.Span.WithLast curly.Span.Last }
 
         let isRest (idx, f) =
             match f with
@@ -165,7 +165,7 @@ and internal parseStruct ctx (state: State<Path>) =
 and internal parsePath (ctx: Context) (state: State<Path>) =
     let rec parsePath (state: State<Path>) =
         match peek state.rest with
-        | Some({ data = Identifier sym; span = span }, i) ->
+        | Some({ Data = Identifier sym; Span = span }, i) ->
             let id = { Sym = sym; Span = span }
 
             let curr = state.rest[i..]
@@ -173,11 +173,11 @@ and internal parsePath (ctx: Context) (state: State<Path>) =
             let error = state.error
 
             match peek curr with
-            | Some({ data = ColonColon }, i) ->
+            | Some({ Data = ColonColon }, i) ->
                 let curr = curr[i..]
 
                 match peek curr with
-                | Some({ data = Operator(Cmp Lt | Arith Shl) }, i) ->
+                | Some({ Data = Operator(Cmp Lt | Arith Shl) }, i) ->
                     let generic =
                         parseLtGt curr[i - 1 ..] (parseType ctx.InTypeInst) "type instantiation"
 
@@ -256,15 +256,15 @@ and internal parsePath (ctx: Context) (state: State<Path>) =
 and internal rangeParser ctx input =
     match peek input with
     | None -> None
-    | Some({ data = data }, _) when canStartExpr data -> Some(parseWithPrec -1 ctx input)
+    | Some({ Data = data }, _) when canStartExpr data -> Some(parseWithPrec -1 ctx input)
     | Some(_, _) -> None
 
 and internal parseClosure ctx (input: Token[]) =
     let op = input[0]
-    let first = op.span.First
+    let first = op.Span.First
 
     let param =
-        match op.data with
+        match op.Data with
         | Operator(Arith BitOr) ->
             let param =
                 parseCommaSeq input[1..] (parseParam ctx) (Operator(Arith BitOr)) "function type parameter"
@@ -283,7 +283,7 @@ and internal parseClosure ctx (input: Token[]) =
     | Ok param ->
         let ret =
             match peek param.rest with
-            | Some({ data = Arrow }, i) ->
+            | Some({ Data = Arrow }, i) ->
                 match parseType ctx param.rest[i..] with
                 | Ok ret ->
                     Ok
@@ -351,7 +351,7 @@ and internal parseCond (ctx: Context) input =
 and internal parseMatchBranch (ctx: Context) state =
     match peek state.rest with
     | None -> Error [| IncompleteAtEnd "match expression" |]
-    | Some({ data = Curly Close; span = span }, i) -> Ok({ state with rest = state.rest[i..] }, span)
+    | Some({ Data = Curly Close; Span = span }, i) -> Ok({ state with rest = state.rest[i..] }, span)
     | _ ->
         match parsePat ctx.NotInDecl state.rest with
         | Error e -> Error e
@@ -402,8 +402,8 @@ and internal parseMatchBranch (ctx: Context) state =
                                     rest = newState.rest[i..] }
                         | _ ->
                             match peek res.rest with
-                            | Some({ data = Curly Close }, _) -> parseMatchBranch ctx newState
-                            | Some({ data = Comma }, i) ->
+                            | Some({ Data = Curly Close }, _) -> parseMatchBranch ctx newState
+                            | Some({ Data = Comma }, i) ->
                                 parseMatchBranch
                                     ctx
                                     { newState with
@@ -414,18 +414,18 @@ and internal parseMatchBranch (ctx: Context) state =
 
 and internal parsePrefix ctx input =
     match peek input with
-    | Some({ data = Lit l; span = span }, i) ->
+    | Some({ Data = Lit l; Span = span }, i) ->
         Ok
             { data = LitExpr(l, span)
               error = [||]
               rest = input[i..] }
-    | Some({ data = Underline; span = span }, i) ->
+    | Some({ Data = Underline; Span = span }, i) ->
         Ok
             { data = Id { Sym = "_"; Span = span }
               error = [||]
               rest = input[i..] }
-    | Some({ data = Reserved(PACKAGE | LOWSELF | SELF as kw)
-             span = span },
+    | Some({ Data = Reserved(PACKAGE | LOWSELF | SELF as kw)
+             Span = span },
            i) ->
         let prefix =
             match kw with
@@ -477,7 +477,7 @@ and internal parsePrefix ctx input =
                         { data = Path path.data
                           error = error
                           rest = path.rest }
-    | Some({ data = Identifier _; span = span }, _) ->
+    | Some({ Data = Identifier _; Span = span }, _) ->
         let path =
             { Prefix = None
               Seg = [||]
@@ -490,7 +490,7 @@ and internal parsePrefix ctx input =
 
         parsePath ctx newState
 
-    | Some({ data = Paren Open; span = span }, i) ->
+    | Some({ Data = Paren Open; Span = span }, i) ->
         let first = span.First
         let input = input[i..]
         let ctx = ctx.NotInCond
@@ -505,26 +505,26 @@ and internal parsePrefix ctx input =
                       error = state.error
                       rest = state.rest }
             | _ ->
-                let span = paren.span.WithFirst first
-                let expr = { element = state.data; span = span }
+                let span = paren.Span.WithFirst first
+                let expr = { Ele = state.data; span = span }
 
                 Ok
                     { data = Tuple expr
                       error = state.error
                       rest = state.rest }
 
-    | Some({ data = Bracket Open; span = span } as token, i) ->
+    | Some({ Data = Bracket Open; Span = span } as token, i) ->
         let first = span.First
         let input = input[i..]
         let ctx = ctx.NotInCond
 
         match peek input with
         | None -> Error([| IncompletePair token |])
-        | Some({ data = Bracket Close; span = span }, i) ->
+        | Some({ Data = Bracket Close; Span = span }, i) ->
             let span = span.WithFirst first
 
             Ok
-                { data = Array { element = [||]; span = span }
+                { data = Array { Ele = [||]; span = span }
                   error = [||]
                   rest = input[i..] }
         | _ ->
@@ -532,22 +532,22 @@ and internal parsePrefix ctx input =
             | Error e -> Error e
             | Ok firstEle ->
                 match peek firstEle.rest with
-                | Some({ data = Bracket Close; span = span }, i) ->
+                | Some({ Data = Bracket Close; Span = span }, i) ->
                     let span = span.WithFirst first
 
                     Ok
                         { data =
                             Array
-                                { element = [| firstEle.data |]
+                                { Ele = [| firstEle.data |]
                                   span = span }
                           error = firstEle.error
                           rest = firstEle.rest[i..] }
-                | Some({ data = Delimiter Semi }, i) ->
+                | Some({ Data = Delimiter Semi }, i) ->
                     match parseExpr ctx firstEle.rest[i..] with
                     | Error e -> Error e
                     | Ok repeat ->
                         match peek repeat.rest with
-                        | Some({ data = Bracket Close; span = span }, i) ->
+                        | Some({ Data = Bracket Close; Span = span }, i) ->
                             let span = span.WithFirst first
 
                             let expr =
@@ -560,14 +560,14 @@ and internal parsePrefix ctx input =
                                   error = Array.append firstEle.error repeat.error
                                   rest = firstEle.rest[i..] }
                         | _ -> Error(Array.concat [ firstEle.error; repeat.error; [| IncompletePair token |] ])
-                | Some({ data = Comma }, i) ->
+                | Some({ Data = Comma }, i) ->
                     match parseCommaSeq firstEle.rest[i..] (parseExpr ctx) (Bracket Close) "array expression" with
                     | Error e -> Error e
                     | Ok(rest, bracket) ->
-                        let span = bracket.span.WithFirst first
+                        let span = bracket.Span.WithFirst first
 
                         let expr =
-                            { element = Array.append [| firstEle.data |] rest.data
+                            { Ele = Array.append [| firstEle.data |] rest.data
                               span = span }
 
                         Ok
@@ -577,7 +577,7 @@ and internal parsePrefix ctx input =
                 | Some(token, _) -> firstEle.FatalError(UnexpectedToken(token, "array expression"))
                 | None -> firstEle.FatalError(IncompletePair token)
 
-    | Some({ data = Curly Open }, _) ->
+    | Some({ Data = Curly Open }, _) ->
         match parseBlock ctx input with
         | Error e -> Error e
         | Ok(b: State<Block>) ->
@@ -586,10 +586,10 @@ and internal parsePrefix ctx input =
                   error = b.error
                   rest = b.rest }
 
-    | Some({ data = Operator(Arith BitOr | Logic Or) }, i) -> parseClosure ctx input[i - 1 ..]
+    | Some({ Data = Operator(Arith BitOr | Logic Or) }, i) -> parseClosure ctx input[i - 1 ..]
 
-    | Some({ data = Operator(Arith Sub | Arith Mul | Arith BitAnd as op)
-             span = span },
+    | Some({ Data = Operator(Arith Sub | Arith Mul | Arith BitAnd as op)
+             Span = span },
            i) ->
         let op =
             match op with
@@ -603,41 +603,41 @@ and internal parsePrefix ctx input =
         | Ok(state: State<Expr>) ->
             let expr =
                 { Op = op
-                  Expr = state.data
+                  Value = state.data
                   Span = Span.Make span.First state.data.Span.Last }
 
             Ok { state with data = Unary expr }
 
-    | Some({ data = Not; span = span }, i) ->
+    | Some({ Data = Not; Span = span }, i) ->
         match parseWithPrec 1000 ctx input[i..] with
         | Error e -> Error e
         | Ok(state: State<Expr>) ->
             let expr =
                 { Op = AST.AST.Not
-                  Expr = state.data
+                  Value = state.data
                   Span = Span.Make span.First state.data.Span.Last }
 
             Ok { state with data = Unary expr }
 
-    | Some({ data = Operator(Logic And)
-             span = span },
+    | Some({ Data = Operator(Logic And)
+             Span = span },
            i) ->
         match parseWithPrec 1000 ctx input[i..] with
         | Error e -> Error e
         | Ok(state: State<Expr>) ->
             let expr =
-                { Op = Deref
-                  Expr = state.data
+                { Op = Ref
+                  Value = state.data
                   Span = Span.Make (span.First + 1) state.data.Span.Last }
 
             let expr =
-                { Op = Deref
-                  Expr = Unary expr
+                { Op = Ref
+                  Value = Unary expr
                   Span = expr.Span.WithFirst span.First }
 
             Ok { state with data = Unary expr }
 
-    | Some({ data = DotDot | DotDotCaret } as op, i) ->
+    | Some({ Data = DotDot | DotDotCaret } as op, i) ->
         parseRangeTo
             { data = None
               error = [||]
@@ -646,7 +646,7 @@ and internal parsePrefix ctx input =
             (rangeParser ctx)
             rangeCtor
 
-    | Some({ data = Reserved IF; span = span }, i) ->
+    | Some({ Data = Reserved IF; Span = span }, i) ->
         let rec parseElse (state: State<If>) =
             match peekWith state.rest (Reserved ELSE) with
             | Some(span, i) ->
@@ -703,7 +703,7 @@ and internal parsePrefix ctx input =
                       error = Array.append cond.error then_.error
                       rest = then_.rest }
 
-    | Some({ data = Reserved FOR; span = span }, i) ->
+    | Some({ Data = Reserved FOR; Span = span }, i) ->
         match parsePat ctx.NotInDecl input[i..] with
         | Error e -> Error e
         | Ok pat ->
@@ -729,7 +729,7 @@ and internal parsePrefix ctx input =
                               error = Array.append error block.error
                               rest = block.rest }
 
-    | Some({ data = Reserved WHILE; span = span }, i) ->
+    | Some({ Data = Reserved WHILE; Span = span }, i) ->
         match parseCond ctx input[i..] with
         | Error e -> Error e
         | Ok cond ->
@@ -746,7 +746,7 @@ and internal parsePrefix ctx input =
                       error = Array.append cond.error block.error
                       rest = block.rest }
 
-    | Some({ data = Reserved BREAK; span = span } as token, i) ->
+    | Some({ Data = Reserved BREAK; Span = span } as token, i) ->
         let error = if ctx.inLoop then [| OutOfLoop token |] else [||]
 
         Ok
@@ -754,8 +754,8 @@ and internal parsePrefix ctx input =
               error = error
               rest = input[i..] }
 
-    | Some({ data = Reserved CONTINUE
-             span = span } as token,
+    | Some({ Data = Reserved CONTINUE
+             Span = span } as token,
            i) ->
         let error = if ctx.inLoop then [| OutOfLoop token |] else [||]
 
@@ -764,11 +764,11 @@ and internal parsePrefix ctx input =
               error = error
               rest = input[i..] }
 
-    | Some({ data = Reserved RETURN; span = span }, i) ->
+    | Some({ Data = Reserved RETURN; Span = span }, i) ->
         let error = if ctx.inFn then [| OutOfFn span |] else [||]
 
         match peekInline input[i..] with
-        | Some({ data = data }, _) when canStartExpr data ->
+        | Some({ Data = data }, _) when canStartExpr data ->
             match parseExpr ctx input[i..] with
             | Error e -> Error e
             | Ok state ->
@@ -786,7 +786,7 @@ and internal parsePrefix ctx input =
                   error = error
                   rest = input[i..] }
 
-    | Some({ data = Reserved MATCH; span = span }, i) ->
+    | Some({ Data = Reserved MATCH; Span = span }, i) ->
         match parseExpr ctx.InCond input[i..] with
         | Error e -> Error e
         | Ok value ->
@@ -802,9 +802,9 @@ and internal parsePrefix ctx input =
                 | Error e -> value.MergeFatalError e
                 | Ok(branch, last) ->
                     let expr =
-                        { expr = value.data
-                          branch = branch.data
-                          span = span.WithLast last.Last }
+                        { Value = value.data
+                          Branch = branch.data
+                          Span = span.WithLast last.Last }
 
                     Ok
                         { data = Match expr
@@ -814,15 +814,15 @@ and internal parsePrefix ctx input =
     | Some(token, _) ->
         match tryRecover canStartExpr (parsePrefix ctx) "expression" input with
         | Ok expr -> Ok expr
-        | Error i -> Error [| UnexpectedManyToken(token.span.WithLast input[i].span.Last, "expression") |]
+        | Error i -> Error [| UnexpectedManyToken(token.Span.WithLast input[i].Span.Last, "expression") |]
     | None -> Error [| IncompleteAtEnd "expression" |]
 
 and internal parseFollow prec ctx (state: State<Expr>) =
     match peek state.rest with
     | None
-    | Some({ data = Delimiter Semi }, _) -> Ok state
+    | Some({ Data = Delimiter Semi }, _) -> Ok state
     // <= because of right associativity
-    | Some({ data = Eq | AssignOp _ as data }, i) when prec <= -2 ->
+    | Some({ Data = Eq | AssignOp _ as data }, i) when prec <= -2 ->
         match peek state.rest[i..] with
         | None -> state.FatalError(Incomplete(state.data.Span, "assign expression"))
         | _ ->
@@ -853,7 +853,7 @@ and internal parseFollow prec ctx (state: State<Expr>) =
                     { data = Assign expr
                       error = error
                       rest = right.rest }
-    | Some({ data = DotDot | DotDotCaret } as op, i) when prec <= -1 ->
+    | Some({ Data = DotDot | DotDotCaret } as op, i) when prec <= -1 ->
         parseRangeTo
             { data = Some state.data
               error = state.error
@@ -862,7 +862,7 @@ and internal parseFollow prec ctx (state: State<Expr>) =
             (rangeParser ctx)
             rangeCtor
 
-    | Some({ data = Operator op }, i) when prec < precedence op ->
+    | Some({ Data = Operator op }, i) when prec < precedence op ->
         match peek state.rest[i..] with
         | None -> state.FatalError(Incomplete(state.data.Span, "binary expression"))
         | _ ->
@@ -887,13 +887,13 @@ and internal parseFollow prec ctx (state: State<Expr>) =
 
 and internal parsePostfix ctx prec state =
     match peekInline state.rest with
-    | Some({ data = Dot }, i) ->
+    | Some({ Data = Dot }, i) ->
         match peek state.rest[i..] with
         | None -> state.FatalError(Incomplete(state.data.Span, "field access expression"))
-        | Some({ data = Identifier sym; span = span }, j) ->
+        | Some({ Data = Identifier sym; Span = span }, j) ->
             let expr =
                 { Receiver = state.data
-                  Prop = { Sym = sym; Span = span }
+                  Field = { Sym = sym; Span = span }
                   Span = Span.Make state.data.Span.First span.Last }
 
             parsePostfix
@@ -904,7 +904,7 @@ and internal parsePostfix ctx prec state =
                     rest = state.rest[i + j ..] }
         | Some(token, _) -> state.FatalError(UnexpectedToken(token, "field access"))
 
-    | Some({ data = Paren Open; span = span }, i) ->
+    | Some({ Data = Paren Open; Span = span }, i) ->
         let newCtx = ctx.NotInCond
 
         match peek state.rest with
@@ -913,7 +913,7 @@ and internal parsePostfix ctx prec state =
             match parseCommaSeq state.rest[i..] (parseExpr newCtx) (Paren Close) "call arguments" with
             | Error e -> Error e
             | Ok(param, paren) ->
-                let span = paren.span.WithFirst state.data.Span.First
+                let span = paren.Span.WithFirst state.data.Span.First
 
                 let expr =
                     { Arg = param.data
@@ -927,7 +927,7 @@ and internal parsePostfix ctx prec state =
                       error = Array.append state.error param.error
                       rest = param.rest }
 
-    | Some({ data = Bracket Open } as token, i) ->
+    | Some({ Data = Bracket Open } as token, i) ->
         let newCtx = ctx.NotInCond
 
         match peek state.rest[i..] with
@@ -940,7 +940,7 @@ and internal parsePostfix ctx prec state =
                 | Ok(span, i) ->
                     let expr =
                         { Container = state.data
-                          Idx = idx.data
+                          Index = idx.data
                           Span = span.WithFirst state.data.Span.First }
 
                     parsePostfix
@@ -952,7 +952,7 @@ and internal parsePostfix ctx prec state =
 
                 | Error e -> Error(Array.concat [ state.error; idx.error; [| e |] ])
 
-    | Some({ data = Question; span = span }, i) ->
+    | Some({ Data = Question; Span = span }, i) ->
         let expr =
             { Base = state.data
               Span = state.data.Span.WithLast span.Last }
@@ -973,9 +973,9 @@ and internal parseRecursive prec ctx state =
     | Error e -> Error e
     | Ok newState ->
         match peek newState.rest with
-        | Some({ data = Operator op }, _) when prec < precedence op -> parseRecursive prec ctx newState
-        | Some({ data = DotDot | DotDotCaret }, _) when prec <= -1 -> parseRecursive prec ctx newState
-        | Some({ data = AssignOp _ | Eq }, _) when prec <= -2 -> parseRecursive prec ctx newState
+        | Some({ Data = Operator op }, _) when prec < precedence op -> parseRecursive prec ctx newState
+        | Some({ Data = DotDot | DotDotCaret }, _) when prec <= -1 -> parseRecursive prec ctx newState
+        | Some({ Data = AssignOp _ | Eq }, _) when prec <= -2 -> parseRecursive prec ctx newState
         | _ -> Ok newState
 
 and internal parseWithPrec prec ctx input =

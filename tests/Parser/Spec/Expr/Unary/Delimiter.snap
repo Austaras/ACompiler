@@ -1,0 +1,4 @@
+Binary@0..9
+    left: Array@0..1
+    op: -
+    right: 1@9..9

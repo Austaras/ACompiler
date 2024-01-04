@@ -1,0 +1,5 @@
+Index@0..5
+    container: Field@0..2
+        receiver: a@0..0
+        field: x@2..2
+    index: 1@4..4

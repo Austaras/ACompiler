@@ -5,6 +5,7 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Library.fs" />
+    <Compile Include="Dump.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.fsproj" />

@@ -19,6 +19,13 @@ type UnaryOp =
     | Ref
     | Deref
 
+    member this.ToString =
+        match this with
+        | Neg -> "-"
+        | Not -> "!"
+        | Ref -> "&"
+        | Deref -> "*"
+
 type ArithOp =
     | Add
     | Sub
@@ -31,9 +38,27 @@ type ArithOp =
     | Shl
     | Shr
 
+    member this.ToString =
+        match this with
+        | Add -> "+"
+        | Sub -> "-"
+        | Mul -> "*"
+        | Div -> "/"
+        | Rem -> "%"
+        | BitOr -> "|"
+        | BitAnd -> "&"
+        | BitXor -> "^"
+        | Shl -> "<<"
+        | Shr -> ">>"
+
 type LogicOp =
     | And
     | Or
+
+    member this.ToString =
+        match this with
+        | And -> "&&"
+        | Or -> "||"
 
 type CmpOp =
     | EqEq
@@ -43,6 +68,15 @@ type CmpOp =
     | LtEq
     | GtEq
 
+    member this.ToString =
+        match this with
+        | EqEq -> "=="
+        | NotEq -> "!="
+        | Lt -> "<"
+        | Gt -> ">"
+        | LtEq -> "<="
+        | GtEq -> ">="
+
 type BinaryOp =
     | Arith of ArithOp
     | Logic of LogicOp
@@ -50,15 +84,35 @@ type BinaryOp =
     | Pipe
     | As
 
+    member this.ToString =
+        match this with
+        | Arith a -> a.ToString
+        | Logic l -> l.ToString
+        | Cmp c -> c.ToString
+        | Pipe -> "|>"
+        | As -> "as"
+
 type Visibility =
     | Public
     | Private
     | Internal
 
+    member this.ToString =
+        match this with
+        | Public -> "public"
+        | Private -> "private"
+        | Internal -> "internal"
+
 type PathPrefix =
     | Self
     | LowSelf
     | Package
+
+    member this.ToString =
+        match this with
+        | Self -> "Self"
+        | LowSelf -> "self"
+        | Package -> "package"
 
 type PathPat =
     { Prefix: Option<PathPrefix>
@@ -72,7 +126,7 @@ type Path =
 
 and FnType =
     { Param: Type[]
-      TyParam: TypeParam[]
+      TyParam: TyParam[]
       Ret: Type
       Span: Span }
 
@@ -85,7 +139,7 @@ and ArrayType =
 
 and TupleType = { Ele: Type[]; Span: Span }
 
-and TypeParam =
+and TyParam =
     { Id: Id
       Const: bool
       Bound: Path[]
@@ -102,7 +156,7 @@ and Type =
     | InferedType of Span
     | FnType of FnType
 
-    member this.span =
+    member this.Span =
         match this with
         | TypeId i -> i.Span
         | PathType p -> p.Span
@@ -119,7 +173,7 @@ type SeqPat = { Ele: Pat[]; Span: Span }
 and AsPat = { Pat: Pat; Id: Id; Span: Span }
 
 and EnumPat =
-    { Name: PathPat
+    { Variant: PathPat
       Payload: Pat[]
       Span: Span }
 
@@ -144,7 +198,7 @@ and RangePat =
       Span: Span }
 
 and StructPat =
-    { Id: PathPat
+    { Path: PathPat
       Field: FieldPat[]
       Span: Span }
 
@@ -222,7 +276,8 @@ and If =
       Else: Option<Block>
       Span: Span }
 
-and Unary = { Op: UnaryOp; Expr: Expr; Span: Span }
+and Unary =
+    { Op: UnaryOp; Value: Expr; Span: Span }
 
 and Assign =
     { Place: Expr
@@ -237,18 +292,20 @@ and Binary =
       Span: Span }
 
 and Field =
-    { Receiver: Expr; Prop: Id; Span: Span }
+    { Receiver: Expr
+      Field: Id
+      Span: Span }
 
 and Index =
     { Container: Expr
-      Idx: Expr
+      Index: Expr
       Span: Span }
 
 and Block = { Stmt: Stmt[]; Span: Span }
 
 and ArrayRepeat = { Ele: Expr; Count: Expr; Span: Span }
 
-and Seq = { element: Expr[]; span: Span }
+and Seq = { Ele: Expr[]; span: Span }
 
 and RangeExpr =
     { From: Option<Expr>
@@ -256,10 +313,7 @@ and RangeExpr =
       Exclusive: bool
       Span: Span }
 
-and KeyValueField =
-    { Name: string
-      Value: Expr
-      Span: Span }
+and KeyValueField = { Name: Id; Value: Expr; Span: Span }
 
 and StructField =
     | ShorthandField of Id
@@ -300,9 +354,9 @@ and MatchBranch =
       Span: Span }
 
 and Match =
-    { expr: Expr
-      branch: MatchBranch[]
-      span: Span }
+    { Value: Expr
+      Branch: MatchBranch[]
+      Span: Span }
 
 and Return = { Value: Option<Expr>; Span: Span }
 
@@ -360,7 +414,7 @@ and Expr =
         | For f -> f.Span
         | While w -> w.Span
         | TryReturn t -> t.Span
-        | Match m -> m.span
+        | Match m -> m.Span
 
     member this.IsPlace =
         match this with
@@ -385,7 +439,7 @@ and Const =
 
 and Fn =
     { Name: Id
-      TyParam: TypeParam[]
+      TyParam: TyParam[]
       Param: Param[]
       Ret: Option<Type>
       Body: Block
@@ -398,7 +452,14 @@ and UseItem =
     | UseAll of Span
     | UseSelf of Span
     | UseItem of Id
-    | UsePath of UsePath[]
+    | UsePath of Span * UsePath[]
+
+    member this.Span =
+        match this with
+        | UseAll a -> a
+        | UseSelf s -> s
+        | UseItem i -> i.Span
+        | UsePath(s, _) -> s
 
 and Use =
     { Span: Span
@@ -415,25 +476,28 @@ and StructFieldDef =
       Span: Span }
 
 and StructDecl =
-    { Id: Id
-      TyParam: TypeParam[]
+    { Name: Id
+      TyParam: TyParam[]
       Field: StructFieldDef[]
       Span: Span }
 
-and EnumVariantDef = { Id: Id; Payload: Type[]; span: Span }
+and EnumVariantDef =
+    { Name: Id
+      Payload: Type[]
+      Span: Span }
 
 and EnumDecl =
-    { Id: Id
-      TyParam: TypeParam[]
+    { Name: Id
+      TyParam: TyParam[]
       Variant: EnumVariantDef[]
       Span: Span }
 
 and TraitMethod =
-    { Id: Id
-      TyParam: TypeParam[]
+    { Name: Id
+      TyParam: TyParam[]
       Param: Param[]
       Ret: Option<Type>
-      DefaultImpl: Option<Block>
+      Default: Option<Block>
       Span: Span }
 
 and TraitType =
@@ -453,9 +517,15 @@ and TraitItem =
     | TraitType of TraitType
     | TraitValue of TraitValue
 
+    member this.Span =
+        match this with
+        | TraitMethod t -> t.Span
+        | TraitType t -> t.Span
+        | TraitValue t -> t.Span
+
 and Trait =
-    { Id: Id
-      TyParam: TypeParam[]
+    { Name: Id
+      TyParam: TyParam[]
       Super: Path[]
       Item: TraitItem[]
       Span: Span }
@@ -478,7 +548,7 @@ and ImplItem =
 
 and Impl =
     { Trait: Option<Path>
-      TyParam: TypeParam[]
+      TyParam: TyParam[]
       Type: Type
       Item: ImplItem[]
       Span: Span }

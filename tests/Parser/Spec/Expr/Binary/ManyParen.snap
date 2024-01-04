@@ -1,0 +1,7 @@
+Binary@4..16
+    left: Binary@4..8
+        left: 1@4..4
+        op: +
+        right: 2@8..8
+    op: *
+    right: 3@16..16

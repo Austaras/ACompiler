@@ -1,0 +1,8 @@
+Index@0..10
+    container: Index@0..3
+        container: a@0..0
+        index: 1@2..2
+    index: Binary@5..9
+        left: c@5..5
+        op: +
+        right: d@9..9

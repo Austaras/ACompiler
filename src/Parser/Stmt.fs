@@ -26,7 +26,7 @@ let rec internal parseBlock (ctx: Context) input =
             match curly with
             | None -> Error [| IncompleteAtEnd "block expression" |]
             | Some token ->
-                let span = span.WithLast token.span.Last
+                let span = span.WithLast token.Span.Last
 
                 Ok
                     { data = { Stmt = item.data; Span = span }
@@ -39,13 +39,13 @@ and internal parseExpr =
     Expr.parseBlock <- parseBlock
     Expr.parseExpr
 
-and internal parseFn ctx input span =
+and internal parseFn ctx input (span: Span) =
     match parseId input "function name" with
     | Error e -> Error [| e |]
     | Ok id ->
         let typeParam =
             match peek id.rest with
-            | Some({ data = Operator(Cmp Lt | Arith Shl) }, _) ->
+            | Some({ Data = Operator(Cmp Lt | Arith Shl) }, _) ->
                 parseLtGt id.rest (parseTypeParam ctx) "function type paramater"
             | _ ->
                 Ok
@@ -101,7 +101,7 @@ and internal parseFn ctx input span =
                                   Ret = retTy.data
                                   Param = param.data
                                   Body = block.data
-                                  Span = span }
+                                  Span = span.WithLast block.data.Span.Last }
 
                             Ok
                                 { data = fn
@@ -120,7 +120,7 @@ and internal parseTypeAlias ctx input (span: Span) =
                 let decl =
                     { Name = id.data
                       Ty = ty.data
-                      Span = span.WithLast ty.data.span.Last }
+                      Span = span.WithLast ty.data.Span.Last }
 
                 Ok
                     { data = decl
@@ -154,7 +154,7 @@ and internal parseConst (ctx: Context) input (span: Span) =
 and internal parseImplItem isForTrait input =
     let vis, visSpan, error, i =
         match peek input with
-        | Some({ data = Reserved PUBLIC; span = span } as token, i) ->
+        | Some({ Data = Reserved PUBLIC; Span = span } as token, i) ->
             Public,
             Some span,
             (if isForTrait then
@@ -162,8 +162,8 @@ and internal parseImplItem isForTrait input =
              else
                  [||]),
             i
-        | Some({ data = Reserved INTERNAL
-                 span = span } as token,
+        | Some({ Data = Reserved INTERNAL
+                 Span = span } as token,
                i) ->
             Internal,
             Some span,
@@ -189,8 +189,8 @@ and internal parseImplItem isForTrait input =
     let ctx = { Context.Normal with inImpl = true }
 
     match peek input with
-    | Some({ data = Reserved FUNCTION
-             span = span },
+    | Some({ Data = Reserved FUNCTION
+             Span = span },
            i) ->
         let f = parseFn { ctx with inMethod = true } input[i..] span
 
@@ -201,7 +201,7 @@ and internal parseImplItem isForTrait input =
                 { data = makeItem (Method f.data)
                   error = Array.append error f.error
                   rest = f.rest }
-    | Some({ data = Reserved TYPE; span = span }, i) ->
+    | Some({ Data = Reserved TYPE; Span = span }, i) ->
         match parseTypeAlias ctx input[i..] span with
         | Error e -> Error e
         | Ok f ->
@@ -209,7 +209,7 @@ and internal parseImplItem isForTrait input =
                 { data = makeItem (AssocType f.data)
                   error = Array.append error f.error
                   rest = f.rest }
-    | Some({ data = Reserved CONST; span = span }, i) ->
+    | Some({ Data = Reserved CONST; Span = span }, i) ->
         match parseFn { ctx with inMethod = true } input[i..] span with
         | Error e -> Error e
         | Ok _ -> failwith "Not Implemented"
@@ -220,8 +220,8 @@ and internal parseImplItem isForTrait input =
 and internal parseTraitItem input =
     let error, i =
         match peek input with
-        | Some({ data = Reserved(PUBLIC | INTERNAL)
-                 span = span } as token,
+        | Some({ Data = Reserved(PUBLIC | INTERNAL)
+                 Span = span } as token,
                i) -> [| VisibilityNotAllowed token |], i
         | _ -> [||], 0
 
@@ -229,8 +229,8 @@ and internal parseTraitItem input =
     let ctx = { Context.Normal with inTrait = true }
 
     match peek input with
-    | Some({ data = Reserved FUNCTION
-             span = span: Span },
+    | Some({ Data = Reserved FUNCTION
+             Span = span: Span },
            i) ->
 
         let ctx =
@@ -246,7 +246,7 @@ and internal parseTraitItem input =
         | Ok id ->
             let typeParam =
                 match peek id.rest with
-                | Some({ data = Operator(Cmp Lt | Arith Shl) }, _) ->
+                | Some({ Data = Operator(Cmp Lt | Arith Shl) }, _) ->
                     parseLtGt id.rest (parseTypeParam ctx) "function type paramater"
                 | _ ->
                     Ok
@@ -262,7 +262,7 @@ and internal parseTraitItem input =
                 | Ok(_, i) ->
                     match parseCommaSeq typeParam.rest[i..] (parseParam ctx) (Paren Close) "function parameter" with
                     | Error e -> typeParam.MergeFatalError e
-                    | Ok(param, _) ->
+                    | Ok(param, last) ->
                         let error = Array.append typeParam.error param.error
 
                         let retTy =
@@ -306,19 +306,25 @@ and internal parseTraitItem input =
                             match block with
                             | Error e -> Error(Array.append error e)
                             | Ok b ->
+                                let last =
+                                    match b.data, rt.data with
+                                    | Some b, _ -> b.Span.Last
+                                    | None, Some r -> r.Span.Last
+                                    | None, None -> last.Span.Last
+
                                 let method =
-                                    { Id = id.data
+                                    { Name = id.data
                                       TyParam = tyParam
                                       Param = param.data
                                       Ret = rt.data
-                                      DefaultImpl = b.data
-                                      Span = span }
+                                      Default = b.data
+                                      Span = span.WithLast last }
 
                                 Ok
                                     { data = TraitMethod method
                                       error = b.error
                                       rest = b.rest }
-    | Some({ data = Reserved TYPE; span = span }, i) ->
+    | Some({ Data = Reserved TYPE; Span = span }, i) ->
         match parseId input[i..] "type alias name" with
         | Error e -> Error [| e |]
         | Ok id ->
@@ -361,7 +367,7 @@ and internal parseTraitItem input =
                 | Ok ty ->
                     let last =
                         match ty.data with
-                        | Some t -> t.span
+                        | Some t -> t.Span
                         | None ->
                             if b.data.Length > 0 then
                                 (Array.last b.data).Span
@@ -379,7 +385,7 @@ and internal parseTraitItem input =
                           error = ty.error
                           rest = ty.rest }
 
-    | Some({ data = Reserved CONST; span = span }, i) ->
+    | Some({ Data = Reserved CONST; Span = span }, i) ->
         match parseFn { ctx with inMethod = true } input[i..] span with
         | Error e -> Error e
         | Ok _ -> failwith "Not Implemented"
@@ -389,8 +395,8 @@ and internal parseTraitItem input =
 
 and internal parseDecl (ctx: Context) input =
     match peek input with
-    | Some({ data = Reserved FUNCTION
-             span = span },
+    | Some({ Data = Reserved FUNCTION
+             Span = span },
            i) ->
         match parseFn ctx input[i..] span with
         | Error e -> Error e
@@ -400,10 +406,10 @@ and internal parseDecl (ctx: Context) input =
                   error = f.error
                   rest = f.rest }
 
-    | Some({ data = Reserved LET; span = span }, i) ->
+    | Some({ Data = Reserved LET; Span = span }, i) ->
         let mut, i =
             match peek input[i..] with
-            | Some({ data = Reserved MUTABLE }, j) -> true, i + j
+            | Some({ Data = Reserved MUTABLE }, j) -> true, i + j
             | _ -> false, i
 
         match parseParam ctx.InDecl input[i..] with
@@ -427,7 +433,7 @@ and internal parseDecl (ctx: Context) input =
                           rest = value.rest }
             | Error e -> param.FatalError e
 
-    | Some({ data = Reserved CONST; span = span }, i) ->
+    | Some({ Data = Reserved CONST; Span = span }, i) ->
         match parseConst ctx input[i..] span with
         | Error e -> Error e
         | Ok c ->
@@ -436,10 +442,10 @@ and internal parseDecl (ctx: Context) input =
                   error = c.error
                   rest = c.rest }
 
-    | Some({ data = Reserved USE }, i) ->
+    | Some({ Data = Reserved USE }, i) ->
         let path =
             match peek input[i..] with
-            | Some({ data = Identifier id; span = span }, j) ->
+            | Some({ Data = Identifier id; Span = span }, j) ->
                 let id = { Sym = id; Span = span }
 
                 let data =
@@ -452,8 +458,8 @@ and internal parseDecl (ctx: Context) input =
                     { data = data
                       error = [||]
                       rest = input[i + j ..] }
-            | Some({ data = Reserved(LOWSELF | PACKAGE as kw)
-                     span = span },
+            | Some({ Data = Reserved(LOWSELF | PACKAGE as kw)
+                     Span = span },
                    j) ->
                 let prefix =
                     match kw with
@@ -479,9 +485,9 @@ and internal parseDecl (ctx: Context) input =
         | Ok p ->
             let rec parseSeg (state: State<Use>) =
                 match peek state.rest with
-                | Some({ data = ColonColon }, i) ->
+                | Some({ Data = ColonColon }, i) ->
                     match peek state.rest[i..] with
-                    | Some({ data = Identifier sym; span = span }, j) ->
+                    | Some({ Data = Identifier sym; Span = span }, j) ->
                         let id = { Sym = sym; Span = span }
 
                         let data =
@@ -495,8 +501,8 @@ and internal parseDecl (ctx: Context) input =
                                 rest = state.rest[i + j ..] }
 
                         parseSeg newState
-                    | Some({ data = Operator(Arith Mul)
-                             span = span },
+                    | Some({ Data = Operator(Arith Mul)
+                             Span = span },
                            j) ->
                         let data =
                             { state.data with
@@ -541,7 +547,7 @@ and internal parseDecl (ctx: Context) input =
                       error = error
                       rest = p.rest }
 
-    | Some({ data = Reserved TYPE; span = span }, i) ->
+    | Some({ Data = Reserved TYPE; Span = span }, i) ->
         match parseTypeAlias ctx input[i..] span with
         | Error e -> Error e
         | Ok ty ->
@@ -550,12 +556,12 @@ and internal parseDecl (ctx: Context) input =
                   error = ty.error
                   rest = ty.rest }
 
-    | Some({ data = Reserved STRUCT; span = span }, i) ->
+    | Some({ Data = Reserved STRUCT; Span = span }, i) ->
         let parseStructField input =
             let vis, visSpan, i =
                 match peek input with
-                | Some({ data = Reserved PUBLIC } as token, i) -> Public, Some token, i
-                | Some({ data = Reserved INTERNAL } as token, i) -> Internal, Some token, i
+                | Some({ Data = Reserved PUBLIC } as token, i) -> Public, Some token, i
+                | Some({ Data = Reserved INTERNAL } as token, i) -> Internal, Some token, i
                 | _ -> Private, None, 0
 
             match parseId input[i..] "struct field name" with
@@ -590,7 +596,7 @@ and internal parseDecl (ctx: Context) input =
         | Ok id ->
             match peek id.rest with
             | None -> id.FatalError(IncompleteAtEnd "struct")
-            | Some({ data = Operator(Cmp Lt | Arith Shl) }, i) ->
+            | Some({ Data = Operator(Cmp Lt | Arith Shl) }, i) ->
                 let tyParam =
                     parseLtGt id.rest[i - 1 ..] (parseTypeParam ctx) "struct type parameter"
 
@@ -603,10 +609,10 @@ and internal parseDecl (ctx: Context) input =
                         match parseCommaSeq ty.rest[i..] parseStructField (Curly Close) "struct fields" with
                         | Error e -> ty.MergeFatalError e
                         | Ok(fields, curly) ->
-                            let span = span.WithLast curly.span.Last
+                            let span = span.WithLast curly.Span.Last
 
                             let data =
-                                { Id = id.data
+                                { Name = id.data
                                   TyParam = fst ty.data
                                   Field = fields.data
                                   Span = span }
@@ -617,14 +623,14 @@ and internal parseDecl (ctx: Context) input =
                                 { data = StructDecl data
                                   error = error
                                   rest = fields.rest }
-            | Some({ data = Curly Open }, i) ->
+            | Some({ Data = Curly Open }, i) ->
                 match parseCommaSeq id.rest[i..] parseStructField (Curly Close) "struct fields" with
                 | Error e -> id.MergeFatalError e
                 | Ok(fields, curly) ->
-                    let span = span.WithLast curly.span.Last
+                    let span = span.WithLast curly.Span.Last
 
                     let data =
-                        { Id = id.data
+                        { Name = id.data
                           TyParam = [||]
                           Field = fields.data
                           Span = span }
@@ -637,20 +643,20 @@ and internal parseDecl (ctx: Context) input =
                           rest = fields.rest }
             | Some(token, _) -> id.FatalError(UnexpectedToken(token, "struct definition"))
 
-    | Some({ data = Reserved ENUM; span = span }, i) ->
+    | Some({ Data = Reserved ENUM; Span = span }, i) ->
         let parseEnumVariant input =
             match parseId input "enum variant name" with
             | Error e -> Error [| e |]
             | Ok id ->
                 match peek id.rest with
-                | Some({ data = Paren Open; span = parenSpan }, i) ->
+                | Some({ Data = Paren Open; Span = parenSpan }, i) ->
                     match parseCommaSeq id.rest[i..] (parseType ctx) (Paren Close) "enum variant payload" with
                     | Error e -> id.MergeFatalError e
                     | Ok(ty, _) ->
                         let data =
-                            { Id = id.data
+                            { Name = id.data
                               Payload = ty.data
-                              span = id.data.Span }
+                              Span = id.data.Span }
 
                         let error = Array.append id.error ty.error
 
@@ -660,9 +666,9 @@ and internal parseDecl (ctx: Context) input =
                               rest = ty.rest }
                 | _ ->
                     let data =
-                        { Id = id.data
+                        { Name = id.data
                           Payload = [||]
-                          span = id.data.Span }
+                          Span = id.data.Span }
 
                     Ok
                         { data = data
@@ -674,7 +680,7 @@ and internal parseDecl (ctx: Context) input =
         | Ok id ->
             match peek id.rest with
             | None -> id.FatalError(IncompleteAtEnd "enum")
-            | Some({ data = Operator(Cmp Lt | Arith Shl) }, i) ->
+            | Some({ Data = Operator(Cmp Lt | Arith Shl) }, i) ->
                 let tyParam = parseLtGt id.rest[i - 1 ..] (parseTypeParam ctx) "enum type parameter"
 
                 match tyParam with
@@ -686,10 +692,10 @@ and internal parseDecl (ctx: Context) input =
                         match parseCommaSeq ty.rest[i..] parseEnumVariant (Curly Close) "enum variants" with
                         | Error e -> ty.MergeFatalError e
                         | Ok(variants, curly) ->
-                            let span = span.WithLast curly.span.Last
+                            let span = span.WithLast curly.Span.Last
 
                             let data =
-                                { Id = id.data
+                                { Name = id.data
                                   TyParam = fst ty.data
                                   Variant = variants.data
                                   Span = span }
@@ -706,14 +712,14 @@ and internal parseDecl (ctx: Context) input =
                                 { data = EnumDecl data
                                   error = error
                                   rest = variants.rest }
-            | Some({ data = Curly Open }, i) ->
+            | Some({ Data = Curly Open }, i) ->
                 match parseCommaSeq id.rest[i..] parseEnumVariant (Curly Close) "enum variants" with
                 | Error e -> id.MergeFatalError e
                 | Ok(variants, curly) ->
-                    let span = span.WithLast curly.span.Last
+                    let span = span.WithLast curly.Span.Last
 
                     let data =
-                        { Id = id.data
+                        { Name = id.data
                           TyParam = [||]
                           Variant = variants.data
                           Span = span }
@@ -732,14 +738,14 @@ and internal parseDecl (ctx: Context) input =
                           rest = variants.rest }
             | Some(token, _) -> id.FatalError(UnexpectedToken(token, "struct definition"))
 
-    | Some({ data = Reserved IMPL; span = span }, i) ->
+    | Some({ Data = Reserved IMPL; Span = span }, i) ->
         let first = span.First
 
         let typeParam =
             let rest = input[i..]
 
             match peek rest with
-            | Some({ data = Operator(Cmp Lt | Arith Shl) }, i) ->
+            | Some({ Data = Operator(Cmp Lt | Arith Shl) }, i) ->
                 parseLtGt rest[i - 1 ..] (parseTypeParam ctx) "impl type paramater"
             | _ ->
                 Ok
@@ -755,7 +761,7 @@ and internal parseDecl (ctx: Context) input =
             | Ok ty1 ->
                 let ty2, isForTrait =
                     match peek ty1.rest with
-                    | Some({ data = Reserved FOR }, i) ->
+                    | Some({ Data = Reserved FOR }, i) ->
                         match parseType ctx ty1.rest[i..] with
                         | Error e -> ty1.MergeFatalError e, false
                         | Ok t -> Ok(Some t), true
@@ -792,7 +798,7 @@ and internal parseDecl (ctx: Context) input =
                                       Seg = p.Seg
                                       Span = p.Span },
                                 error
-                            | _ -> None, Array.append error [| InvalidTrait ty1.data.span |]
+                            | _ -> None, Array.append error [| InvalidTrait ty1.data.Span |]
 
                         let data =
                             { Trait = trait_
@@ -822,7 +828,7 @@ and internal parseDecl (ctx: Context) input =
                             match curly with
                             | None ->
                                 Error(Array.concat [ impl.error; item.error; [| IncompleteAtEnd "implmentation" |] ])
-                            | Some { span = span } ->
+                            | Some { Span = span } ->
                                 Ok
                                     { data =
                                         Impl
@@ -832,7 +838,7 @@ and internal parseDecl (ctx: Context) input =
                                       error = Array.append impl.error item.error
                                       rest = item.rest }
 
-    | Some({ data = Reserved TRAIT; span = span }, i) ->
+    | Some({ Data = Reserved TRAIT; Span = span }, i) ->
         let first = span.First
 
         match parseId input[i..] "trait name" with
@@ -842,7 +848,7 @@ and internal parseDecl (ctx: Context) input =
                 let rest = id.rest
 
                 match peek id.rest with
-                | Some({ data = Operator(Cmp Lt | Arith Shl) }, i) ->
+                | Some({ Data = Operator(Cmp Lt | Arith Shl) }, i) ->
                     parseLtGt rest[i - 1 ..] (parseTypeParam ctx) "trait type paramater"
                 | _ ->
                     Ok
@@ -879,11 +885,11 @@ and internal parseDecl (ctx: Context) input =
                         | Ok(item, curly) ->
                             match curly with
                             | None -> Error(Array.concat [ error; item.error; [| IncompleteAtEnd "implmentation" |] ])
-                            | Some { span = span } ->
+                            | Some { Span = span } ->
                                 Ok
                                     { data =
                                         Trait
-                                            { Id = id.data
+                                            { Name = id.data
                                               TyParam = tyParam
                                               Super = super.data
                                               Item = item.data
@@ -895,7 +901,7 @@ and internal parseDecl (ctx: Context) input =
     | None -> Error [| IncompleteAtEnd("declaration") |]
 
 and internal parseStmt ctx (input: Token[]) =
-    if canStartExpr input[0].data then
+    if canStartExpr input[0].Data then
         match parseExpr ctx input with
         | Error e -> Error e
         | Ok s ->
@@ -903,7 +909,7 @@ and internal parseStmt ctx (input: Token[]) =
                 { data = ExprStmt s.data
                   error = s.error
                   rest = s.rest }
-    else if canStartDecl input[0].data then
+    else if canStartDecl input[0].Data then
         match parseDecl ctx input with
         | Error e -> Error e
         | Ok s ->
@@ -917,9 +923,9 @@ and internal parseStmt ctx (input: Token[]) =
 let rec internal parseModuleItem (input: Token[]) =
     let vis, visSpan, i =
         match peek input with
-        | Some({ data = Reserved PUBLIC; span = span }, i) -> Public, Some span, i
-        | Some({ data = Reserved INTERNAL
-                 span = span },
+        | Some({ Data = Reserved PUBLIC; Span = span }, i) -> Public, Some span, i
+        | Some({ Data = Reserved INTERNAL
+                 Span = span },
                i) -> Internal, Some span, i
         | _ -> Private, None, 0
 

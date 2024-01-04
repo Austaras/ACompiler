@@ -1,0 +1,9 @@
+Path@0..26
+    prefix: package
+    seg: vec@5..7
+    seg: Vec@10..12
+    type arg: Fn@17..24
+        type param@15..15
+            id: T@15..15
+        param: T@18..18
+        ret: i32@22..24

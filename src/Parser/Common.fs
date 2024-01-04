@@ -88,7 +88,7 @@ let internal peek (input: Token[]) =
         if i = input.Length then
             None
         else
-            match input[i].data with
+            match input[i].Data with
             | Comment _
             | Delimiter CR
             | Delimiter LF -> peek (i + 1)
@@ -101,7 +101,7 @@ let internal peekInline (input: Token[]) =
         if i = input.Length then
             None
         else
-            match input[i].data with
+            match input[i].Data with
             | Comment _ -> peek (i + 1)
             | _ -> Some(input[i], i + 1)
 
@@ -109,20 +109,20 @@ let internal peekInline (input: Token[]) =
 
 let internal peekWith input token =
     match peek input with
-    | Some({ data = data; span = span }, i) when data = token -> Some(span, i)
+    | Some({ Data = data; Span = span }, i) when data = token -> Some(span, i)
     | _ -> None
 
 let internal consume input token error =
     match peek input with
-    | Some({ data = data; span = span }, i) when data = token -> Ok(span, i)
+    | Some({ Data = data; Span = span }, i) when data = token -> Ok(span, i)
     | Some(token, _) -> Error(UnexpectedToken(token, error))
     | None -> Error(IncompleteAtEnd(error))
 
 let internal tryRecover canStart parser msg (input: Token[]) =
     let rec tryRecover i unexpected =
         match peek input[i..] with
-        | Some({ data = Delimiter Semi }, i) -> Error(i - 1)
-        | Some({ data = data } as token, j) ->
+        | Some({ Data = Delimiter Semi }, i) -> Error(i - 1)
+        | Some({ Data = data } as token, j) ->
             let i = i + j
             let unexpected = Array.append unexpected [| token |]
 
@@ -134,7 +134,7 @@ let internal tryRecover canStart parser msg (input: Token[]) =
                             UnexpectedToken(unexpected[0], msg)
                         else
                             UnexpectedManyToken(
-                                Span.Make unexpected[0].span.First (Array.last unexpected).span.Last,
+                                Span.Make unexpected[0].Span.First (Array.last unexpected).Span.Last,
                                 msg
                             )
 
@@ -168,7 +168,7 @@ let internal parseCommaSeq (input: Token[]) parser limiter error =
 
     let rec parseRecursive (state: State<_>) =
         match peek state.rest with
-        | Some(token, i) when limiter token.data -> Ok({ state with rest = state.rest[i..] }, token)
+        | Some(token, i) when limiter token.Data -> Ok({ state with rest = state.rest[i..] }, token)
         | _ ->
             match parser state.rest with
             | Error e -> state.MergeFatalError e
@@ -179,12 +179,12 @@ let internal parseCommaSeq (input: Token[]) parser limiter error =
                       rest = newState.rest }
 
                 match peek newState.rest with
-                | Some({ data = Comma }, i) ->
+                | Some({ Data = Comma }, i) ->
                     parseRecursive (
                         { newState with
                             rest = newState.rest[i..] }
                     )
-                | Some(token, i) when limiter token.data ->
+                | Some(token, i) when limiter token.Data ->
                     Ok(
                         { newState with
                             rest = newState.rest[i..] },
@@ -193,7 +193,7 @@ let internal parseCommaSeq (input: Token[]) parser limiter error =
                 | Some(_, i) ->
                     parseRecursive
                         { newState with
-                            error = Array.append newState.error [| NeedDelimiter newState.rest[i - 1].span |] }
+                            error = Array.append newState.error [| NeedDelimiter newState.rest[i - 1].Span |] }
                 | None -> newState.FatalError(IncompleteAtEnd "comma seq")
 
     match parseRecursive state with
@@ -211,14 +211,14 @@ let internal parseCommaSeq (input: Token[]) parser limiter error =
 /// parse from < to >
 let internal parseLtGt (input: Token[]) parser error =
     let rest =
-        match input[0].data with
+        match input[0].Data with
         | Operator(Cmp Lt) -> input[1..]
         | Operator(Arith Shl) ->
             Array.set
                 input
                 0
-                { data = Operator(Cmp Lt)
-                  span = input[0].span.ShrinkFirst 1 }
+                { Data = Operator(Cmp Lt)
+                  Span = input[0].Span.ShrinkFirst 1 }
 
             input
         | _ -> failwith "unreachable"
@@ -239,105 +239,105 @@ let internal parseLtGt (input: Token[]) parser error =
             let first, rest =
                 let follow =
                     match Array.tryHead input with
-                    | Some token when token.span.First - 1 = span.Last -> Some token
+                    | Some token when token.Span.First - 1 = span.Last -> Some token
                     | Some _ -> None
                     | None -> None
 
                 match op, follow with
                 // >> >
-                | Operator(Cmp Gt), (Some { data = Operator(Cmp Gt); span = span }) ->
-                    { data = Operator(Arith Shr)
-                      span = Span.Make (span.First - 1) (span.First) },
+                | Operator(Cmp Gt), (Some { Data = Operator(Cmp Gt); Span = span }) ->
+                    { Data = Operator(Arith Shr)
+                      Span = Span.Make (span.First - 1) (span.First) },
                     input[1..]
                 // >> =
-                | Operator(Cmp Gt), (Some { data = Eq; span = span }) ->
+                | Operator(Cmp Gt), (Some { Data = Eq; Span = span }) ->
 
-                    { data = Operator(Cmp GtEq)
-                      span = Span.Make (span.First - 1) (span.First) },
+                    { Data = Operator(Cmp GtEq)
+                      Span = Span.Make (span.First - 1) (span.First) },
                     input[1..]
                 // >> >=
                 | Operator(Cmp Gt),
-                  (Some { data = Operator(Cmp GtEq)
-                          span = span }) ->
-                    { data = AssignOp Shr
-                      span = Span.Make (span.First - 1) (span.First) },
+                  (Some { Data = Operator(Cmp GtEq)
+                          Span = span }) ->
+                    { Data = AssignOp Shr
+                      Span = Span.Make (span.First - 1) (span.First) },
                     input[1..]
                 // >> >>
                 | Operator(Cmp Gt),
-                  (Some { data = Operator(Arith Shr)
-                          span = span }) ->
+                  (Some { Data = Operator(Arith Shr)
+                          Span = span }) ->
                     let first =
-                        { data = Operator(Arith Shr)
-                          span = Span.Make (span.First - 1) (span.First) }
+                        { Data = Operator(Arith Shr)
+                          Span = Span.Make (span.First - 1) (span.First) }
 
                     first, (splitAndMerge (Operator(Cmp Gt)) span input[1..])
                 // >> >>=
-                | Operator(Cmp Gt), (Some { data = AssignOp Shr; span = span }) ->
+                | Operator(Cmp Gt), (Some { Data = AssignOp Shr; Span = span }) ->
                     let first =
-                        { data = Operator(Arith Shr)
-                          span = Span.Make (span.First - 1) (span.First) }
+                        { Data = Operator(Arith Shr)
+                          Span = Span.Make (span.First - 1) (span.First) }
 
                     first, (splitAndMerge (Operator(Cmp GtEq)) span input[1..])
                 // >> =>
-                | Operator(Cmp Gt), (Some { data = FatArrow; span = span }) ->
+                | Operator(Cmp Gt), (Some { Data = FatArrow; Span = span }) ->
                     let first =
-                        { data = Operator(Cmp GtEq)
-                          span = Span.Make (span.First - 1) (span.First) }
+                        { Data = Operator(Cmp GtEq)
+                          Span = Span.Make (span.First - 1) (span.First) }
 
                     first, (splitAndMerge (Operator(Cmp Gt)) span input[1..])
 
                 // >= =
-                | Eq, (Some { data = Eq; span = span }) ->
-                    { data = Operator(Cmp EqEq)
-                      span = Span.Make (span.First - 1) (span.First) },
+                | Eq, (Some { Data = Eq; Span = span }) ->
+                    { Data = Operator(Cmp EqEq)
+                      Span = Span.Make (span.First - 1) (span.First) },
                     input[1..]
                 // >= >
-                | Eq, (Some { data = Operator(Cmp Gt); span = span }) ->
-                    { data = FatArrow
-                      span = Span.Make (span.First - 1) (span.First) },
+                | Eq, (Some { Data = Operator(Cmp Gt); Span = span }) ->
+                    { Data = FatArrow
+                      Span = Span.Make (span.First - 1) (span.First) },
                     input[1..]
                 // >= >=
                 | Eq,
-                  (Some { data = Operator(Cmp GtEq)
-                          span = span }) ->
+                  (Some { Data = Operator(Cmp GtEq)
+                          Span = span }) ->
                     let first =
-                        { data = FatArrow
-                          span = Span.Make (span.First - 1) (span.First) }
+                        { Data = FatArrow
+                          Span = Span.Make (span.First - 1) (span.First) }
 
                     first, (splitAndMerge Eq span input[1..])
                 // >= >>
                 | Eq,
-                  (Some { data = Operator(Arith Shr)
-                          span = span }) ->
+                  (Some { Data = Operator(Arith Shr)
+                          Span = span }) ->
                     let first =
-                        { data = FatArrow
-                          span = Span.Make (span.First - 1) (span.First) }
+                        { Data = FatArrow
+                          Span = Span.Make (span.First - 1) (span.First) }
 
                     first, (splitAndMerge (Operator(Cmp Gt)) span input[1..])
                 // >= >>=
-                | Eq, (Some { data = AssignOp Shr; span = span }) ->
+                | Eq, (Some { Data = AssignOp Shr; Span = span }) ->
                     let first =
-                        { data = FatArrow
-                          span = Span.Make (span.First - 1) (span.First) }
+                        { Data = FatArrow
+                          Span = Span.Make (span.First - 1) (span.First) }
 
                     first, (splitAndMerge (Operator(Cmp GtEq)) span input[1..])
-                | _ -> { data = op; span = span }, input
+                | _ -> { Data = op; Span = span }, input
 
             Array.insertAt 0 first rest
         else
-            Array.insertAt 0 { data = op; span = span } input
+            Array.insertAt 0 { Data = op; Span = span } input
 
     match param with
     | Ok(param, gt) ->
         let rest =
-            match gt.data with
+            match gt.Data with
             | Operator(Cmp Gt) -> param.rest
-            | Operator(Arith Shr) -> splitAndMerge (Operator(Cmp Gt)) gt.span param.rest
-            | Operator(Cmp GtEq) -> splitAndMerge Eq gt.span param.rest
-            | AssignOp Shr -> splitAndMerge (Operator(Cmp GtEq)) gt.span param.rest
+            | Operator(Arith Shr) -> splitAndMerge (Operator(Cmp Gt)) gt.Span param.rest
+            | Operator(Cmp GtEq) -> splitAndMerge Eq gt.Span param.rest
+            | AssignOp Shr -> splitAndMerge (Operator(Cmp GtEq)) gt.Span param.rest
             | _ -> failwith "unreachable"
 
-        let span = Span.Make gt.span.First (gt.span.First + 1)
+        let span = Span.Make gt.Span.First (gt.Span.First + 1)
 
         Ok
             { data = param.data, span
@@ -347,7 +347,7 @@ let internal parseLtGt (input: Token[]) parser error =
 
 let internal parseRangeTo state (op: Token) tryNext rangeCtor =
     let exclusive =
-        match op.data with
+        match op.Data with
         | DotDot -> false
         | DotDotCaret -> true
         | _ -> failwith "unreachable"
@@ -356,12 +356,12 @@ let internal parseRangeTo state (op: Token) tryNext rangeCtor =
     | None ->
         let error =
             if exclusive then
-                Array.append state.error [| InclusiveNoEnd op.span |]
+                Array.append state.error [| InclusiveNoEnd op.Span |]
             else
                 state.error
 
         Ok
-            { data = rangeCtor state.data None exclusive op.span
+            { data = rangeCtor state.data None exclusive op.Span
               error = error
               rest = state.rest }
 
@@ -371,12 +371,12 @@ let internal parseRangeTo state (op: Token) tryNext rangeCtor =
 
         Ok
             { s with
-                data = rangeCtor state.data (Some s.data) exclusive op.span
+                data = rangeCtor state.data (Some s.data) exclusive op.Span
                 error = error }
 
 let internal parseId input msg =
     match peek input with
-    | Some({ data = Identifier sym; span = span }, i) ->
+    | Some({ Data = Identifier sym; Span = span }, i) ->
         Ok
             { data = { Sym = sym; Span = span }
               error = [||]
@@ -390,7 +390,7 @@ let internal parseManyItem (input: Token[]) parser delimiter =
             if i = input.Length then
                 i, cnt
             else
-                match input[i].data with
+                match input[i].Data with
                 | Comment _ -> skip (i + 1) cnt
                 | Delimiter _ -> skip (i + 1) (cnt + 1)
                 | t when delimiter t -> i, cnt + 1
@@ -400,7 +400,7 @@ let internal parseManyItem (input: Token[]) parser delimiter =
 
     let rec skipUntil (input: Token[]) =
         match peekInline input with
-        | Some({ data = Delimiter _ }, i) -> input[i..]
+        | Some({ Data = Delimiter _ }, i) -> input[i..]
         | Some(_, i) -> skipUntil input[i..]
         | None -> [||]
 
@@ -414,7 +414,7 @@ let internal parseManyItem (input: Token[]) parser delimiter =
     let rec parseMany state =
         match Array.tryHead state.rest with
         | None -> Ok(state, None)
-        | Some token when delimiter token.data -> Ok({ state with rest = state.rest[1..] }, Some token)
+        | Some token when delimiter token.Data -> Ok({ state with rest = state.rest[1..] }, Some token)
         | Some _ ->
             match parser state.rest with
             | Error e ->
@@ -433,7 +433,7 @@ let internal parseManyItem (input: Token[]) parser delimiter =
 
                 let error =
                     if cnt = 0 && i <> item.rest.Length then
-                        Array.append error [| NeedDelimiter item.rest[i].span |]
+                        Array.append error [| NeedDelimiter item.rest[i].Span |]
                     else
                         error
 

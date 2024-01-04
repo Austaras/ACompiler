@@ -1,0 +1,10 @@
+For@0..25
+    var: i@4..4
+    iterator: Range@9..12
+        from: 0@9..9
+        exclusive: False
+        to: 9@12..12
+    body@14..25
+        Call@16..23
+            callee: print@16..20
+            arg: i@22..22

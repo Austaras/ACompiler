@@ -1,0 +1,10 @@
+Closure@0..12
+    param@1..1
+        pat: x@1..1
+    body: Closure@4..12
+        param@5..5
+            pat: y@5..5
+        body: Binary@8..12
+            left: x@8..8
+            op: +
+            right: y@12..12

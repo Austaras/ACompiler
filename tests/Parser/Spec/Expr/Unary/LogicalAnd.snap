@@ -1,0 +1,5 @@
+Unary@0..2
+    op: &
+    value: Unary@1..2
+        op: &
+        value: a@2..2

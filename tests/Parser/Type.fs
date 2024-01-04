@@ -1,32 +1,42 @@
 module Parser.Tests.Type
 
-open Parser.Type
-
-open Snapper
 open Xunit
 
-let parseTest = Util.makeTest parseType
+open Snapshot
+open AST.Dump
+open Parser.Type
 
-[<Fact>]
-let Fn () =
-    (parseTest "|i32| -> |i32| -> i32").ShouldMatchChildSnapshot("Assoc")
-    (parseTest "|| -> !").ShouldMatchChildSnapshot("Empty")
+let dump ast =
+    use sw = new System.IO.StringWriter()
+    ty sw 0 ast
+    sw.ToString()
 
-    (parseTest "<T : Add + Sub>| T, T | -> T")
-        .ShouldMatchChildSnapshot("MultiBound")
+let parseTest = Util.makeTest parseType dump
 
-[<Fact>]
-let Path () =
-    (parseTest "std::collections::HashMap<i32, Vec<i32>>")
-        .ShouldMatchChildSnapshot("Shr")
+let snap = Snapshot("snap")
 
-    (parseTest "pak::vec::Vec<<T>|T|->i32>").ShouldMatchChildSnapshot("Shl")
+let basePath = __SOURCE_DIRECTORY__ + "/Spec/Type"
 
-    (parseTest "Container<-1>").ShouldMatchChildSnapshot("Const")
+[<Theory>]
+[<InlineData("Assoc", "|i32| -> |i32| -> i32")>]
+[<InlineData("Empty", "|| -> !")>]
 
-    (parseTest "Self::Output").ShouldMatchChildSnapshot("Self")
+[<InlineData("MultiBound", "<T : Add + Sub>| T, T | -> T")>]
+let Fn (name: string) (input: string) =
+    let res = parseTest input
+    snap.ShouldMatchText res $"{basePath}/Fn/{name}"
 
-[<Fact>]
-let Arr () =
-    (parseTest "&[&[i32];4]").ShouldMatchChildSnapshot("Slice")
-    (parseTest "&&[uint]").ShouldMatchChildSnapshot("Ref")
+[<Theory>]
+[<InlineData("Shl", "pak::vec::Vec<<T>|T|->i32>")>]
+[<InlineData("Const", "Container<-1>")>]
+[<InlineData("Self", "Self::Output")>]
+let Path (name: string) (input: string) =
+    let res = parseTest input
+    snap.ShouldMatchText res $"{basePath}/Path/{name}"
+
+[<Theory>]
+[<InlineData("Slice", "&[&[i32];4]")>]
+[<InlineData("Ref", "&&[uint]")>]
+let Arr (name: string) (input: string) =
+    let res = parseTest input
+    snap.ShouldMatchText res $"{basePath}/Arr/{name}"

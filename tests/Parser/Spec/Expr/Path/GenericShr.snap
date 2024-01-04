@@ -1,0 +1,6 @@
+Binary@0..12
+    left: Path@0..10
+        seg: Vec@0..2
+        type arg: i32@6..8
+    op: >>
+    right: 1@12..12

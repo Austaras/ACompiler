@@ -1,0 +1,7 @@
+Assign@0..8
+    place: a@0..0
+    op: =
+    value: Assign@4..8
+        place: b@4..4
+        op: =
+        value: c@8..8

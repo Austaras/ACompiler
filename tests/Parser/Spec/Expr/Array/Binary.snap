@@ -1,0 +1,12 @@
+Binary@0..16
+    left: Array@0..6
+        Binary@1..5
+            left: 1@1..1
+            op: +
+            right: 2@5..5
+    op: +
+    right: Array@10..16
+        Binary@11..15
+            left: 3@11..11
+            op: *
+            right: 4@15..15

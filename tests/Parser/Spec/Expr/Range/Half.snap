@@ -1,0 +1,8 @@
+Range@0..8
+    exclusive: False
+    to: Range@2..8
+        from: Binary@2..6
+            left: 1@2..2
+            op: +
+            right: 1@6..6
+        exclusive: False

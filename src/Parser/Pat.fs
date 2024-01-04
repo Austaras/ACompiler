@@ -31,7 +31,7 @@ let rec internal parsePatInner (ctx: Context) input =
             | None -> span.First
 
         match peek from.rest with
-        | Some({ data = data }, _) when canStartPat data ->
+        | Some({ Data = data }, _) when canStartPat data ->
             let to_ = parseRangeRec from.rest
 
             match to_ with
@@ -64,7 +64,7 @@ let rec internal parsePatInner (ctx: Context) input =
 
     and parseStructField input =
         match peek input with
-        | Some({ data = Identifier sym; span = span }, i) ->
+        | Some({ Data = Identifier sym; Span = span }, i) ->
             let id = { Sym = sym; Span = span }
 
             match peekWith input[i..] Colon with
@@ -86,7 +86,7 @@ let rec internal parsePatInner (ctx: Context) input =
                       error = [||]
                       rest = input[i..] }
 
-        | Some({ data = DotDot; span = span }, i) ->
+        | Some({ Data = DotDot; Span = span }, i) ->
             Ok
                 { data = RestFieldPat span
                   error = [||]
@@ -102,9 +102,9 @@ let rec internal parsePatInner (ctx: Context) input =
         match field with
         | Ok(field, paren) ->
             let pat =
-                { Id = state.data
+                { Path = state.data
                   Field = field.data
-                  Span = state.data.Span.WithLast paren.span.Last }
+                  Span = state.data.Span.WithLast paren.Span.Last }
 
             let isRest (idx, pat) =
                 match pat with
@@ -145,16 +145,16 @@ let rec internal parsePatInner (ctx: Context) input =
         | Error e -> Error e
         | Ok state ->
             match peek state.rest with
-            | Some({ data = Paren Open }, i) ->
+            | Some({ Data = Paren Open }, i) ->
                 let content =
                     parseCommaSeq state.rest[i..] (parsePatInner childCtx) (Paren Close) "enum pattern content"
 
                 match content with
                 | Ok(content, paren) ->
                     let pat =
-                        { Name = state.data
+                        { Variant = state.data
                           Payload = content.data
-                          Span = state.data.Span.WithLast paren.span.Last }
+                          Span = state.data.Span.WithLast paren.Span.Last }
 
                     Ok
                         { data = EnumPat pat
@@ -162,7 +162,7 @@ let rec internal parsePatInner (ctx: Context) input =
                           rest = content.rest }
                 | Error e -> Error e
 
-            | Some({ data = Curly Open }, i) -> parseStruct { state with rest = state.rest[i..] }
+            | Some({ Data = Curly Open }, i) -> parseStruct { state with rest = state.rest[i..] }
 
             | _ ->
                 let data = IdPat state.data.Seg[0]
@@ -174,14 +174,14 @@ let rec internal parsePatInner (ctx: Context) input =
 
     and parsePrefix input =
         match peek input with
-        | Some({ data = Underline; span = span }, i) ->
+        | Some({ Data = Underline; Span = span }, i) ->
             Ok
                 { data = CatchAllPat span
                   error = [||]
                   rest = input[i..] }
 
-        | Some({ data = Reserved(PACKAGE | LOWSELF | SELF as kw)
-                 span = span },
+        | Some({ Data = Reserved(PACKAGE | LOWSELF | SELF as kw)
+                 Span = span },
                i) ->
             let prefix =
                 match kw with
@@ -238,7 +238,7 @@ let rec internal parsePatInner (ctx: Context) input =
                           error = error
                           rest = path.rest }
 
-        | Some({ data = Identifier _; span = span }, _) ->
+        | Some({ Data = Identifier _; Span = span }, _) ->
             parsePath
                 { data =
                     { Prefix = None
@@ -247,14 +247,14 @@ let rec internal parsePatInner (ctx: Context) input =
                   error = [||]
                   rest = input }
 
-        | Some({ data = Operator(Arith Sub)
-                 span = span },
+        | Some({ Data = Operator(Arith Sub)
+                 Span = span },
                i) ->
             let first = span.First
 
             match peek input[i..] with
-            | Some({ data = Lit(Int _ | Float _ as l)
-                     span = span },
+            | Some({ Data = Lit(Int _ | Float _ as l)
+                     Span = span },
                    j) ->
 
                 let l =
@@ -270,20 +270,20 @@ let rec internal parsePatInner (ctx: Context) input =
             | Some(token, _) -> Error [| UnexpectedToken(token, "literal pattern") |]
             | None -> Error [| IncompleteAtEnd "literal pattern" |]
 
-        | Some({ data = Lit l; span = span }, i) ->
+        | Some({ Data = Lit l; Span = span }, i) ->
             Ok
                 { data = LitPat(l, span)
                   error = [||]
                   rest = input[i..] }
 
-        | Some({ data = DotDot; span = span }, i) ->
+        | Some({ Data = DotDot; Span = span }, i) ->
             parseRangeTo
                 { data = None
                   error = [||]
                   rest = input[i..] }
                 span
 
-        | Some({ data = Paren Open; span = span }, i) ->
+        | Some({ Data = Paren Open; Span = span }, i) ->
             let ele =
                 parseCommaSeq input[i..] (parsePatInner childCtx) (Paren Close) "tuple pattern"
 
@@ -293,7 +293,7 @@ let rec internal parsePatInner (ctx: Context) input =
                     if ele.data.Length = 1 then
                         ele.data[0], ele.error
                     else
-                        let span = paren.span.WithFirst span.First
+                        let span = paren.Span.WithFirst span.First
 
                         let error =
                             if (Array.filter isRestPat ele.data).Length > 1 then
@@ -309,13 +309,13 @@ let rec internal parsePatInner (ctx: Context) input =
                       rest = ele.rest }
             | Error e -> Error e
 
-        | Some({ data = Bracket Open; span = span }, i) ->
+        | Some({ Data = Bracket Open; Span = span }, i) ->
             let ele =
                 parseCommaSeq input[i..] (parsePatInner childCtx) (Bracket Close) "array pattern"
 
             match ele with
             | Ok(ele, bracket) ->
-                let span = bracket.span.WithFirst span.First
+                let span = bracket.Span.WithFirst span.First
                 let pat = ArrayPat { Ele = ele.data; Span = span }
 
                 let error =
@@ -330,8 +330,8 @@ let rec internal parsePatInner (ctx: Context) input =
                       rest = ele.rest }
             | Error e -> Error e
 
-        | Some({ data = Operator(Arith BitAnd)
-                 span = span },
+        | Some({ Data = Operator(Arith BitAnd)
+                 Span = span },
                i) ->
             match consume input[i..] (Reserved LOWSELF) "reference self" with
             | Error e -> Error [| e |]
@@ -346,7 +346,7 @@ let rec internal parsePatInner (ctx: Context) input =
 
     and parseRange state =
         match peek state.rest with
-        | Some({ data = DotDot; span = span }, i) ->
+        | Some({ Data = DotDot; Span = span }, i) ->
             let res =
                 parseRangeTo
                     { data = Some state.data
@@ -364,9 +364,9 @@ let rec internal parsePatInner (ctx: Context) input =
 
     and parseAs state =
         match peek state.rest with
-        | Some({ data = Operator As }, i) ->
+        | Some({ Data = Operator As }, i) ->
             match peek state.rest[i..] with
-            | Some({ data = Identifier sym; span = span }, j) ->
+            | Some({ Data = Identifier sym; Span = span }, j) ->
                 let id = { Sym = sym; Span = span }
 
                 let newState =
@@ -386,7 +386,7 @@ let rec internal parsePatInner (ctx: Context) input =
     and parseOr (state: State<Pat>) =
         let rec parseOr (state: State<Pat[]>) =
             match peek state.rest with
-            | Some({ data = Operator(Arith BitOr) }, i) ->
+            | Some({ Data = Operator(Arith BitOr) }, i) ->
                 match parseRecursive state.rest[i..] with
                 | Ok(newState: State<_>) ->
                     Ok

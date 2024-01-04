@@ -71,10 +71,10 @@ type TokenData =
     | Underline
 
 type Token =
-    { data: TokenData
-      span: Span }
+    { Data: TokenData
+      Span: Span }
 
-    static member Make data span = { data = data; span = span }
+    static member Make data span = { Data = data; Span = span }
 
 type Error =
     | IncompleteExp of Span

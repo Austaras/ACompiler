@@ -36,9 +36,9 @@ let runTansform input =
 
     Assert.Empty error
 
-    (transform arch m sema).ToString
+    (transform arch m sema).Print
 
-let spec = getAllFile "/spec"
+let spec = getAllFile "/Spec"
 
 [<Theory>]
 [<MemberData(nameof (spec))>]

@@ -1,0 +1,6 @@
+Ref@0..10
+    Array@1..10
+        element: Ref@2..7
+            Array@3..7
+                element: i32@4..6
+        length: 4

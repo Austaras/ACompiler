@@ -1,0 +1,8 @@
+Range@0..5
+    from: Unary@0..1
+        op: -
+        value: 5@1..1
+    exclusive: False
+    to: Unary@4..5
+        op: -
+        value: 3@5..5

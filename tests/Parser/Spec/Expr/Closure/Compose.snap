@@ -1,0 +1,15 @@
+Binary@1..25
+    left: Closure@1..9
+        param@2..2
+            pat: x@2..2
+        body: Binary@5..9
+            left: x@5..5
+            op: *
+            right: 2@9..9
+    op: >>
+    right: Closure@15..25
+        param@16..16
+            pat: x@16..16
+        body: Call@19..25
+            callee: Some@19..22
+            arg: x@24..24

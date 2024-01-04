@@ -1,0 +1,7 @@
+Trait@0..50
+    name: Summary@6..12
+    item: trait method@20..48
+        name: summarize@23..31
+        param@33..37
+            pat: ref self@33..37
+        ret: String@43..48

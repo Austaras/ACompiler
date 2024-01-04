@@ -1,0 +1,13 @@
+Binary@0..15
+    left: Field@0..2
+        receiver: a@0..0
+        field: b@2..2
+    op: +
+    right: Binary@6..15
+        left: Index@6..9
+            container: c@6..6
+            index: 0@8..8
+        op: *
+        right: Field@13..15
+            receiver: d@13..13
+            field: e@15..15

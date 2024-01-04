@@ -1,0 +1,15 @@
+Impl@0..55
+    type param@5..5
+        id: T@5..5
+    type: Path@8..14
+        seg: Vec@8..10
+        type arg: T@12..12
+    visibility: public
+    item: method@21..53
+        name: push@28..31
+        param@33..37
+            pat: ref self@33..37
+        param@40..49
+            pat: element@40..46
+            type: T@49..49
+        body@52..53

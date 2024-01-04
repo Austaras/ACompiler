@@ -1,0 +1,7 @@
+Binary@0..10
+    left: True@0..3
+    op: ||
+    right: Binary@7..10
+        left: x@7..7
+        op: |
+        right: x@10..10

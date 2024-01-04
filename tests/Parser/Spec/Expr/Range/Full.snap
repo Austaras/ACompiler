@@ -1,0 +1,15 @@
+Assign@0..15
+    place: Field@0..2
+        receiver: a@0..0
+        field: b@2..2
+    op: =
+    value: Range@6..15
+        from: Binary@6..8
+            left: 1@6..6
+            op: +
+            right: 1@8..8
+        exclusive: False
+        to: Binary@13..15
+            left: 2@13..13
+            op: *
+            right: 3@15..15

@@ -1,0 +1,11 @@
+Let@0..50
+    pat: _@4..4
+    value: Block@8..50
+        Let@14..27
+            mut: true
+            pat: a@22..22
+            value: 10@26..27
+        Call@34..41
+            callee: print@34..38
+            arg: a@40..40
+        a@48..48

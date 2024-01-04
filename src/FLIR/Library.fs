@@ -77,7 +77,7 @@ type Func =
       Span: Span
       Ret: Option<int> }
 
-    member this.ToString =
+    member this.Print =
         let labelToString id = "'" + string id
 
         let varToString id =
@@ -168,5 +168,4 @@ type Module =
     { Func: Func[]
       Static: int[] }
 
-    member this.ToString =
-        this.Func |> Array.map _.ToString |> String.concat Environment.NewLine
+    member this.Print = this.Func |> Array.map _.Print |> String.concat Environment.NewLine

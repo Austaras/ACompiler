@@ -1,0 +1,4 @@
+Ref@0..7
+    Ref@1..7
+        Array@2..7
+            element: uint@3..6

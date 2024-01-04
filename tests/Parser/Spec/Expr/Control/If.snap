@@ -1,0 +1,23 @@
+If@0..27
+    cond: Let@3..21
+        pat: Or@7..17
+            Enum@7..10
+                variant@7..7
+                    seg: L@7..7
+                payload: _@9..9
+            Enum@14..17
+                variant@14..14
+                    seg: R@14..14
+                payload: _@16..16
+        value: a@21..21
+    then@23..27
+        1@25..25
+    else if@29..48
+        cond: Binary@37..42
+            left: a@37..37
+            op: <=
+            right: 3@42..42
+        body@44..48
+            1@25..25
+    else@55..59
+        3@57..57

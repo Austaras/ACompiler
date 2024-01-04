@@ -1,0 +1,7 @@
+Binary@0..9
+    left: Call@0..2
+        callee: a@0..0
+    op: +
+    right: Call@6..9
+        callee: c@6..6
+        arg: d@8..8

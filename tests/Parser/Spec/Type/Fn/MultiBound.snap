@@ -1,0 +1,10 @@
+Fn@15..27
+    type param@1..13
+        id: T@1..1
+        bound@5..7
+            seg: Add@5..7
+        bound@11..13
+            seg: Sub@11..13
+    param: T@17..17
+    param: T@20..20
+    ret: T@27..27

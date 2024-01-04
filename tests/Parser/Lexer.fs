@@ -13,7 +13,7 @@ let lex_strip_span =
         match r with
         | Ok d -> d
         | Error e -> raise (CustomError e))
-    >> Array.map _.data
+    >> Array.map _.Data
 
 [<Fact>]
 let Pair () =

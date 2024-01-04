@@ -1,0 +1,13 @@
+Struct@0..37
+    type@0..20
+        seg: Foo@0..2
+        seg: Bar@5..7
+        type arg: Path@11..19
+            seg: Vec@11..13
+            type arg: i32@15..17
+    field: a@23..23
+    field: key value@26..30
+        key: b@26..26
+        value: 10@29..30
+    field: rest@33..35
+        d@35..35

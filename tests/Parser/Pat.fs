@@ -1,32 +1,46 @@
 module Parser.Tests.Pat
 
-open Parser.Pat
-
-open Snapper
 open Xunit
 
-let parseTest = Util.makeTest parsePatInner
+open Snapshot
+open AST.Dump
+open Parser.Pat
 
-[<Fact>]
-let StructEnum () =
-    (parseTest "core::Option::Some(1)").ShouldMatchChildSnapshot("Enum")
-    (parseTest "pak::Foo { v, x: 10, ..}").ShouldMatchChildSnapshot("Struct")
+let dump ast =
+    use sw = new System.IO.StringWriter()
+    pat sw 0 ast
+    sw.ToString()
 
-    (parseTest
-        "Person {
-        car: Some(_),
-        age: 13..19 as person,
-        name: person_name,
-        ..
-    }")
-        .ShouldMatchChildSnapshot("Compound")
+let parseTest = Util.makeTest parsePatInner dump
 
-[<Fact>]
-let Range () =
-    (parseTest "..").ShouldMatchChildSnapshot("CatchAll")
-    (parseTest "A..").ShouldMatchChildSnapshot("Left")
-    (parseTest "..10").ShouldMatchChildSnapshot("Right")
+let snap = Snapshot("snap")
+
+let basePath = __SOURCE_DIRECTORY__ + "/Spec/Pat"
+
+[<Theory>]
+[<InlineData("Enum", "core::Option::Some(1)")>]
+[<InlineData("Struct", "pak::Foo { v, x: 10, ..}")>]
+
+[<InlineData("Compound",
+             "Person {
+    car: Some(_),
+    age: 13..19 as person,
+    name: person_name,
+    ..
+}")>]
+let Binary (name: string) (input: string) =
+    let res = parseTest input
+    snap.ShouldMatchText res $"{basePath}/ADT/{name}"
+
+[<Theory>]
+[<InlineData("CatchAll", "..")>]
+[<InlineData("Left", "A..")>]
+[<InlineData("Right", "..10")>]
+let Range (name: string) (input: string) =
+    let res = parseTest input
+    snap.ShouldMatchText res $"{basePath}/Range/{name}"
 
 [<Fact>]
 let Assoc () =
-    (parseTest "1 as a as b | d").ShouldMatchChildSnapshot("AsOr")
+    let res = parseTest "1 as a as b | d"
+    snap.ShouldMatchText res $"{basePath}/AsOr"

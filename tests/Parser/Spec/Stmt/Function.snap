@@ -1,0 +1,18 @@
+Function@0..44
+    name: add@3..5
+    type param@7..12
+        id: T@7..7
+        bound@10..12
+            seg: Add@10..12
+    param@15..18
+        pat: x@15..15
+        type: T@18..18
+    param@21..24
+        pat: y@21..21
+        type: T@24..24
+    ret: T@30..30
+    body@32..44
+        Binary@38..42
+            left: x@38..38
+            op: +
+            right: y@42..42

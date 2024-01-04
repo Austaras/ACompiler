@@ -1,4 +1,4 @@
-fn fib_better(n) {
+fn fib_fn(n) {
     fn aux(n, acc1, acc2) {
         match n {
             0 => acc1,
@@ -8,4 +8,17 @@ fn fib_better(n) {
     }
 
     aux(n, 0, 1)
+}
+
+fn fib_imp(n) {
+    let mut acc1 = 0
+    let mut acc2 = 1
+
+    for i in 0..n {
+        let temp = acc1 + acc2
+        acc1 = acc2
+        acc2 = temp
+    }
+
+    acc1
 }

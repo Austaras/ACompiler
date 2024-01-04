@@ -35,7 +35,7 @@ let rec internal parsePathTypeInner (ctx: Context) (state: State<Path>) =
                   rest = param.rest }
 
             match peek newState.rest with
-            | Some({ data = ColonColon }, i) ->
+            | Some({ Data = ColonColon }, i) ->
                 parsePathTypeInner
                     ctx
                     { newState with
@@ -60,16 +60,16 @@ let rec internal parsePathTypeInner (ctx: Context) (state: State<Path>) =
               rest = id.rest }
 
         match peek newState.rest with
-        | Some({ data = ColonColon }, i) ->
+        | Some({ Data = ColonColon }, i) ->
             let rest = newState.rest[i..]
 
             match peek rest with
-            | Some({ data = Operator(Cmp Lt | Arith Shl) }, i) ->
+            | Some({ Data = Operator(Cmp Lt | Arith Shl) }, i) ->
                 let newState = { newState with rest = rest[i - 1 ..] }
 
                 parseTypeParam newState
             | _ -> parsePathTypeInner ctx { newState with rest = rest }
-        | Some({ data = Operator(Cmp Lt | Arith Shl) }, i) ->
+        | Some({ Data = Operator(Cmp Lt | Arith Shl) }, i) ->
             let newState =
                 { newState with
                     rest = newState.rest[i - 1 ..] }
@@ -101,10 +101,10 @@ and internal parseType ctx input =
 
     let parseClosure typeParam (input: Token[]) =
         let op = input[0]
-        let first = op.span.First
+        let first = op.Span.First
 
         let param =
-            match op.data with
+            match op.Data with
             | Operator(Arith BitOr) ->
                 let param =
                     parseCommaSeq input[1..] (parseType normalCtx) (Operator(Arith BitOr)) "function type parameter"
@@ -122,14 +122,14 @@ and internal parseType ctx input =
         match param with
         | Ok param ->
             match peek param.rest with
-            | Some({ data = Arrow }, i) ->
+            | Some({ Data = Arrow }, i) ->
                 match parseType normalCtx param.rest[i..] with
                 | Ok ret ->
                     let ty =
                         { Param = param.data
                           TyParam = typeParam
                           Ret = ret.data
-                          Span = ret.data.span.WithFirst first }
+                          Span = ret.data.Span.WithFirst first }
 
                     Ok
                         { data = FnType ty
@@ -141,13 +141,13 @@ and internal parseType ctx input =
         | Error e -> Error e
 
     match peek input with
-    | Some({ data = Underline; span = span }, i) ->
+    | Some({ Data = Underline; Span = span }, i) ->
         Ok
             { data = InferedType span
               error = [||]
               rest = input[i..] }
-    | Some({ data = Reserved(PACKAGE | SELF | LOWSELF as kw)
-             span = span },
+    | Some({ Data = Reserved(PACKAGE | SELF | LOWSELF as kw)
+             Span = span },
            i) ->
         let prefix, isSelf =
             match kw with
@@ -173,7 +173,7 @@ and internal parseType ctx input =
                   error = error
                   rest = path.rest }
         | Ok(_, i) -> parsePathType ctx { path with rest = path.rest[i..] }
-    | Some({ data = Identifier _; span = span }, _) ->
+    | Some({ Data = Identifier _; Span = span }, _) ->
         parsePathType
             ctx
             { data =
@@ -182,14 +182,14 @@ and internal parseType ctx input =
                   Span = span }
               error = [||]
               rest = input }
-    | Some({ data = Operator(Arith Sub)
-             span = span },
+    | Some({ Data = Operator(Arith Sub)
+             Span = span },
            i) ->
         let first = span.First
 
         match peek input[i..] with
-        | Some({ data = Lit(Int _ | Float _ as l)
-                 span = span } as token,
+        | Some({ Data = Lit(Int _ | Float _ as l)
+                 Span = span } as token,
                j) ->
 
             let l =
@@ -205,19 +205,19 @@ and internal parseType ctx input =
         | Some(token, _) -> Error [| UnexpectedToken(token, "const generic") |]
         | None -> Error [| IncompleteAtEnd "const generic" |]
 
-    | Some({ data = Lit l; span = span } as token, i) ->
+    | Some({ Data = Lit l; Span = span } as token, i) ->
         Ok
             { data = LitType(l, span)
               error = if ctx.inTypeInst then [||] else [| ConstInType token |]
               rest = input[i..] }
 
-    | Some({ data = Not; span = span }, i) ->
+    | Some({ Data = Not; Span = span }, i) ->
         Ok
             { data = NeverType span
               error = [||]
               rest = input[i..] }
 
-    | Some({ data = Paren Open; span = span }, i) ->
+    | Some({ Data = Paren Open; Span = span }, i) ->
         let ele = parseCommaSeq input[i..] (parseType normalCtx) (Paren Close) "tuple type"
 
         match ele with
@@ -228,7 +228,7 @@ and internal parseType ctx input =
                 else
                     TupleType
                         { Ele = ele.data
-                          Span = paren.span.WithFirst span.First }
+                          Span = paren.Span.WithFirst span.First }
 
             Ok
                 { data = ty
@@ -236,7 +236,7 @@ and internal parseType ctx input =
                   rest = ele.rest }
         | Error e -> Error e
 
-    | Some({ data = Bracket Open; span = span }, i) ->
+    | Some({ Data = Bracket Open; Span = span }, i) ->
         let first = span.First
         let ele = parseType normalCtx input[i..]
 
@@ -244,9 +244,9 @@ and internal parseType ctx input =
         | Ok ele ->
             let len =
                 match peek ele.rest with
-                | Some({ data = Delimiter Semi }, i) ->
+                | Some({ Data = Delimiter Semi }, i) ->
                     match peek ele.rest[i..] with
-                    | Some({ data = Lit(Int v) }, j) -> Ok(Some(v, i + j))
+                    | Some({ Data = Lit(Int v) }, j) -> Ok(Some(v, i + j))
 
                     | Some(token, _) -> Error(UnexpectedToken(token, "array type length"))
                     | None -> Error(IncompleteAtEnd("array type"))
@@ -260,7 +260,7 @@ and internal parseType ctx input =
                     | None -> None, 0
 
                 match peek ele.rest[i..] with
-                | Some({ data = Bracket Close; span = span }, j) ->
+                | Some({ Data = Bracket Close; Span = span }, j) ->
                     let ty =
                         { Ele = ele.data
                           Len = len
@@ -276,7 +276,7 @@ and internal parseType ctx input =
             | Error e -> Error [| e |]
         | Error e -> Error e
 
-    | Some({ data = Operator(Cmp Lt | Arith Shr) }, i) ->
+    | Some({ Data = Operator(Cmp Lt | Arith Shr) }, i) ->
         let typeParam =
             parseLtGt input[i - 1 ..] (parseTypeParam normalCtx) "closure type parameter"
 
@@ -293,10 +293,10 @@ and internal parseType ctx input =
             | Error e -> param.MergeFatalError e
         | Error e -> Error e
 
-    | Some({ data = Operator(Arith BitOr | Logic Or) }, i) -> parseClosure [||] input[i - 1 ..]
+    | Some({ Data = Operator(Arith BitOr | Logic Or) }, i) -> parseClosure [||] input[i - 1 ..]
 
-    | Some({ data = Operator(Arith BitAnd | Logic And as op)
-             span = span },
+    | Some({ Data = Operator(Arith BitAnd | Logic And as op)
+             Span = span },
            i) ->
         match parseType normalCtx input[i..] with
         | Error e -> Error e
@@ -306,9 +306,9 @@ and internal parseType ctx input =
                 | Arith BitAnd ->
                     RefType
                         { Ty = ty.data
-                          Span = ty.data.span.WithFirst span.First }
+                          Span = ty.data.Span.WithFirst span.First }
                 | Logic And ->
-                    let span = ty.data.span.WithFirst span.First
+                    let span = ty.data.Span.WithFirst span.First
 
                     RefType
                         { Ty =
@@ -331,7 +331,7 @@ and internal parseTypeBound ctx input =
 
     let parser input =
         match peek input with
-        | Some({ data = Identifier _ }, _) ->
+        | Some({ Data = Identifier _ }, _) ->
             let data =
                 { Prefix = None
                   Seg = [||]
@@ -343,8 +343,8 @@ and internal parseTypeBound ctx input =
                   rest = input }
 
             parsePathType ctx state
-        | Some({ data = Reserved(PACKAGE | SELF | LOWSELF as kw)
-                 span = span },
+        | Some({ Data = Reserved(PACKAGE | SELF | LOWSELF as kw)
+                 Span = span },
                i) ->
             let prefix, isSelf =
                 match kw with
@@ -389,7 +389,7 @@ and internal parseTypeBound ctx input =
                     { Prefix = None
                       Seg = [||]
                       Span = Span.dummy },
-                    [| UnexpectedToken({ data = Identifier "_"; span = s }, "type bound") |]
+                    [| UnexpectedToken({ Data = Identifier "_"; Span = s }, "type bound") |]
                 | _ -> failwith "unreachable"
 
             let error = Array.append newState.error extraError
@@ -400,7 +400,7 @@ and internal parseTypeBound ctx input =
                   rest = newState.rest }
 
             match peek newState.rest with
-            | Some({ data = Operator(Arith Add) }, i) ->
+            | Some({ Data = Operator(Arith Add) }, i) ->
                 parseRecursive (
                     { newState with
                         rest = newState.rest[i..] }
@@ -421,13 +421,13 @@ and internal parseTypeBound ctx input =
 
 and internal parseTypeParam ctx input =
     match peek input with
-    | Some({ data = Reserved CONST; span = span }, i) ->
+    | Some({ Data = Reserved CONST; Span = span }, i) ->
         let input = input[i..]
 
         match parseId input "type parameter" with
         | Ok id ->
             match peek id.rest with
-            | Some({ data = Colon }, i) ->
+            | Some({ Data = Colon }, i) ->
                 match parseTypeBound { ctx with inTypeInst = false } id.rest[i..] with
                 | Ok bound ->
                     let param =
@@ -451,11 +451,11 @@ and internal parseTypeParam ctx input =
                       error = id.error
                       rest = id.rest }
         | Error e -> Error [| e |]
-    | Some({ data = Identifier sym; span = span }, i) ->
+    | Some({ Data = Identifier sym; Span = span }, i) ->
         let id = { Sym = sym; Span = span }
 
         match peek input[i..] with
-        | Some({ data = Colon }, j) ->
+        | Some({ Data = Colon }, j) ->
             match parseTypeBound { ctx with inTypeInst = false } input[i + j ..] with
             | Ok bound ->
                 let param =

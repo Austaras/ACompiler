@@ -1,0 +1,10 @@
+Binary@0..13
+    left: a@0..0
+    op: ==
+    right: Binary@5..13
+        left: c@5..5
+        op: +
+        right: Binary@9..13
+            left: d@9..9
+            op: *
+            right: 3@13..13

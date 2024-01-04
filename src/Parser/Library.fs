@@ -13,8 +13,8 @@ open Parser.Stmt
 let parse (input: Token[]) =
     let span =
         if input.Length > 0 then
-            let first = input[0].span.First
-            let last = (Array.last input).span.Last
+            let first = input[0].Span.First
+            let last = (Array.last input).Span.Last
 
             Span.Make first last
         else

@@ -312,14 +312,14 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
             | ArrayPat(_) -> failwith "Not Implemented"
             | PathPat(_) -> failwith "Not Implemented"
             | EnumPat e ->
-                if e.Name.Prefix <> None || e.Name.Seg.Length <> 2 then
+                if e.Variant.Prefix <> None || e.Variant.Seg.Length <> 2 then
                     failwith "Not Implemented"
 
                 if not isCond then
                     error.Add(RefutablePat e.Span)
 
-                let enumId = e.Name.Seg[0]
-                let variant = e.Name.Seg[1]
+                let enumId = e.Variant.Seg[0]
+                let variant = e.Variant.Seg[1]
 
                 let enumTy =
                     match scope.ResolveTy enumId with
@@ -405,21 +405,21 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
             | Const _
             | FnDecl _ -> ()
             | StructDecl s ->
-                if currScope.Ty.ContainsKey s.Id.Sym then
-                    error.Add(DuplicateDefinition s.Id)
+                if currScope.Ty.ContainsKey s.Name.Sym then
+                    error.Add(DuplicateDefinition s.Name)
 
                 let tvar = Array.map dummyTVar s.TyParam
-                currScope.Ty[s.Id.Sym] <- TStruct(s.Id, tvar)
+                currScope.Ty[s.Name.Sym] <- TStruct(s.Name, tvar)
 
                 for field in s.Field do
-                    currScope.Field.Add field.Name.Sym s.Id
+                    currScope.Field.Add field.Name.Sym s.Name
 
             | EnumDecl e ->
-                if currScope.Ty.ContainsKey e.Id.Sym then
-                    error.Add(DuplicateDefinition e.Id)
+                if currScope.Ty.ContainsKey e.Name.Sym then
+                    error.Add(DuplicateDefinition e.Name)
 
                 let tvar = Array.map dummyTVar e.TyParam
-                currScope.Ty[e.Id.Sym] <- TEnum(e.Id, tvar)
+                currScope.Ty[e.Name.Sym] <- TEnum(e.Name, tvar)
             | TypeDecl t ->
                 if currScope.Ty.ContainsKey t.Name.Sym then
                     error.Add(DuplicateDefinition t.Name)
@@ -444,7 +444,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                     if s.TyParam.Length > 0 then
                         let newScope = newScope TypeScope
 
-                        let processParam (param: TypeParam) =
+                        let processParam (param: TyParam) =
                             let newTVar = newScope.NewTVar (Some param.Id.Sym) param.Id.Span
 
                             newScope.Ty[param.Id.Sym] <- TVar newTVar
@@ -466,18 +466,18 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                 let field = Array.fold processField Map.empty s.Field
 
                 let stru =
-                    { Name = s.Id
+                    { Name = s.Name
                       Field = field
                       TVar = tvar }
 
-                structRec[s.Id] <- stru
+                structRec[s.Name] <- stru
 
             | EnumDecl e ->
                 let scope, tvar =
                     if e.TyParam.Length > 0 then
                         let newScope = newScope TypeScope
 
-                        let processParam (param: TypeParam) =
+                        let processParam (param: TyParam) =
                             let newTVar = newScope.NewTVar (Some param.Id.Sym) param.Id.Span
 
                             newScope.Ty[param.Id.Sym] <- TVar newTVar
@@ -489,10 +489,10 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                         scope, [||]
 
                 let processVariant m (variant: EnumVariantDef) =
-                    let name = variant.Id.Sym
+                    let name = variant.Name.Sym
 
                     if Map.containsKey name m then
-                        error.Add(DuplicateVariant variant.Id)
+                        error.Add(DuplicateVariant variant.Name)
 
                     let payload = Array.map (checkType scope) variant.Payload
 
@@ -501,11 +501,11 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                 let variant = Array.fold processVariant Map.empty e.Variant
 
                 let enum =
-                    { Name = e.Id
+                    { Name = e.Name
                       Variant = variant
                       TVar = tvar }
 
-                enumRec[e.Id] <- enum
+                enumRec[e.Name] <- enum
 
             | TypeDecl t -> currScope.Ty[t.Name.Sym] <- checkType scope t.Ty
 
@@ -527,7 +527,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                 let newScope = newScope TypeScope
 
                 let tvar =
-                    let processParam (param: TypeParam) =
+                    let processParam (param: TyParam) =
                         let newTVar = newScope.NewTVar (Some param.Id.Sym) param.Id.Span
 
                         newScope.Ty.Add(param.Id.Sym, TVar newTVar)
@@ -788,7 +788,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
             then_
         | Match m ->
-            let value = checkExpr scope m.expr
+            let value = checkExpr scope m.Value
 
             let typeOfBranch (br: MatchBranch) =
                 let newScope = newScope BlockScope
@@ -812,12 +812,12 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
                 union.Resolve brTy
 
-            if Array.length m.branch = 0 then
+            if Array.length m.Branch = 0 then
                 UnitType
             else
-                let first = typeOfBranch m.branch[0]
+                let first = typeOfBranch m.Branch[0]
 
-                for br in m.branch[1..] do
+                for br in m.Branch[1..] do
                     let brTy = typeOfBranch br
 
                     currScope.Constr.Add(
@@ -850,7 +850,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                 currScope.Constr.Add(
                     CNormal
                         { Expect = TBool
-                          Actual = checkExpr scope u.Expr
+                          Actual = checkExpr scope u.Value
                           Span = u.Span }
                 )
 
@@ -859,7 +859,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                 currScope.Constr.Add(
                     CNormal
                         { Expect = TInt(true, ISize)
-                          Actual = checkExpr scope u.Expr
+                          Actual = checkExpr scope u.Value
                           Span = u.Span }
                 )
 
@@ -870,22 +870,22 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                     | Id i -> Some i
                     | Field { Receiver = receiver } -> getVar receiver
                     | Index { Container = container } -> getVar container
-                    | Unary { Op = Deref; Expr = expr } -> getVar expr
+                    | Unary { Op = Deref; Value = expr } -> getVar expr
                     | _ -> None
 
-                TRef(checkExpr scope u.Expr)
+                TRef(checkExpr scope u.Value)
             | Deref ->
                 let sym =
-                    match u.Expr with
+                    match u.Value with
                     | Id i -> Some i.Sym
                     | _ -> None
 
-                let ptr = TVar(currScope.NewTVar sym u.Expr.Span)
+                let ptr = TVar(currScope.NewTVar sym u.Value.Span)
 
                 currScope.Constr.Add(
                     CNormal
                         { Expect = TRef ptr
-                          Actual = checkExpr scope u.Expr
+                          Actual = checkExpr scope u.Value
                           Span = u.Span }
                 )
 
@@ -906,7 +906,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                 | Id i -> Some i
                 | Field { Receiver = receiver } -> getVar receiver
                 | Index { Container = container } -> getVar container
-                | Unary { Op = Deref; Expr = expr } -> getVar expr
+                | Unary { Op = Deref; Value = expr } -> getVar expr
                 | _ -> None
 
             match getVar a.Place with
@@ -921,7 +921,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
             UnitType
         | Field f ->
             let receiver = checkExpr scope f.Receiver
-            let key = f.Prop.Sym
+            let key = f.Field.Sym
 
             match receiver with
             | TStruct(i, inst) ->
@@ -961,7 +961,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
         | Array(_) -> failwith "Not Implemented"
         | ArrayRepeat(_) -> failwith "Not Implemented"
         | StructLit(_) -> failwith "Not Implemented"
-        | Tuple s -> s.element |> Array.map (checkExpr scope) |> TTuple
+        | Tuple s -> s.Ele |> Array.map (checkExpr scope) |> TTuple
         | Closure c ->
             let paramTy (p: Param) =
                 match p.Ty with

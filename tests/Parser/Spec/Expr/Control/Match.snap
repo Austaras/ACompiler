@@ -1,0 +1,15 @@
+Match@0..50
+    value: a@6..6
+    branch@10..21
+        pat: Enum@10..16
+            variant@10..13
+                seg: Some@10..13
+            payload: a@15..15
+        expr: a@21..21
+    branch@24..32
+        pat: None@24..27
+        expr: 1@32..32
+    branch@35..48
+        pat: _@35..35
+        guard: True@40..43
+        expr: 3@48..48

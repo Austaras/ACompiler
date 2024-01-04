@@ -1,0 +1,6 @@
+Unary@0..5
+    op: -
+    value: Call@1..5
+        callee: Field@1..3
+            receiver: a@1..1
+            field: b@3..3

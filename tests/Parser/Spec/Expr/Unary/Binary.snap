@@ -1,0 +1,8 @@
+Binary@0..4
+    left: Unary@0..1
+        op: -
+        value: 1@1..1
+    op: +
+    right: Unary@3..4
+        op: -
+        value: 2@4..4

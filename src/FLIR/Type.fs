@@ -8,7 +8,6 @@ type Integer =
     | I8
     | I32
     | I64
-    | I128
 
 type Float =
     | F32
@@ -38,7 +37,7 @@ and Type =
             |> TInt
         | Semantic.TFloat Semantic.F32 -> TFloat F32
         | Semantic.TFloat Semantic.F64 -> TFloat F64
-        | Semantic.TChar -> TInt I128
+        | Semantic.TChar -> TInt I32
         | Semantic.TRef _
         | Semantic.TFn _ -> TRef
         | Semantic.TTuple t -> t |> Array.map (Type.FromSema semantic layout) |> TMany
@@ -64,9 +63,8 @@ and Type =
         | TInt I1 -> 1, layout.I1Align
         | TInt I8 -> 1, layout.I8Align
         | TInt I32 -> 4, layout.I32Align
-        | TFloat F32 -> 4, layout.F32Align
         | TInt I64 -> 8, layout.I64Align
-        | TInt I128 -> 16, layout.I64Align
+        | TFloat F32 -> 4, layout.F32Align
         | TFloat F64 -> 8, layout.F64Align
         | TFn _
         | TRef -> layout.PtrSize, layout.PtrAlign
@@ -110,7 +108,6 @@ and Type =
         | TInt I8 -> "i8"
         | TInt I32 -> "i32"
         | TInt I64 -> "i64"
-        | TInt I128 -> "i128"
         | TFloat F32 -> "f32"
         | TFloat F64 -> "f64"
         | TFn(_) -> "fn"

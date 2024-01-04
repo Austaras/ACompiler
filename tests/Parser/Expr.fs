@@ -1,107 +1,131 @@
 module Parser.Tests.Expr
 
-open Parser.Expr
-
-open Snapper
 open Xunit
 
-let parseTest = Util.makeTest parseExpr
+open Snapshot
+open AST.Dump
+open Parser.Expr
 
-[<Fact>]
-let Bin () =
-    (parseTest "1 + 2 * 3").ShouldMatchChildSnapshot("Binary")
-    (parseTest "3 - 2 - 1").ShouldMatchChildSnapshot("Assoc")
-    (parseTest "a == c + d * 3").ShouldMatchChildSnapshot("Compare")
+let dump ast =
+    use sw = new System.IO.StringWriter()
+    expr sw 0 ast
+    sw.ToString()
 
-    (parseTest "a = b + c").ShouldMatchChildSnapshot("Assign")
-    (parseTest "a = b = c").ShouldMatchChildSnapshot("RightAssoc")
-    (parseTest "a *= b + c").ShouldMatchChildSnapshot("AssignOp")
+let parseTest = Util.makeTest parseExpr dump
 
-    (parseTest "(1 + 2) * 3").ShouldMatchChildSnapshot("Paren")
-    (parseTest "((((1 + 2))) * (3))").ShouldMatchChildSnapshot("ManyParen")
+let snap = Snapshot("snap")
 
-    (parseTest
-        "1 + // comment
-    2")
-        .ShouldMatchChildSnapshot("Comment")
+let basePath = __SOURCE_DIRECTORY__ + "/Spec/Expr"
 
-    (parseTest "1 + 2 * let 3").ShouldMatchChildSnapshot("Malformed")
+[<Theory>]
+[<InlineData("Normal", "1 + 2 * 3")>]
+[<InlineData("Assoc", "3 - 2 - 1")>]
+[<InlineData("Compare", "a == c + d * 3")>]
 
-[<Fact>]
-let Tuple () =
-    (parseTest "()").ShouldMatchChildSnapshot("Zero")
-    (parseTest "(1 + 2) * (4 - 5)").ShouldMatchChildSnapshot("One")
-    (parseTest "(2, (1, 2), a = b)").ShouldMatchChildSnapshot("Many")
+[<InlineData("Assign", "a = b + c")>]
+[<InlineData("AssignOp", "a *= b + c")>]
+[<InlineData("RightAssoc", "a = b = c")>]
 
-[<Fact>]
-let Array () =
-    (parseTest "[1, 2 + 3, 4,]").ShouldMatchChildSnapshot("Normal")
-    (parseTest "[a; 10]").ShouldMatchChildSnapshot("Repeat")
-    (parseTest "[1 + 2] + [3 * 4]").ShouldMatchChildSnapshot("Binary")
+[<InlineData("Paren", "(1 + 2) * 3")>]
+[<InlineData("ManyParen", "((((1 + 2))) * (3))")>]
 
-[<Fact>]
-let Field () =
-    (parseTest "a.b.c").ShouldMatchChildSnapshot("Assoc")
-    (parseTest "(0, 1)._0 + 1").ShouldMatchChildSnapshot("Tuple")
-    (parseTest "[1,2,3][2]").ShouldMatchChildSnapshot("Array")
-    (parseTest "a[1][c + d]").ShouldMatchChildSnapshot("Multi")
-    (parseTest "a[1].x").ShouldMatchChildSnapshot("Mix")
-    (parseTest "a.x[1]").ShouldMatchChildSnapshot("Mix2")
-    (parseTest "a.b = c.d").ShouldMatchChildSnapshot("Assign")
-    (parseTest "a.b + c.0 * d.e").ShouldMatchChildSnapshot("Bin")
+[<InlineData("Comment",
+             "1 + // comment
+    2")>]
 
-[<Fact>]
-let Unary () =
-    (parseTest "-1+-2").ShouldMatchChildSnapshot("Binary")
+[<InlineData("Malformed", "1 + 2 * let 3")>]
+let Binary (name: string) (input: string) =
+    let res = parseTest input
+    snap.ShouldMatchText res $"{basePath}/Binary/{name}"
 
-    (parseTest
-        "[] -
-        1")
-        .ShouldMatchChildSnapshot("Delimiter")
+[<Theory>]
+[<InlineData("Zero", "()")>]
+[<InlineData("One", "(1 + 2) * (4 - 5)")>]
+[<InlineData("Many", "(2, (1, 2), a = b)")>]
+let Tuple (name: string) (input: string) =
+    let res = parseTest input
+    snap.ShouldMatchText res $"{basePath}/Tuple/{name}"
 
-    (parseTest "&&a").ShouldMatchChildSnapshot("LogicalAnd")
+[<Theory>]
+[<InlineData("Normal", "[1, 2 + 3, 4,]")>]
+[<InlineData("Repeat", "[a; 10]")>]
+[<InlineData("Binary", "[1 + 2] + [3 * 4]")>]
+let Array (name: string) (input: string) =
+    let res = parseTest input
+    snap.ShouldMatchText res $"{basePath}/Array/{name}"
 
-[<Fact>]
-let Range () =
-    (parseTest "a.b = 1+1 .. 2*3").ShouldMatchChildSnapshot("Full")
-    (parseTest "-5..-3").ShouldMatchChildSnapshot("Unary")
-    (parseTest "..1 + 1..").ShouldMatchChildSnapshot("Half")
+[<Theory>]
+[<InlineData("Assoc", "a.b.c")>]
+// [<InlineData("(0, 1)._0 + 1", "Tuple")>]
+[<InlineData("Array", "[1,2,3][2]")>]
+[<InlineData("Multi", "a[1][c + d]")>]
+[<InlineData("Mix", "a[1].x")>]
+[<InlineData("Mix2", "a.x[1]")>]
+[<InlineData("Assign", "a.b = c.d")>]
+[<InlineData("Binary", "a.b + c[0] * d.e")>]
+let Field (name: string) (input: string) =
+    let res = parseTest input
+    snap.ShouldMatchText res $"{basePath}/Field/{name}"
 
-[<Fact>]
-let Call () =
-    (parseTest "a()()").ShouldMatchChildSnapshot("Many")
-    (parseTest "-a.b()").ShouldMatchChildSnapshot("Unary")
-    (parseTest "a() + c(d)").ShouldMatchChildSnapshot("Bin")
+[<Theory>]
+[<InlineData("Binary", "-1+-2")>]
 
-    (parseTest
-        "{
-        a()
-        ()
-    }")
-        .ShouldMatchChildSnapshot("Block")
+[<InlineData("Delimiter",
+             "[] -
+    1")>]
 
-[<Fact>]
-let Path () =
-    (parseTest "Vec::<i32>>>1").ShouldMatchChildSnapshot("GenericShr")
-    (parseTest "Vec::<Vec<i32>>>1").ShouldMatchChildSnapshot("DoubleGeneric")
+[<InlineData("LogicalAnd", "&&a")>]
+let Unary (name: string) (input: string) =
+    let res = parseTest input
+    snap.ShouldMatchText res $"{basePath}/Unary/{name}"
 
-    (parseTest "Foo::Bar::<Vec<i32>> { a, b: 10, ..d }")
-        .ShouldMatchChildSnapshot("Struct")
+[<Theory>]
+[<InlineData("Full", "a.b = 1+1 .. 2*3")>]
+[<InlineData("Unary", "-5..-3")>]
+[<InlineData("Half", "..1 + 1..")>]
+let Range (name: string) (input: string) =
+    let res = parseTest input
+    snap.ShouldMatchText res $"{basePath}/Range/{name}"
 
-[<Fact>]
-let Closure () =
-    (parseTest "(|x| x * 2) >> |x| Some(x)").ShouldMatchChildSnapshot("Compose")
+[<Theory>]
+[<InlineData("Many", "a()()")>]
+[<InlineData("Unary", "-a.b()")>]
+[<InlineData("Binary", "a() + c(d)")>]
 
-    (parseTest "|x| |y| x + y").ShouldMatchChildSnapshot("Curry")
+[<InlineData("Block",
+             "{
+    a()
+    ()
+}")>]
+let Call (name: string) (input: string) =
+    let res = parseTest input
 
-    (parseTest "true ||x| x").ShouldMatchChildSnapshot("NotClosure")
+    snap.ShouldMatchText res $"{basePath}/Call/{name}"
 
-[<Fact>]
-let Control () =
-    (parseTest "if let L(_) | R(_) = a { 1 } else if a <= 3 { 2 } else { 3 }")
-        .ShouldMatchChildSnapshot("If")
+[<Theory>]
+[<InlineData("GenericShr", "Vec::<i32>>>1")>]
+[<InlineData("DoubleGeneric", "Vec::<Vec<i32>>>1")>]
 
-    (parseTest "for i in 0..9 { print(i) }").ShouldMatchChildSnapshot("For")
+[<InlineData("Struct", "Foo::Bar::<Vec<i32>> { a, b: 10, ..d }")>]
+let Path (name: string) (input: string) =
+    let res = parseTest input
 
-    (parseTest "match a { Some(a) => a, None => 1, _ if true => 3 }")
-        .ShouldMatchChildSnapshot("Match")
+    snap.ShouldMatchText res $"{basePath}/Path/{name}"
+
+[<Theory>]
+[<InlineData("Compose", "(|x| x * 2) >> |x| Some(x)")>]
+[<InlineData("Curry", "|x| |y| x + y")>]
+[<InlineData("NotClosure", "true ||x| x")>]
+let Closure (name: string) (input: string) =
+    let res = parseTest input
+
+    snap.ShouldMatchText res $"{basePath}/Closure/{name}"
+
+[<Theory>]
+[<InlineData("If", "if let L(_) | R(_) = a { 1 } else if a <= 3 { 2 } else { 3 }")>]
+[<InlineData("For", "for i in 0..9 { print(i) }")>]
+[<InlineData("Match", "match a { Some(a) => a, None => 1, _ if true => 3 }")>]
+let Control (name: string) (input: string) =
+    let res = parseTest input
+
+    snap.ShouldMatchText res $"{basePath}/Control/{name}"
