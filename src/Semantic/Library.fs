@@ -129,7 +129,7 @@ and Type =
                 t.Sym
             else
                 let tvar = v |> Array.map _.ToString
-                let tvar = String.concat "," tvar
+                let tvar = String.concat ", " tvar
                 $"{t.Sym}<{tvar}>"
         | TTuple t ->
             let element = t |> Array.map _.ToString |> String.concat ", "
@@ -143,7 +143,7 @@ and Type =
             if f.TVar.Length = 0 then
                 fstr
             else
-                let tvar = f.TVar |> Array.map _.ToString |> String.concat ","
+                let tvar = f.TVar |> Array.map _.ToString |> String.concat ", "
                 $"<{tvar}>{fstr}"
         | TRef r -> $"&{r.ToString}"
         | TVar v -> v.ToString

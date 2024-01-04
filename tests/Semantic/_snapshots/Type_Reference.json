@@ -1,8 +1,0 @@
-{
-  "Reference": {
-    "deref": "|&int| -> int"
-  },
-  "RefField": {
-    "get_f": "|Foo| -> &uint"
-  }
-}

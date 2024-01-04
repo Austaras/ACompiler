@@ -2,8 +2,6 @@ module Semantic.Tests.Capture
 
 open System.Collections.Generic
 
-open FSharp.Json
-open Snapper
 open Xunit
 
 open AST
@@ -13,9 +11,7 @@ open Parser.Parser
 open Semantic.Semantic
 open Semantic.Check
 
-let settings = SnapshotSettings.New().SnapshotFileName("Capture")
-
-let runCheck input name =
+let runCheck input =
     let token =
         match lex input with
         | Ok tok -> tok
@@ -41,28 +37,18 @@ let runCheck input name =
                 cid <- cid + 1
                 key
 
-        key, Array.ofSeq value
+        key, value |> Array.ofSeq |> Array.map _.Sym
 
-    (sema.Capture
-     |> Seq.map (|KeyValue|)
-     |> Seq.map reform
-     |> Map.ofSeq
-     |> Json.serialize)
-        .ShouldMatchChildSnapshot(name, settings)
+    sema.Capture |> Seq.map (|KeyValue|) |> Seq.map reform |> Map.ofSeq
 
 [<Fact>]
 let Add () =
-    runCheck
-        "
-    fn add(x) {
-        fn add1(y) {
-            fn add2(z) {
-                return x + y + z
-            }
+    let capture =
+        runCheck
+            "
+fn add(x) {
+    |y| |z| x + y + z
+}
+"
 
-            return add2
-        }
-        return add1
-    }
-    "
-        "Add"
+    Assert.Equivalent(capture, Map [ "Closure0", [| "x"; "y" |]; "Closure1", [| "x" |] ])

@@ -6,12 +6,7 @@ open Snapshot
 open AST.Dump
 open Parser.Type
 
-let dump ast =
-    use sw = new System.IO.StringWriter()
-    ty sw 0 ast
-    sw.ToString()
-
-let parseTest = Util.makeTest parseType dump
+let parseTest = Util.makeTest parseType ty
 
 let snap = Snapshot("snap")
 

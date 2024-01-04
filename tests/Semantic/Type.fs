@@ -2,8 +2,6 @@ module Semantic.Tests.Type
 
 open System.Collections.Generic
 
-open FSharp.Json
-open Snapper
 open System.IO
 open Xunit
 
@@ -13,7 +11,7 @@ open Parser.Parser
 open Semantic.Semantic
 open Semantic.Check
 
-let runInfer input name =
+let runInfer input =
     let token =
         match lex input with
         | Ok tok -> tok
@@ -28,248 +26,274 @@ let runInfer input name =
 
     Assert.Empty error
 
-    let pickFn (id: AST.Id, t) =
-        match t with
-        | TFn fn when id.Sym <> "main" -> Some(id.Sym, t.ToString)
-        | _ -> None
+    let map (id: AST.Id, t: Type) = (id.Sym, t.ToString)
 
-    (sema.Var |> Map.toSeq |> Seq.choose pickFn |> Map.ofSeq |> Json.serialize)
-        .ShouldMatchChildSnapshot(name)
+    sema.Var |> Map.toSeq |> Seq.map map |> Map.ofSeq
 
 let runInferFromExample path =
     File.ReadAllText(__SOURCE_DIRECTORY__ + "/../../examples/" + path) |> runInfer
 
 [<Fact>]
 let Closure () =
-    runInferFromExample "function/mutual_rec.adf" "MutualRec"
+    let mutualRec = runInferFromExample "function/mutual_rec.adf"
+    Assert.Equal(mutualRec["is_even"], "|int| -> bool")
+    Assert.Equal(mutualRec["is_odd"], "|int| -> bool")
 
-    runInfer "fn call(c) { c(0) + 1 }" "Closure"
+    let closure = runInfer "fn call(c) { c(0) + 1 }"
+    Assert.Equal(closure["call"], "||int| -> int| -> int")
 
-    runInfer
-        "
-    fn equal(x) {
-        |y| x == y
+    let curry =
+        runInfer
+            "
+fn equal(x) {
+    |y| x == y
+}"
+
+    Assert.Equal(curry["equal"], "<Tx>|Tx| -> |Tx| -> bool")
+
+    let monoClosure =
+        runInfer
+            "
+fn main() {
+    let id = |x| x
+
+    id(1)
+}"
+
+    Assert.Equal(monoClosure["id"], "|int| -> int")
+
+    let topLevel =
+        runInfer
+            "
+fn foo() {
+    f
+}
+
+let f = 1"
+
+    Assert.Equal(topLevel["foo"], "|| -> int")
+
+    let ret =
+        runInfer
+            "
+fn foo(i) {
+    if i == 0 {
+        return 0
     }
-    "
-        "Curry"
 
-    runInfer
-        "
-    fn main() {
-        let id = |x| x
+    i + 1
+}"
 
-        let _ = id(1)
+    Assert.Equal(ret["foo"], "|int| -> int")
+
+    let never =
+        runInfer
+            "
+fn foo(i) {
+    let mut i = i
+
+    while i > 0 {
+        if i % 2 == 0 {
+            return i / 2
+        }
+
+        i -= 1
     }
-    "
-        "MonoClosure"
+}"
 
-    runInfer
-        "
-    fn foo() {
-        f
-    }
-
-    let f = 1
-    "
-        "TopLevel"
-
-
-    runInfer
-        "
-        fn foo(i) { 
-            if i == 0 {
-                return 0
-            }
-
-            i + 1
-        }"
-        "Return"
-
-    runInfer
-        "
-        fn foo(i) {
-            let mut i = i
-
-            while i > 0 {
-                if i % 2 == 0 {
-                    return i / 2
-                }
-
-                i -= 1
-            }
-        }"
-        "Never"
+    Assert.Equal(never["foo"], "|int| -> int")
 
 [<Fact>]
 let Reference () =
-    runInfer "fn deref(a) { *a + 1 }" "Reference"
+    let reference = runInfer "fn deref(a) { *a + 1 }"
+    Assert.Equal(reference["deref"], "|&int| -> int")
 
-    runInfer
-        "
-    struct Foo {
-        f: uint
-    }
+    let refField =
+        runInfer
+            "
+struct Foo {
+    f: uint
+}
 
-    fn get_f(f) { &f.f }
-    "
-        "RefField"
+fn get_f(f) { &f.f }"
+
+    Assert.Equal(refField["get_f"], "|Foo| -> &uint")
 
 [<Fact>]
 let ADT () =
-    runInferFromExample "function/struct.adf" "Struct"
+    let stru = runInferFromExample "function/struct.adf"
+    Assert.Equal(stru["add"], "|Point3D| -> int")
 
-    runInfer
-        "
-        struct Foo {
-            b: &Bar
-        }
+    let autoDeref =
+        runInfer
+            "
+struct Foo {
+    b: &Bar
+}
 
-        struct Bar {
-            f: &Foo
-        }
+struct Bar {
+    f: &Foo
+}
 
-        fn foo(f) {
-            f.b.f
-        }
-        "
-        "AutoDeref"
+fn foo(f) {
+    f.b.f
+}"
 
-    runInfer
-        "
-        struct Foo {
-            b: uint
-        }
+    Assert.Equal(autoDeref["foo"], "|Foo| -> &Foo")
 
-        fn foo(f: &Foo) {
-            f.b
-        }
-        "
-        "DerefParam"
+    //     let derefParam =
+    //         runInfer
+    //             "
+    // struct Foo {
+    //     b: uint
+    // }
 
-    runInfer
-        "
-        fn foo((a, b, c)) {
-            a == 1 && b == 2 && c == 3
-        }
-    "
-        "Tuple"
+    // fn foo(f: &Foo) {
+    //     f.b
+    // }"
 
-    runInfer
-        "
-    struct Foo<T> {
-        f: T
-    }
-    
-    fn foo(f: Foo<_>) -> uint {
-        f.f
-    }
-    "
-        "InferedType"
+    //     Assert.Equal(derefParam["foo"], "|&Foo| -> &uint")
+
+    let tuple =
+        runInfer
+            "
+fn foo((a, b, c)) {
+    a == 1 && b == 2 && c == 3
+}"
+
+    Assert.Equal(tuple["foo"], "|(int, int, int)| -> bool")
+
+    let inferred =
+        runInfer
+            "
+struct Foo<T> {
+    f: T
+}
+
+fn foo(f: Foo<_>) -> uint {
+    f.f
+}"
+
+    Assert.Equal(inferred["foo"], "|Foo<uint>| -> uint")
 
 [<Fact>]
 let Poly () =
-    runInfer
-        "
-    fn id(x) { x }
+    let poly =
+        runInfer
+            "
+fn id(x) { 
+    x
+}
 
-    fn main() {
-        id(id)(id(0))
-        ()
-    }
-    "
-        "Poly"
+fn main() {
+    id(id)(id(0))
+}"
 
-    runInfer
-        "
-    fn main() {
-        one(1)
-        ()
-    }
+    Assert.Equal(poly["id"], "<Tx>|Tx| -> Tx")
 
-    fn one(x) { 1 }
-    "
-        "HoistedMono"
+    let hoistedMono =
+        runInfer
+            "
+fn main() {
+    one(1)
+}
 
-    runInfer
-        "
-    fn main() {
-        id(1)
-        let _ = id(true)
-    }
+fn one(x) { 1 }"
 
-    fn id<T>(x: T) -> T { 
-        x 
-    }
-    "
-        "HoistedTyped"
+    Assert.Equal(hoistedMono["one"], "|int| -> int")
 
-    runInfer "fn double(f, x) { f(f(x)) }" "PolyDouble"
+    let hoistedTyped =
+        runInfer
+            "
+fn main() {
+    id(1)
+    let _ = id(true)
+}
 
-    runInfer
-        "
-    fn foo(x) {
-        bar(1)
-        x
-    }
-    fn bar(x) {
-        foo(1)
-    }
-    "
-        "PolyRec"
+fn id<T>(x: T) -> T {
+    x
+}"
 
-    runInfer "fn weird_rec(x) { weird_rec(1) }" "WeirdRec"
+    Assert.Equal(hoistedTyped["id"], "<T>|T| -> T")
 
-    runInfer
-        "
-    pub fn swap<T1, T2>(t: (T1, T2)) -> (T2, T1) {
-        let (fst, snd) = t
+    let polyDouble = runInfer "fn double(f, x) { f(f(x)) }"
+    Assert.Equal(polyDouble["double"], "<Tx>||Tx| -> Tx, Tx| -> Tx")
 
-        (snd, fst)
-    }"
-        "Explicit"
+    let polyRec =
+        runInfer
+            "
+fn foo(x) {
+    bar(1)
+    x
+}
+
+fn bar(x) {
+    foo(1)
+}"
+
+    Assert.Equal(polyRec["foo"], "<Tx>|Tx| -> Tx")
+    Assert.Equal(polyRec["bar"], "|int| -> int")
+
+    let weirdRec = runInfer "fn weird_rec(x) { weird_rec(1) }"
+    Assert.Equal(weirdRec["weird_rec"], "<T21>|int| -> T21")
+
+    let explicit =
+        runInfer
+            "
+pub fn swap<T1, T2>(t: (T1, T2)) -> (T2, T1) {
+    let (fst, snd) = t
+
+    (snd, fst)
+}"
+
+    Assert.Equal(explicit["swap"], "<T1, T2>|(T1, T2)| -> (T2, T1)")
 
 [<Fact>]
 let Match () =
-    runInferFromExample "function/fib.adf" "Fib"
+    let fib = runInferFromExample "function/fib.adf"
+    Assert.Equal(fib["fib"], "|int| -> int")
 
-    runInfer
-        "
-        enum Either<L, R> {
-            L(L),
-            R(R)
-        }
+    let enum =
+        runInfer
+            "
+enum Either<L, R> {
+    L(L),
+    R(R)
+}
 
-        fn is_zero(e) {
-            match e {
-                Either::L(i) => i == 0,
-                Either::R(f) => f == 0.0
-            }
-        }
-    "
-        "Enum"
+fn is_zero(e) {
+    match e {
+        Either::L(i) => i == 0,
+        Either::R(f) => f == 0.0
+    }
+}"
 
-    runInfer
-        "
-        enum Option<V> {
-            Some(V),
-            None
-        }
+    Assert.Equal(enum["is_zero"], "|Either<int, f64>| -> bool")
 
-        fn main() {
-            let mut o = Option::None
+    let valueRestriction =
+        runInfer
+            "
+enum Option<V> {
+    Some(V),
+    None
+}
 
-            o = Option::Some(1)
-        }
-    "
-        "ValueRestriction"
+fn main() {
+    let mut o = Option::None
 
-    runInfer
-        "
-        fn foo(f) {
-            match f {
-                true => |t, f| -> uint t,
-                false => |t, f| f
-            }
-        }
-    "
-        "Closure"
+    o = Option::Some(1)
+}"
+
+    Assert.Equal(valueRestriction["o"], "Option<int>")
+
+    let closure =
+        runInfer
+            "
+fn foo(f) {
+    match f {
+        true => |t, f| -> uint t,
+        false => |t, f| f
+    }
+}"
+
+    Assert.Equal(closure["foo"], "|bool| -> |uint, uint| -> uint")

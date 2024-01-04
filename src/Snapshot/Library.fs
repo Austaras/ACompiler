@@ -10,14 +10,18 @@ open Pastel
 let shouldUpdate = System.Environment.GetEnvironmentVariable "UPDATE" = "1"
 
 type Snapshot(suffix: string) =
-    member internal _.Match actual snap =
+    member internal _.Match (actual: TextWriter -> unit) snap =
         let snapExist = File.Exists snap
 
         if shouldUpdate || not snapExist then
-            File.WriteAllText(snap, actual)
-
+            use sw = new StreamWriter(snap, false)
+            actual (sw)
             Assert.True(true)
         else
+            use tw = new StringWriter()
+            actual tw
+            let actual = tw.ToString()
+
             let expected = File.ReadAllText snap
 
             if actual <> expected then
@@ -45,7 +49,7 @@ type Snapshot(suffix: string) =
 
                 Assert.Fail(msg.ToString())
 
-    member this.ShouldMatch (transform: string -> string) path =
+    member this.ShouldMatch (transform: string -> TextWriter -> unit) path =
         let path = Path.GetFullPath path
         let content = File.ReadAllText(path)
         let actual = transform content
@@ -54,7 +58,7 @@ type Snapshot(suffix: string) =
 
         this.Match actual snap
 
-    member this.ShouldMatchText text path =
+    member this.ShouldMatchText (text: TextWriter -> unit) path =
         let snap = Path.ChangeExtension(path, suffix)
 
         this.Match text snap

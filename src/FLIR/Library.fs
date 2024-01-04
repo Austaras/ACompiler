@@ -77,7 +77,7 @@ type Func =
       Span: Span
       Ret: Option<int> }
 
-    member this.Print =
+    member this.Print(tw: IO.TextWriter) =
         let labelToString id = "'" + string id
 
         let varToString id =
@@ -98,22 +98,20 @@ type Func =
             | Const c -> string c
             | Binding i -> varToString i
 
-        let res = Text.StringBuilder()
-
         let param = this.Param |> Array.map paramToString |> String.concat ", "
 
-        let header =
-            $"fn ({param})"
-            + match this.Ret with
-              | Some ret -> " -> " + this.Var[ret].Type.ToString
-              | None -> ""
-            + " {"
+        let ret =
+            match this.Ret with
+            | Some ret -> " -> " + this.Var[ret].Type.ToString
+            | None -> ""
 
-        let _ = res.AppendLine(header)
+        let header = $"fn ({param}){ret} {{"
+
+        tw.WriteLine(header)
 
         for (idx, block) in Array.indexed this.Block do
             let id = labelToString idx
-            let _ = res.AppendLine $"    {id}: {{"
+            tw.WriteLine $"    {id}: {{"
 
             for stm in block.Stm do
                 let stm =
@@ -137,7 +135,7 @@ type Func =
                       | Call -> failwith "Not Implemented"
                       | Alloc -> failwith "Not Implemented"
 
-                res.AppendLine(stm) |> ignore
+                tw.WriteLine stm
 
             let trans =
                 String.replicate 8 " "
@@ -156,16 +154,16 @@ type Func =
                         | Some i -> $" {varToString i}"
                         | None -> ""
 
-            res.AppendLine trans |> ignore
+            tw.WriteLine trans |> ignore
 
-            res.AppendLine "    }" |> ignore
+            tw.WriteLine "    }" |> ignore
 
-        let _ = res.AppendLine("}")
-
-        res.ToString()
+        tw.WriteLine "}"
 
 type Module =
     { Func: Func[]
       Static: int[] }
 
-    member this.Print = this.Func |> Array.map _.Print |> String.concat Environment.NewLine
+    member this.Print(tw: IO.TextWriter) =
+        for func in this.Func do
+            func.Print tw
