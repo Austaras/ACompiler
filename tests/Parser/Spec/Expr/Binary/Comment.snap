@@ -1,4 +1,4 @@
-Binary@0..19
+Binary@0..15
     left: 1@0..0
     op: +
-    right: 2@19..19
+    right: 2@15..15

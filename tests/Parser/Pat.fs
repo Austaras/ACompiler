@@ -14,7 +14,7 @@ let basePath = __SOURCE_DIRECTORY__ + "/Spec/Pat"
 
 [<Theory>]
 [<InlineData("Enum", "core::Option::Some(1)")>]
-[<InlineData("Struct", "pak::Foo { v, x: 10, ..}")>]
+[<InlineData("Struct", "pak::Foo { v, x: 10, .. }")>]
 
 [<InlineData("Compound",
              "Person {

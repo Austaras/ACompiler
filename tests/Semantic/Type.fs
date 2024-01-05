@@ -36,11 +36,11 @@ let runInferFromExample path =
 [<Fact>]
 let Closure () =
     let mutualRec = runInferFromExample "function/mutual_rec.adf"
-    Assert.Equal(mutualRec["is_even"], "|int| -> bool")
-    Assert.Equal(mutualRec["is_odd"], "|int| -> bool")
+    Assert.Equal("|int| -> bool", mutualRec["is_even"])
+    Assert.Equal("|int| -> bool", mutualRec["is_odd"])
 
     let closure = runInfer "fn call(c) { c(0) + 1 }"
-    Assert.Equal(closure["call"], "||int| -> int| -> int")
+    Assert.Equal("||int| -> int| -> int", closure["call"])
 
     let curry =
         runInfer
@@ -49,7 +49,7 @@ fn equal(x) {
     |y| x == y
 }"
 
-    Assert.Equal(curry["equal"], "<Tx>|Tx| -> |Tx| -> bool")
+    Assert.Equal("<Tx>|Tx| -> |Tx| -> bool", curry["equal"])
 
     let monoClosure =
         runInfer
@@ -60,7 +60,7 @@ fn main() {
     id(1)
 }"
 
-    Assert.Equal(monoClosure["id"], "|int| -> int")
+    Assert.Equal("|int| -> int", monoClosure["id"])
 
     let topLevel =
         runInfer
@@ -71,7 +71,7 @@ fn foo() {
 
 let f = 1"
 
-    Assert.Equal(topLevel["foo"], "|| -> int")
+    Assert.Equal("|| -> int", topLevel["foo"])
 
     let ret =
         runInfer
@@ -84,7 +84,7 @@ fn foo(i) {
     i + 1
 }"
 
-    Assert.Equal(ret["foo"], "|int| -> int")
+    Assert.Equal("|int| -> int", ret["foo"])
 
     let never =
         runInfer
@@ -101,12 +101,12 @@ fn foo(i) {
     }
 }"
 
-    Assert.Equal(never["foo"], "|int| -> int")
+    Assert.Equal("|int| -> int", never["foo"])
 
 [<Fact>]
 let Reference () =
     let reference = runInfer "fn deref(a) { *a + 1 }"
-    Assert.Equal(reference["deref"], "|&int| -> int")
+    Assert.Equal("|&int| -> int", reference["deref"])
 
     let refField =
         runInfer
@@ -117,12 +117,12 @@ struct Foo {
 
 fn get_f(f) { &f.f }"
 
-    Assert.Equal(refField["get_f"], "|Foo| -> &uint")
+    Assert.Equal("|Foo| -> &uint", refField["get_f"])
 
 [<Fact>]
 let ADT () =
     let stru = runInferFromExample "function/struct.adf"
-    Assert.Equal(stru["add"], "|Point3D| -> int")
+    Assert.Equal("|Point3D| -> int", stru["add"])
 
     let autoDeref =
         runInfer
@@ -139,7 +139,7 @@ fn foo(f) {
     f.b.f
 }"
 
-    Assert.Equal(autoDeref["foo"], "|Foo| -> &Foo")
+    Assert.Equal("|Foo| -> &Foo", autoDeref["foo"])
 
     //     let derefParam =
     //         runInfer
@@ -161,7 +161,7 @@ fn foo((a, b, c)) {
     a == 1 && b == 2 && c == 3
 }"
 
-    Assert.Equal(tuple["foo"], "|(int, int, int)| -> bool")
+    Assert.Equal("|(int, int, int)| -> bool", tuple["foo"])
 
     let inferred =
         runInfer
@@ -174,7 +174,7 @@ fn foo(f: Foo<_>) -> uint {
     f.f
 }"
 
-    Assert.Equal(inferred["foo"], "|Foo<uint>| -> uint")
+    Assert.Equal("|Foo<uint>| -> uint", inferred["foo"])
 
 [<Fact>]
 let Poly () =
@@ -189,7 +189,7 @@ fn main() {
     id(id)(id(0))
 }"
 
-    Assert.Equal(poly["id"], "<Tx>|Tx| -> Tx")
+    Assert.Equal("<Tx>|Tx| -> Tx", poly["id"])
 
     let hoistedMono =
         runInfer
@@ -200,7 +200,7 @@ fn main() {
 
 fn one(x) { 1 }"
 
-    Assert.Equal(hoistedMono["one"], "|int| -> int")
+    Assert.Equal("|int| -> int", hoistedMono["one"])
 
     let hoistedTyped =
         runInfer
@@ -214,10 +214,10 @@ fn id<T>(x: T) -> T {
     x
 }"
 
-    Assert.Equal(hoistedTyped["id"], "<T>|T| -> T")
+    Assert.Equal("<T>|T| -> T", hoistedTyped["id"])
 
     let polyDouble = runInfer "fn double(f, x) { f(f(x)) }"
-    Assert.Equal(polyDouble["double"], "<Tx>||Tx| -> Tx, Tx| -> Tx")
+    Assert.Equal("<Tx>||Tx| -> Tx, Tx| -> Tx", polyDouble["double"])
 
     let polyRec =
         runInfer
@@ -231,11 +231,11 @@ fn bar(x) {
     foo(1)
 }"
 
-    Assert.Equal(polyRec["foo"], "<Tx>|Tx| -> Tx")
-    Assert.Equal(polyRec["bar"], "|int| -> int")
+    Assert.Equal("<Tx>|Tx| -> Tx", polyRec["foo"])
+    Assert.Equal("|int| -> int", polyRec["bar"])
 
     let weirdRec = runInfer "fn weird_rec(x) { weird_rec(1) }"
-    Assert.Equal(weirdRec["weird_rec"], "<T21>|int| -> T21")
+    Assert.Equal("<T21>|int| -> T21", weirdRec["weird_rec"])
 
     let explicit =
         runInfer
@@ -246,12 +246,12 @@ pub fn swap<T1, T2>(t: (T1, T2)) -> (T2, T1) {
     (snd, fst)
 }"
 
-    Assert.Equal(explicit["swap"], "<T1, T2>|(T1, T2)| -> (T2, T1)")
+    Assert.Equal("<T1, T2>|(T1, T2)| -> (T2, T1)", explicit["swap"])
 
 [<Fact>]
 let Match () =
     let fib = runInferFromExample "function/fib.adf"
-    Assert.Equal(fib["fib"], "|int| -> int")
+    Assert.Equal("|int| -> int", fib["fib"])
 
     let enum =
         runInfer
@@ -268,7 +268,7 @@ fn is_zero(e) {
     }
 }"
 
-    Assert.Equal(enum["is_zero"], "|Either<int, f64>| -> bool")
+    Assert.Equal("|Either<int, f64>| -> bool", enum["is_zero"])
 
     let valueRestriction =
         runInfer
@@ -284,7 +284,7 @@ fn main() {
     o = Option::Some(1)
 }"
 
-    Assert.Equal(valueRestriction["o"], "Option<int>")
+    Assert.Equal("Option<int>", valueRestriction["o"])
 
     let closure =
         runInfer
@@ -296,4 +296,4 @@ fn foo(f) {
     }
 }"
 
-    Assert.Equal(closure["foo"], "|bool| -> |uint, uint| -> uint")
+    Assert.Equal("|bool| -> |uint, uint| -> uint", closure["foo"])

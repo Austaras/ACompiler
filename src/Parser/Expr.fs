@@ -818,7 +818,7 @@ and internal parsePrefix ctx input =
     | None -> Error [| IncompleteAtEnd "expression" |]
 
 and internal parseFollow prec ctx (state: State<Expr>) =
-    match peek state.rest with
+    match peekInline state.rest with
     | None
     | Some({ Data = Delimiter Semi }, _) -> Ok state
     // <= because of right associativity

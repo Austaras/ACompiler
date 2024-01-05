@@ -42,3 +42,5 @@ type MultiMap<'K, 'V when 'K: equality>(?comparer: IEqualityComparer<'K>) =
                 elems.Add(kvp)
 
             elems.GetEnumerator()
+
+    member _.Values = map.Values

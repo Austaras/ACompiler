@@ -1,10 +1,7 @@
 module Semantic.Semantic
 
-open System.Collections.Generic
-
 open Common.Span
 open AST.AST
-open Util.Util
 open Util.MultiMap
 
 type Integer =
@@ -196,7 +193,7 @@ type SemanticInfo =
     { Var: Map<Id, Type>
       Struct: Map<Id, Struct>
       Enum: Map<Id, Enum>
-      Capture: MultiMap<Either<Fn, Closure>, Id>
+      Capture: MultiMap<Closure, Id>
       Module: ModuleType }
 
 type Error =
@@ -219,3 +216,4 @@ type Error =
     | AssignImmutable of Id * Span
     | RefutablePat of Span
     | LoopInType of Id[]
+    | CaptureDynamic of Id

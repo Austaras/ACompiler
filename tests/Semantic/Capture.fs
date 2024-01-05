@@ -26,20 +26,9 @@ let runCheck input =
 
     Assert.Empty error
 
-    let mutable cid = 0
+    let reform (value: ResizeArray<AST.Id>) = value |> Seq.map _.Sym |> Array.ofSeq
 
-    let reform (key: Either<AST.Fn, AST.Closure>, value: ResizeArray<AST.Id>) =
-        let key =
-            match key with
-            | Left f -> f.Name.Sym
-            | Right _ ->
-                let key = $"Closure{cid}"
-                cid <- cid + 1
-                key
-
-        key, value |> Array.ofSeq |> Array.map _.Sym
-
-    sema.Capture |> Seq.map (|KeyValue|) |> Seq.map reform |> Map.ofSeq
+    sema.Capture.Values |> Seq.map reform |> Array.ofSeq
 
 [<Fact>]
 let Add () =
@@ -51,4 +40,21 @@ fn add(x) {
 }
 "
 
-    Assert.Equivalent(capture, Map [ "Closure0", [| "x"; "y" |]; "Closure1", [| "x" |] ])
+    Assert.Equivalent([| [| "x"; "y" |]; [| "x" |] |], capture)
+
+[<Fact>]
+let Shadow () =
+    let shadow =
+        runCheck
+            "
+fn foo() {
+    fn bar() {}
+    let a = || bar
+
+    let bar = 1
+
+    return || bar
+}
+"
+
+    Assert.Equivalent([| [| "bar" |] |], shadow)

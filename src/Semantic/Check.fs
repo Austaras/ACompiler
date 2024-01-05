@@ -36,30 +36,26 @@ type internal Constraint =
     | CNormal of NormalConstraint
     | CDeref of NormalConstraint
 
-type internal FnScope = { Fn: Either<Fn, Closure>; Ret: Type }
+type internal FnScope = { Ret: Type }
+type internal ClosureScope = { Closure: Closure; Ret: Type }
 
 type internal ScopeData =
     | FnScope of FnScope
+    | ClosureScope of ClosureScope
     | BlockScope
     | TypeScope
     | TopLevelScope
 
+type internal VarInfo = { Def: Id; Mut: bool; Static: bool }
+
 type internal Scope =
     { Id: int
       Ty: Dictionary<string, Type>
-      Var: Dictionary<string, Id * bool>
+      Var: Dictionary<string, VarInfo>
       Field: MultiMap<string, Id>
       Constr: ResizeArray<Constraint>
       Data: ScopeData
       mutable VarId: int }
-
-    member this.AddVar(id: Id, ?mut) =
-        let mut =
-            match mut with
-            | Some m -> m
-            | None -> false
-
-        this.Var[id.Sym] <- id, mut
 
     member this.NewTVar sym span =
         let tvar =
@@ -169,7 +165,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
     let varRec = Dictionary(HashIdentity.Reference)
     let structRec = Dictionary(HashIdentity.Reference)
     let enumRec = Dictionary(HashIdentity.Reference)
-    let captureRec = MultiMap()
+    let captureRec = MultiMap(HashIdentity.Reference)
 
     let union = TyUnion()
     let error = ResizeArray<Error>()
@@ -217,11 +213,11 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
         | FnType _ -> failwith "Not Implemented"
 
     let checkPat (scope: ActiveScope) mode pat ty =
-        let mut, mayShadow, isCond =
+        let mut, mayShadow, isCond, static_ =
             match mode with
-            | LetPat { Mut = mut; Static = static_ } -> mut, not static_, false
-            | ParamPat -> true, false, false
-            | CondPat -> true, true, true
+            | LetPat { Mut = mut; Static = static_ } -> mut, not static_, false, static_
+            | ParamPat -> true, false, false, false
+            | CondPat -> true, true, true, false
 
         let addSym sym (i: Id) (ty: Type) =
             if Map.containsKey i.Sym sym then
@@ -377,10 +373,14 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
         let map = proc Map.empty ty pat
 
         for (id, ty) in map.Values do
-            if mayShadow && currScope.Var.ContainsKey id.Sym then
+            if not mayShadow && currScope.Var.ContainsKey id.Sym then
                 error.Add(DuplicateDefinition id)
 
-            currScope.AddVar(id, mut)
+            currScope.Var[id.Sym] <-
+                { Def = id
+                  Mut = mut
+                  Static = static_ }
+
             varRec[id] <- ty
 
     let rec hoistDecl (scope: ActiveScope) (decl: seq<Decl>) =
@@ -522,7 +522,10 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                 if currScope.Var.ContainsKey f.Name.Sym then
                     error.Add(DuplicateDefinition f.Name)
 
-                currScope.AddVar f.Name
+                currScope.Var[f.Name.Sym] <-
+                    { Def = f.Name
+                      Mut = false
+                      Static = true }
 
                 let newScope = newScope TypeScope
 
@@ -556,7 +559,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
                 let newScope =
                     { newScope with
-                        Data = FnScope { Fn = Left f; Ret = ret } }
+                        Data = FnScope { Ret = ret } }
 
                 scopeMap.Add(f, newScope)
 
@@ -660,35 +663,46 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
         match e with
         | Id id ->
-            let rec resolveVar captured i =
+            let rec resolveVar captured canCapture i =
                 let curr = scope.Scope[i]
 
                 if curr.Var.ContainsKey id.Sym then
-                    let captured =
-                        match curr.Data with
-                        | TopLevelScope -> [||]
-                        | _ -> captured
+                    let info = curr.Var[id.Sym]
 
-                    Some(curr.Var[id.Sym], captured)
+                    let captured =
+                        if canCapture && not info.Static then
+                            captured
+                        else
+                            if not info.Static then
+                                error.Add(CaptureDynamic id)
+
+                            [||]
+
+                    Some(info, captured)
                 else if i = 0 then
                     None
                 else
                     let captured =
                         match curr.Data with
-                        | FnScope { Fn = fn } -> Array.append captured [| fn |]
+                        | ClosureScope { Closure = cl } -> Array.append captured [| cl |]
                         | _ -> captured
 
-                    resolveVar captured (i - 1)
+                    let canCapture =
+                        match curr.Data with
+                        | FnScope _ -> false
+                        | _ -> canCapture
 
-            match resolveVar [||] (scope.Scope.Length - 1) with
+                    resolveVar captured canCapture (i - 1)
+
+            match resolveVar [||] true (scope.Scope.Length - 1) with
             | None ->
                 error.Add(Undefined id)
                 TNever
-            | Some((id, _), captured) ->
+            | Some({ Def = def }, captured) ->
                 for c in captured do
-                    captureRec.Add c id
+                    captureRec.Add c def
 
-                match varRec[id] with
+                match varRec[def] with
                 | TFn f ->
                     let newTVar = Array.map (fun _ -> currScope.NewTVar None id.Span) f.TVar
                     TFn(f.Instantiate newTVar)
@@ -914,9 +928,9 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
             | Some id ->
                 match scope.ResolveVar id with
                 | None -> ()
-                | Some(id, mut) ->
-                    if not mut then
-                        error.Add(AssignImmutable(id, a.Span))
+                | Some(info) ->
+                    if not info.Mut then
+                        error.Add(AssignImmutable(info.Def, a.Span))
 
             UnitType
         | Field f ->
@@ -979,7 +993,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                 | Some ty -> checkType scope ty
                 | None -> TVar(currScope.NewTVar None c.Span)
 
-            let closureScope = newScope (FnScope { Fn = Right c; Ret = retTy })
+            let closureScope = newScope (ClosureScope { Closure = c; Ret = retTy })
 
             let scope = scope.WithNew closureScope
 

@@ -26,7 +26,7 @@ let basePath = __SOURCE_DIRECTORY__ + "/Spec/Expr"
 
 [<InlineData("Comment",
              "1 + // comment
-    2")>]
+2")>]
 
 [<InlineData("Malformed", "1 + 2 * let 3")>]
 let Binary (name: string) (input: string) =
