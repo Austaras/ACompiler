@@ -1,7 +1,7 @@
 pub struct String {
-    inner: Span<u8>
+    inner: Slice<u8>
 }
 
 pub struct StringBuilder {
-    inner: Array<u8>
+    inner: Vec<u8>
 }

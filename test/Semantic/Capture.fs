@@ -53,7 +53,7 @@ fn foo() {
 
     let bar = 1
 
-    return || bar
+    || bar
 }
 "
 

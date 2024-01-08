@@ -35,10 +35,6 @@ type internal Env(offset: int) =
     member _.EnterBlock = scope.Add(Dictionary())
     member _.ExitBlock = scope.RemoveAt(scope.Count - 1)
 
-    member _.InitChild parentScope parentVar =
-        scope.AddRange(parentScope)
-        var.AddRange(parentVar)
-
     member _.AddVar ty name =
         let id = var.Count
         var.Add { Name = name; Type = ty }
@@ -57,7 +53,7 @@ type internal Env(offset: int) =
 
     member _.FinalizeBlock trans span =
         block.Add
-            { Stm = instr |> Array.ofSeq
+            { Stm = instr.ToArray()
               Trans = trans
               Span = span }
 
@@ -65,23 +61,44 @@ type internal Env(offset: int) =
 
     member _.NextId = offset + block.Count + 1
 
-    member this.NewChild(offset) =
+    member _.Inherit parentScope parentVar =
+        scope.AddRange(parentScope)
+        var.AddRange(parentVar)
+
+    member _.NewChild(offset) =
         let child = Env(offset)
 
-        child.InitChild scope var
+        child.Inherit scope var
 
         child
 
 let rec habitable (sema: Semantic.SemanticInfo) (ty: Semantic.Type) =
+    let field (ty: seq<Semantic.Type>) =
+        ty |> Seq.map (habitable sema) |> Seq.fold (*) 1
+
     match ty with
     | Semantic.TInt _
     | Semantic.TFloat _
-    | Semantic.TChar -> System.Int32.MaxValue
+    | Semantic.TChar -> 10000
     | Semantic.TBool -> 2
-    | Semantic.TStruct(s, _) -> System.Int32.MaxValue
-    | Semantic.TEnum(e, _) -> sema.Enum[e].Variant.Count
-    | Semantic.TTuple t -> if t.Length = 0 then 1 else System.Int32.MaxValue
-    | Semantic.TFn _ -> System.Int32.MaxValue
+    | Semantic.TStruct(s, arg) ->
+        let stru = sema.Struct[s]
+        let inst (t: Semantic.Type) = t.Instantiate stru.TVar arg
+
+        stru.Field.Values |> Seq.map inst |> field
+
+    | Semantic.TEnum(e, arg) ->
+        let enum = sema.Enum[e]
+
+        let variant (ty: Semantic.Type[]) =
+            let mapTy (ty: Semantic.Type) = ty.Instantiate enum.TVar arg
+
+            ty |> Array.map mapTy |> field
+
+        enum.Variant.Values |> Seq.map variant |> Seq.sum
+
+    | Semantic.TTuple t -> field t
+    | Semantic.TFn _ -> 10000
     | Semantic.TRef t -> habitable sema t
     | Semantic.TNever -> 0
     | Semantic.TVar _ -> failwith "Type Variable should be substituted in previous pass"
@@ -307,13 +324,13 @@ let transform (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
 
                     param.Add id
 
-            Array.ofSeq param
+            param.ToArray()
 
         let _ = processBlock env f.Body ret
         env.FinalizeBlock (Ret ret) f.Span
 
-        { Block = Array.ofSeq env.Block
-          Var = Array.ofSeq env.Var
+        { Block = env.Block.ToArray()
+          Var = env.Var.ToArray()
           Param = param
           Ret = ret
           Span = f.Span }
@@ -332,5 +349,4 @@ let transform (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
         | AST.Impl impl -> ()
         | AST.Trait t -> ()
 
-    { Func = Array.ofSeq func
-      Static = [||] }
+    { Func = func.ToArray(); Static = [||] }

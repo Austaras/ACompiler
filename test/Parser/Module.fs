@@ -31,7 +31,7 @@ let example = getAllFile "examples"
 [<MemberData(nameof (example))>]
 let Example path = parseModuleOk path
 
-let std = getAllFile "runtime/std"
+let std = getAllFile "runtime"
 
 [<Theory>]
 [<MemberData(nameof (std))>]

@@ -1,0 +1,9 @@
+pub struct Slice<T> {
+    pub ptr: uint,
+    pub len: uint
+}
+
+struct Iter<T> {
+    curr: uint,
+    span: Slice<T>
+}

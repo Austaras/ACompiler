@@ -68,7 +68,7 @@ type internal Scope =
 
         tvar
 
-    static member Empty id data =
+    static member Create id data =
         { Id = id
           Ty = Dictionary()
           Var = Dictionary()
@@ -78,7 +78,7 @@ type internal Scope =
           VarId = 0 }
 
     static member Prelude =
-        let scope = Scope.Empty 0 TopLevelScope
+        let scope = Scope.Create 0 TopLevelScope
 
         for p in primitive do
             scope.Ty[p.ToString] <- p
@@ -172,7 +172,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
     let newScope scopeData =
         scopeId <- scopeId + 1
-        Scope.Empty scopeId scopeData
+        Scope.Create scopeId scopeData
 
     let rec checkType (scope: ActiveScope) ty =
         let resolve id =
@@ -1213,6 +1213,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                       Actual = t
                       Span = c.Span }
                     false
+
             | TNever, _
             | _, TNever -> ()
             | TStruct(id1, v1), TStruct(id2, v2)
@@ -1223,6 +1224,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                           Actual = v2
                           Span = c.Span }
                         false
+
             | TTuple t1, TTuple t2 ->
                 if t1.Length <> t2.Length then
                     error.Add(TupleLengthMismatch(c.Span, t1.Length, t2.Length))
@@ -1263,4 +1265,4 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
               Var = Map.empty
               Module = Map.empty } }
 
-    sema, Array.ofSeq error
+    sema, error.ToArray()

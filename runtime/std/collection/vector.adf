@@ -1,19 +1,26 @@
-use alloc::RawArray
+use alloc::RawVec
 
-pub struct Array<T> {
-    inner: RawArray<T>
+pub struct Vec<T> {
+    inner: RawVec<T>
 }
 
-impl<T> Array<T> {
+impl<T> Vec<T> {
     pub fn new() {
         Self {
-            inner: RawArray::malloc(0)
+            inner: RawVec::malloc(0)
         }
     }
 
     pub fn with_capacity(n: uint) {
         Self {
-            inner: RawArray::malloc(n)
+            inner: RawVec::malloc(n)
+        }
+    }
+
+    pub fn as_slice(self) -> Slice<T> {
+        Slice {
+            ptr: self.ptr,
+            len: self.len
         }
     }
 

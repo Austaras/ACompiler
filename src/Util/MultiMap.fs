@@ -23,7 +23,7 @@ type MultiMap<'K, 'V when 'K: equality>(?comparer: IEqualityComparer<'K>) =
 
     member _.GetAll key =
         if map.ContainsKey key then
-            map[key] |> Array.ofSeq |> Some
+            Some(map[key].ToArray())
         else
             None
 

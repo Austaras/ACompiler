@@ -11,15 +11,15 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "AST", "src\AST\AST.fsproj",
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Util", "src\Util\Util.fsproj", "{731F9851-1F15-4EC4-89B1-F96E34710821}"
 EndProject
-Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "tests", "tests", "{3C28173B-BBE6-4162-813C-9EE25A3D78FC}"
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "test", "test", "{3C28173B-BBE6-4162-813C-9EE25A3D78FC}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Util.Tests", "tests\Util\Util.Tests.fsproj", "{5C310969-83EA-4058-B83A-AEBE9A3700C2}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Util.Tests", "test\Util\Util.Tests.fsproj", "{5C310969-83EA-4058-B83A-AEBE9A3700C2}"
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "external", "external", "{1522C6E8-4649-4811-89E0-81F7E9DC4E35}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Regex", "external\Regex\Regex.fsproj", "{CB3CC422-F573-4E78-8FF1-A6C1E44D1FD0}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Regex.Tests", "tests\Regex\Regex.Tests.fsproj", "{22E84ECD-A1B2-4F9E-99CF-20A8CFFE1897}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Regex.Tests", "test\Regex\Regex.Tests.fsproj", "{22E84ECD-A1B2-4F9E-99CF-20A8CFFE1897}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Parser.Generator", "external\Parser.Generator\Parser.Generator.fsproj", "{1DE6F3E0-45AB-46FA-A73F-A878C78F56EB}"
 EndProject
@@ -27,15 +27,15 @@ Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Parser", "src\Parser\Parser
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Snapshot", "src\Snapshot\Snapshot.fsproj", "{19F8A67D-796F-4D33-AC36-0F10BBE012F9}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Parser.Tests", "tests\Parser\Parser.Tests.fsproj", "{BD033EA6-B0BA-47AA-9893-17153E0905BC}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Parser.Tests", "test\Parser\Parser.Tests.fsproj", "{BD033EA6-B0BA-47AA-9893-17153E0905BC}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Semantic", "src\Semantic\Semantic.fsproj", "{0EB7CC4F-7BDF-4C8F-ADDD-F8AFD179CB02}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Semantic.Tests", "tests\Semantic\Semantic.Tests.fsproj", "{059A4659-2D67-4D12-98B0-AF59343E0247}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "Semantic.Tests", "test\Semantic\Semantic.Tests.fsproj", "{059A4659-2D67-4D12-98B0-AF59343E0247}"
 EndProject
 Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FLIR", "src\FLIR\FLIR.fsproj", "{CCFAC72A-87BA-4AF3-8636-7B1E72ED4CB4}"
 EndProject
-Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FLIR.Tests", "tests\FLIR\FLIR.Tests.fsproj", "{E4648FD0-E3F7-422D-BCF3-A5300A3C52BA}"
+Project("{F2A71F9B-5D33-465A-A702-920D77279786}") = "FLIR.Tests", "test\FLIR\FLIR.Tests.fsproj", "{E4648FD0-E3F7-422D-BCF3-A5300A3C52BA}"
 EndProject
 Global
 	GlobalSection(SolutionProperties) = preSolution
