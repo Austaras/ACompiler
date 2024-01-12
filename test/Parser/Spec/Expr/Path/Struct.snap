@@ -1,8 +1,8 @@
 Struct@0..37
-    type@0..20
+    struct@0..19
         seg: Foo@0..2
         seg: Bar@5..7
-        type arg: Path@11..19
+        type arg: Path@11..18
             seg: Vec@11..13
             type arg: i32@15..17
     field: a@23..23

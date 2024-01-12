@@ -1,10 +1,10 @@
-#[compiler_builtin]
+// #[compiler_builtin]
 pub fn size_of<T>() -> uint {}
 
-#[compiler_builtin]
+// #[compiler_builtin]
 pub fn alloc<T>(len: uint) -> NonZeroUsize {}
 
-#[compiler_builtin]
+// #[compiler_builtin]
 pub fn realloc<T>(ptr: NonZeroUsize, len: uint) -> NonZeroUsize {}
 
 pub struct Ptr<T> {

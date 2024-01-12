@@ -13,14 +13,16 @@ let indent (tw: TextWriter) level =
 
 let id i = $"{i.Sym}{span i.Span}"
 
-let lit (l: Lit) =
-    match l with
-    | Bool b -> string b
-    | Int i
-    | NegInt i -> string i
-    | Float f -> $"{f}f"
-    | Char c -> $"'{c}'"
-    | String s -> "\"" + s + "\""
+let lit (l: Literal) =
+    let value =
+        match l.Value with
+        | Bool b -> string b
+        | Int i -> string i
+        | Float f -> $"{f}f"
+        | Char c -> $"'{c}'"
+        | String s -> "\"" + s + "\""
+
+    value + span l.Span
 
 let rec pat (tw: TextWriter) level (p: Pat) =
     let s = span p.Span
@@ -40,7 +42,7 @@ let rec pat (tw: TextWriter) level (p: Pat) =
 
     match p with
     | IdPat i -> tw.WriteLine(id i)
-    | LitPat(l, _) -> tw.WriteLine(lit l + s)
+    | LitPat l -> tw.WriteLine(lit l)
     | TuplePat t ->
         tw.WriteLine("Tuple" + s)
 
@@ -82,8 +84,8 @@ let rec pat (tw: TextWriter) level (p: Pat) =
         tw.WriteLine("Struct" + s)
 
         propIdent ()
-        tw.WriteLine("path" + span stru.Path.Span)
-        path (level + 2) stru.Path
+        tw.WriteLine("struct" + span stru.Struct.Span)
+        path (level + 2) stru.Struct
 
         for f in stru.Field do
             propIdent ()
@@ -100,7 +102,6 @@ let rec pat (tw: TextWriter) level (p: Pat) =
                 childIdent ()
                 tw.Write $"value: "
                 pat tw (level + 2) k.Pat
-            | RestFieldPat r -> tw.WriteLine("rest" + span r)
 
     | OrPat o ->
         tw.WriteLine("Or" + s)
@@ -109,7 +110,6 @@ let rec pat (tw: TextWriter) level (p: Pat) =
             propIdent ()
             pat tw (level + 1) p
 
-    | RestPat _ -> tw.WriteLine(".." + s)
     | CatchAllPat _ -> tw.WriteLine("_" + s)
     | RangePat r ->
         tw.WriteLine("Range" + s)
@@ -152,14 +152,18 @@ and ty (tw: TextWriter) level (t: Type) =
     let propIdent () = indent tw (level + 1)
 
     match t with
-    | TypeId i -> tw.WriteLine(id i)
-    | LitType(l, _) -> tw.WriteLine(lit l + s)
+    | IdType i -> tw.WriteLine(id i)
+    | LitType l -> tw.WriteLine(lit l)
     | PathType p ->
         tw.WriteLine("Path" + s)
 
         path tw (level + 1) p
     | InferedType _ -> tw.WriteLine("_" + s)
     | NeverType _ -> tw.WriteLine("!" + s)
+    | NegType r ->
+        tw.WriteLine("Neg" + s)
+        propIdent ()
+        ty tw (level + 1) r.Ty
     | RefType r ->
         tw.WriteLine("Ref" + s)
         propIdent ()
@@ -183,15 +187,12 @@ and ty (tw: TextWriter) level (t: Type) =
         | None -> ()
         | Some l ->
             propIdent ()
-            tw.WriteLine $"length: {l}"
+            tw.WriteLine $"length{span l.Span}"
+            indent tw (level + 2)
+            ty tw (level + 2) l
 
     | FnType f ->
         tw.WriteLine("Fn" + s)
-
-        for p in f.TyParam do
-            propIdent ()
-            tw.WriteLine("type param" + span p.Span)
-            tyParam tw (level + 2) p
 
         for t in f.Param do
             propIdent ()
@@ -251,7 +252,7 @@ and expr (tw: TextWriter) level (e: Expr) =
     match e with
     | Id i -> tw.WriteLine(id i)
     | SelfExpr _ -> tw.WriteLine("Self" + s)
-    | LitExpr(l, _) -> tw.WriteLine(lit l + s)
+    | LitExpr l -> tw.WriteLine(lit l)
     | Call c ->
         tw.WriteLine("Call" + s)
 
@@ -313,8 +314,19 @@ and expr (tw: TextWriter) level (e: Expr) =
         expr tw (level + 1) f.Receiver
 
         propIdent ()
-        tw.Write $"field: "
+        tw.Write "field: "
         tw.WriteLine(id f.Field)
+
+    | TupleAccess t ->
+        tw.WriteLine("TupleAccess" + s)
+
+        propIdent ()
+        tw.Write "receiver: "
+        expr tw (level + 1) t.Receiver
+
+        propIdent ()
+        let idx, s = t.Index
+        tw.WriteLine $"field: {idx}{span s}"
 
     | Index i ->
         tw.WriteLine("Index" + s)
@@ -342,8 +354,8 @@ and expr (tw: TextWriter) level (e: Expr) =
         expr tw (level + 1) a.Ele
 
         propIdent ()
-        tw.Write "count: "
-        expr tw (level + 1) a.Count
+        tw.Write "length: "
+        expr tw (level + 1) a.Len
 
     | Tuple t ->
         tw.WriteLine("Tuple" + s)
@@ -376,8 +388,8 @@ and expr (tw: TextWriter) level (e: Expr) =
         tw.WriteLine("Struct" + s)
 
         propIdent ()
-        tw.WriteLine("type" + span stru.Ty.Span)
-        path tw (level + 2) stru.Ty
+        tw.WriteLine("struct" + span stru.Struct.Span)
+        path tw (level + 2) stru.Struct
 
         for f in stru.Field do
             propIdent ()
@@ -394,10 +406,10 @@ and expr (tw: TextWriter) level (e: Expr) =
                 childIdent ()
                 tw.Write $"value: "
                 expr tw (level + 2) k.Value
-            | RestField(s, v) ->
-                tw.WriteLine("rest" + span s)
+            | RestField s ->
+                tw.WriteLine("rest" + span s.Span)
                 childIdent ()
-                expr tw (level + 2) v
+                expr tw (level + 2) s.Value
 
     | Closure c ->
         tw.WriteLine("Closure" + s)
@@ -515,8 +527,8 @@ and expr (tw: TextWriter) level (e: Expr) =
         tw.WriteLine("For" + s)
 
         propIdent ()
-        tw.Write "var: "
-        pat tw (level + 1) f.Var
+        tw.Write "pat: "
+        pat tw (level + 1) f.Pat
 
         propIdent ()
         tw.Write "iterator: "
@@ -663,12 +675,8 @@ and decl (tw: TextWriter) level (decl: Decl) =
             propIdent ()
             tw.WriteLine("seg: " + id s)
 
-        for i in u.Item do
-            propIdent ()
-            tw.Write("item: ")
-
-            let s = span i.Span
-            ()
+        propIdent ()
+        tw.WriteLine("item" + span u.Item.Span)
 
     | Trait t ->
         tw.WriteLine("Trait" + s)
@@ -694,8 +702,6 @@ and decl (tw: TextWriter) level (decl: Decl) =
 
                 childIdent ()
                 tw.WriteLine("name: " + id m.Name)
-
-                tyParam (level + 2) m.TyParam
 
                 for p in m.Param do
                     childIdent ()
@@ -733,7 +739,7 @@ and decl (tw: TextWriter) level (decl: Decl) =
 
         propIdent ()
         tw.Write "type: "
-        ty tw (level + 1) i.Type
+        ty tw (level + 1) i.Ty
 
         for i in i.Item do
             propIdent ()

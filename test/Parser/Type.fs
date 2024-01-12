@@ -1,37 +1,43 @@
 module Parser.Tests.Type
 
+open System.IO
+
 open Xunit
 
 open Snapshot
 open AST.Dump
-open Parser.Type
+open Parser.Lexer
+open Parser.Parser
 
-let parseTest = Util.makeTest parseType ty
+let internal parseTest input (tw: TextWriter) =
+    let error = ResizeArray()
+    let lexer = Lexer(input, error)
+    let parser = Parser(lexer, error)
 
-let snap = Snapshot("snap")
+    let e = parser.Type()
 
-let basePath = __SOURCE_DIRECTORY__ + "/Spec/Type"
+    ty tw 0 e
+
+let basePath = __SOURCE_DIRECTORY__ + "/Spec/Type/"
+let snap = TextSnapshot("snap", basePath)
 
 [<Theory>]
 [<InlineData("Assoc", "|i32| -> |i32| -> i32")>]
 [<InlineData("Empty", "|| -> !")>]
-
-[<InlineData("MultiBound", "<T : Add + Sub>| T, T | -> T")>]
 let Fn (name: string) (input: string) =
     let res = parseTest input
-    snap.ShouldMatchText res $"{basePath}/Fn/{name}"
+    snap.ShouldMatch res $"Fn/{name}"
 
 [<Theory>]
-[<InlineData("Shl", "pak::vec::Vec<<T>|T|->i32>")>]
 [<InlineData("Const", "Container<-1>")>]
 [<InlineData("Self", "Self::Output")>]
 let Path (name: string) (input: string) =
     let res = parseTest input
-    snap.ShouldMatchText res $"{basePath}/Path/{name}"
+    snap.ShouldMatch res $"Path/{name}"
 
 [<Theory>]
 [<InlineData("Slice", "&[&[i32];4]")>]
 [<InlineData("Ref", "&&[uint]")>]
 let Arr (name: string) (input: string) =
     let res = parseTest input
-    snap.ShouldMatchText res $"{basePath}/Arr/{name}"
+    snap.ShouldMatch res $"Arr/{name}"

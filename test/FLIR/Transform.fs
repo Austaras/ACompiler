@@ -6,7 +6,6 @@ open System.Collections.Generic
 open Xunit
 
 open Snapshot
-open Parser.Lexer
 open Parser.Parser
 open Semantic.Check
 open FLIR.Transform
@@ -22,13 +21,8 @@ let getAllFile path =
 let arch = Common.Target.X86_64
 
 let runTansform input =
-    let token =
-        match lex input with
-        | Ok tok -> tok
-        | Error e -> failwithf "lex error %A" e
-
     let m =
-        match parse token with
+        match parse input with
         | Ok m -> m
         | Error(e, _) -> failwithf "parse error %A" e
 

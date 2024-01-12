@@ -1,0 +1,5 @@
+Path@0..22
+    seg: Vec@0..2
+    type arg: i32@6..8
+    seg: Item@12..15
+    type arg: u32@19..21

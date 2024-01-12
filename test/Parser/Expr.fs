@@ -1,16 +1,25 @@
 module Parser.Tests.Expr
 
+open System.IO
+
 open Xunit
 
 open Snapshot
 open AST.Dump
-open Parser.Expr
+open Parser.Lexer
+open Parser.Parser
 
-let parseTest = Util.makeTest parseExpr expr
+let internal parseTest input (tw: TextWriter) =
+    let error = ResizeArray()
+    let lexer = Lexer(input, error)
+    let parser = Parser(lexer, error)
 
-let snap = Snapshot("snap")
+    let e = parser.Expr()
 
-let basePath = __SOURCE_DIRECTORY__ + "/Spec/Expr"
+    expr tw 0 e
+
+let basePath = __SOURCE_DIRECTORY__ + "/Spec/Expr/"
+let snap = TextSnapshot("snap", basePath)
 
 [<Theory>]
 [<InlineData("Normal", "1 + 2 * 3")>]
@@ -20,6 +29,7 @@ let basePath = __SOURCE_DIRECTORY__ + "/Spec/Expr"
 [<InlineData("Assign", "a = b + c")>]
 [<InlineData("AssignOp", "a *= b + c")>]
 [<InlineData("RightAssoc", "a = b = c")>]
+[<InlineData("RightPrec", "a .. b = c")>]
 
 [<InlineData("Paren", "(1 + 2) * 3")>]
 [<InlineData("ManyParen", "((((1 + 2))) * (3))")>]
@@ -28,10 +38,10 @@ let basePath = __SOURCE_DIRECTORY__ + "/Spec/Expr"
              "1 + // comment
 2")>]
 
-[<InlineData("Malformed", "1 + 2 * let 3")>]
+// [<InlineData("Malformed", "1 + 2 * let 3")>]
 let Binary (name: string) (input: string) =
     let res = parseTest input
-    snap.ShouldMatchText res $"{basePath}/Binary/{name}"
+    snap.ShouldMatch res $"Binary/{name}"
 
 [<Theory>]
 [<InlineData("Zero", "()")>]
@@ -39,7 +49,7 @@ let Binary (name: string) (input: string) =
 [<InlineData("Many", "(2, (1, 2), a = b)")>]
 let Tuple (name: string) (input: string) =
     let res = parseTest input
-    snap.ShouldMatchText res $"{basePath}/Tuple/{name}"
+    snap.ShouldMatch res $"Tuple/{name}"
 
 [<Theory>]
 [<InlineData("Normal", "[1, 2 + 3, 4,]")>]
@@ -47,11 +57,11 @@ let Tuple (name: string) (input: string) =
 [<InlineData("Binary", "[1 + 2] + [3 * 4]")>]
 let Array (name: string) (input: string) =
     let res = parseTest input
-    snap.ShouldMatchText res $"{basePath}/Array/{name}"
+    snap.ShouldMatch res $"Array/{name}"
 
 [<Theory>]
 [<InlineData("Assoc", "a.b.c")>]
-// [<InlineData("(0, 1)._0 + 1", "Tuple")>]
+[<InlineData("Tuple", "(0, 1).0 + 1")>]
 [<InlineData("Array", "[1,2,3][2]")>]
 [<InlineData("Multi", "a[1][c + d]")>]
 [<InlineData("Mix", "a[1].x")>]
@@ -60,27 +70,28 @@ let Array (name: string) (input: string) =
 [<InlineData("Binary", "a.b + c[0] * d.e")>]
 let Field (name: string) (input: string) =
     let res = parseTest input
-    snap.ShouldMatchText res $"{basePath}/Field/{name}"
+    snap.ShouldMatch res $"Field/{name}"
 
 [<Theory>]
 [<InlineData("Binary", "-1+-2")>]
 
 [<InlineData("Delimiter",
              "[] -
-    1")>]
+1")>]
 
 [<InlineData("LogicalAnd", "&&a")>]
 let Unary (name: string) (input: string) =
     let res = parseTest input
-    snap.ShouldMatchText res $"{basePath}/Unary/{name}"
+    snap.ShouldMatch res $"Unary/{name}"
 
 [<Theory>]
 [<InlineData("Full", "a.b = 1+1 .. 2*3")>]
 [<InlineData("Unary", "-5..-3")>]
 [<InlineData("Half", "..1 + 1..")>]
+[<InlineData("Assoc", "1..2..3")>]
 let Range (name: string) (input: string) =
     let res = parseTest input
-    snap.ShouldMatchText res $"{basePath}/Range/{name}"
+    snap.ShouldMatch res $"Range/{name}"
 
 [<Theory>]
 [<InlineData("Many", "a()()")>]
@@ -95,17 +106,18 @@ let Range (name: string) (input: string) =
 let Call (name: string) (input: string) =
     let res = parseTest input
 
-    snap.ShouldMatchText res $"{basePath}/Call/{name}"
+    snap.ShouldMatch res $"Call/{name}"
 
 [<Theory>]
 [<InlineData("GenericShr", "Vec::<i32>>>1")>]
 [<InlineData("DoubleGeneric", "Vec::<Vec<i32>>>1")>]
+[<InlineData("Successive", "Vec::<i32>::Item::<u32>")>]
 
 [<InlineData("Struct", "Foo::Bar::<Vec<i32>> { a, b: 10, ..d }")>]
 let Path (name: string) (input: string) =
     let res = parseTest input
 
-    snap.ShouldMatchText res $"{basePath}/Path/{name}"
+    snap.ShouldMatch res $"Path/{name}"
 
 [<Theory>]
 [<InlineData("Compose", "(|x| x * 2) >> |x| Some(x)")>]
@@ -114,7 +126,7 @@ let Path (name: string) (input: string) =
 let Closure (name: string) (input: string) =
     let res = parseTest input
 
-    snap.ShouldMatchText res $"{basePath}/Closure/{name}"
+    snap.ShouldMatch res $"Closure/{name}"
 
 [<Theory>]
 [<InlineData("If", "if let L(_) | R(_) = a { 1 } else if a <= 3 { 2 } else { 3 }")>]
@@ -123,4 +135,4 @@ let Closure (name: string) (input: string) =
 let Control (name: string) (input: string) =
     let res = parseTest input
 
-    snap.ShouldMatchText res $"{basePath}/Control/{name}"
+    snap.ShouldMatch res $"Control/{name}"

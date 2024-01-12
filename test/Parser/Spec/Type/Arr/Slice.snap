@@ -3,4 +3,5 @@ Ref@0..10
         element: Ref@2..7
             Array@3..7
                 element: i32@4..6
-        length: 4
+        length@9..9
+            4@9..9

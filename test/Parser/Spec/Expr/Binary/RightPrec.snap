@@ -1,0 +1,7 @@
+Assign@0..9
+    place: Range@0..5
+        from: a@0..0
+        exclusive: False
+        to: b@5..5
+    op: =
+    value: c@9..9

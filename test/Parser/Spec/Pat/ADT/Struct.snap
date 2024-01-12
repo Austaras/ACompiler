@@ -1,9 +1,8 @@
-Struct@0..24
-    path@0..7
+Struct@0..21
+    struct@0..7
         prefix: package
         seg: Foo@5..7
     field: v@11..11
     field: key value@14..18
         key: x@14..14
         value: 10@17..18
-    field: rest@21..22

@@ -1,7 +1,7 @@
 Impl@0..55
     type param@5..5
         id: T@5..5
-    type: Path@8..14
+    type: Path@8..13
         seg: Vec@8..10
         type arg: T@12..12
     visibility: public

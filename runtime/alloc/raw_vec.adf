@@ -5,7 +5,7 @@ pub struct RawVec<T> {
 }
 
 impl<T> RawVec<T> {
-    fn malloc(size: uint) -> Self<T> {
+    fn malloc(size: uint) -> Self {
         Self {
             ptr: alloc::<T>(size),
             len: 0,

@@ -4,9 +4,7 @@ open System.IO
 
 open Xunit
 
-open Parser.Lexer
 open Parser.Parser
-open Parser.Common
 
 let getAllFile path =
     let path = __SOURCE_DIRECTORY__ + "/../../" + path
@@ -16,16 +14,13 @@ let getAllFile path =
 
 let parseModuleOk path =
     let error =
-        match lex (File.ReadAllText path) with
-        | Error error -> Array.map LexerError error
-        | Ok token ->
-            match parse token with
-            | Error(error, _) -> error
-            | Ok _ -> [||]
+        match parse (File.ReadAllText path) with
+        | Error(error, _) -> error
+        | Ok _ -> [||]
 
     Assert.Empty error
 
-let example = getAllFile "examples"
+let example = getAllFile "example"
 
 [<Theory>]
 [<MemberData(nameof (example))>]

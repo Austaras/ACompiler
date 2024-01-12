@@ -6,19 +6,13 @@ open System.IO
 open Xunit
 
 open AST
-open Parser.Lexer
 open Parser.Parser
 open Semantic.Semantic
 open Semantic.Check
 
 let runInfer input =
-    let token =
-        match lex input with
-        | Ok tok -> tok
-        | Error e -> failwithf "lex error %A" e
-
     let m =
-        match parse token with
+        match parse input with
         | Ok m -> m
         | Error(e, _) -> failwithf "parse error %A" e
 
@@ -31,7 +25,7 @@ let runInfer input =
     sema.Var |> Map.toSeq |> Seq.map map |> Map.ofSeq
 
 let runInferFromExample path =
-    File.ReadAllText(__SOURCE_DIRECTORY__ + "/../../examples/" + path) |> runInfer
+    File.ReadAllText(__SOURCE_DIRECTORY__ + "/../../example/" + path) |> runInfer
 
 [<Fact>]
 let Closure () =

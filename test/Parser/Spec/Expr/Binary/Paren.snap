@@ -1,5 +1,5 @@
-Binary@1..10
-    left: Binary@1..5
+Binary@0..10
+    left: Binary@0..6
         left: 1@1..1
         op: +
         right: 2@5..5

@@ -6,7 +6,6 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Lexer.fs" />
-    <Compile Include="Util.fs" />
     <Compile Include="Stmt.fs" />
     <Compile Include="Expr.fs" />
     <Compile Include="Pat.fs" />
@@ -28,6 +27,7 @@
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\..\src\Snapshot\Snapshot.fsproj" />
+    <ProjectReference Include="..\..\src\Util\Util.fsproj" />
     <ProjectReference Include="..\..\src\AST\AST.fsproj" />
     <ProjectReference Include="..\..\src\Parser\Parser.fsproj" />
   </ItemGroup>

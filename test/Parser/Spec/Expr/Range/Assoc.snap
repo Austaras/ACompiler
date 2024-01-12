@@ -1,0 +1,7 @@
+Range@0..6
+    from: 1@0..0
+    exclusive: False
+    to: Range@3..6
+        from: 2@3..3
+        exclusive: False
+        to: 3@6..6

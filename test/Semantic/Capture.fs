@@ -5,20 +5,13 @@ open System.Collections.Generic
 open Xunit
 
 open AST
-open Util.Util
-open Parser.Lexer
 open Parser.Parser
 open Semantic.Semantic
 open Semantic.Check
 
 let runCheck input =
-    let token =
-        match lex input with
-        | Ok tok -> tok
-        | Error e -> failwithf "lex error %A" e
-
     let m =
-        match parse token with
+        match parse input with
         | Ok m -> m
         | Error(e, _) -> failwithf "parse error %A" e
 

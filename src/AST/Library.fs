@@ -6,12 +6,12 @@ type Lit =
     | String of string
     | Char of char
     | Int of uint64
-    /// only used in const generic
-    | NegInt of uint64
     | Float of double
     | Bool of bool
 
 type Id = { Sym: string; Span: Span }
+
+type Literal = { Value: Lit; Span: Span }
 
 type UnaryOp =
     | Neg
@@ -125,16 +125,13 @@ type Path =
       Span: Span }
 
 and FnType =
-    { Param: Type[]
-      TyParam: TyParam[]
-      Ret: Type
-      Span: Span }
+    { Param: Type[]; Ret: Type; Span: Span }
 
-and RefType = { Ty: Type; Span: Span }
+and ExtraType = { Ty: Type; Span: Span }
 
 and ArrayType =
     { Ele: Type
-      Len: Option<uint64>
+      Len: Option<Type>
       Span: Span }
 
 and TupleType = { Ele: Type[]; Span: Span }
@@ -146,27 +143,42 @@ and TyParam =
       Span: Span }
 
 and Type =
-    | TypeId of Id
+    | IdType of Id
     | PathType of Path
-    | TupleType of TupleType
-    | LitType of Lit * Span
+    | LitType of Literal
     | NeverType of Span
-    | RefType of RefType
+    | NegType of ExtraType
+    | RefType of ExtraType
+    | TupleType of TupleType
     | ArrayType of ArrayType
     | InferedType of Span
     | FnType of FnType
 
     member this.Span =
         match this with
-        | TypeId i -> i.Span
+        | IdType i -> i.Span
         | PathType p -> p.Span
         | TupleType t -> t.Span
-        | LitType(_, s) -> s
+        | LitType l -> l.Span
         | NeverType s -> s
+        | NegType r -> r.Span
         | RefType r -> r.Span
         | ArrayType a -> a.Span
         | InferedType s -> s
         | FnType f -> f.Span
+
+    member this.WithSpan span =
+        match this with
+        | IdType i -> IdType { i with Span = span }
+        | PathType p -> PathType { p with Span = span }
+        | TupleType t -> TupleType { t with Span = span }
+        | LitType l -> LitType { l with Span = span }
+        | NeverType _ -> NeverType span
+        | NegType r -> NegType { r with Span = span }
+        | RefType r -> RefType { r with Span = span }
+        | ArrayType a -> ArrayType { a with Span = span }
+        | InferedType _ -> InferedType span
+        | FnType f -> FnType { f with Span = span }
 
 type SeqPat = { Ele: Pat[]; Span: Span }
 
@@ -184,13 +196,11 @@ and KeyValuePat = { Id: Id; Pat: Pat; Span: Span }
 and FieldPat =
     | ShorthandPat of Id
     | KeyValuePat of KeyValuePat
-    | RestFieldPat of Span
 
     member this.Span =
         match this with
         | ShorthandPat i -> i.Span
         | KeyValuePat k -> k.Span
-        | RestFieldPat s -> s
 
 and RangePat =
     { From: Option<Pat>
@@ -198,13 +208,13 @@ and RangePat =
       Span: Span }
 
 and StructPat =
-    { Path: PathPat
+    { Struct: PathPat
       Field: FieldPat[]
       Span: Span }
 
 and Pat =
-    | LitPat of Lit * Span
     | IdPat of Id
+    | LitPat of Literal
     | TuplePat of SeqPat
     | ArrayPat of SeqPat
     | AsPat of AsPat
@@ -212,7 +222,6 @@ and Pat =
     | EnumPat of EnumPat
     | StructPat of StructPat
     | OrPat of OrPat
-    | RestPat of Span
     | CatchAllPat of Span
     | RangePat of RangePat
     | SelfPat of Span
@@ -220,7 +229,7 @@ and Pat =
 
     member this.Span =
         match this with
-        | LitPat(_, s) -> s
+        | LitPat l -> l.Span
         | IdPat i -> i.Span
         | TuplePat t -> t.Span
         | ArrayPat a -> a.Span
@@ -229,11 +238,26 @@ and Pat =
         | EnumPat e -> e.Span
         | StructPat s -> s.Span
         | OrPat o -> o.Span
-        | RestPat s -> s
         | CatchAllPat s -> s
         | RangePat r -> r.Span
         | SelfPat s -> s
         | RefSelfPat s -> s
+
+    member this.WithSpan span =
+        match this with
+        | LitPat l -> LitPat { l with Span = span }
+        | IdPat i -> IdPat { i with Span = span }
+        | TuplePat t -> TuplePat { t with Span = span }
+        | ArrayPat a -> ArrayPat { a with Span = span }
+        | AsPat a -> AsPat { a with Span = span }
+        | PathPat p -> PathPat { p with Span = span }
+        | EnumPat e -> EnumPat { e with Span = span }
+        | StructPat s -> StructPat { s with Span = span }
+        | OrPat o -> OrPat { o with Span = span }
+        | RangePat r -> RangePat { r with Span = span }
+        | CatchAllPat _ -> CatchAllPat span
+        | SelfPat _ -> SelfPat span
+        | RefSelfPat _ -> RefSelfPat span
 
     member this.Name =
         match this with
@@ -296,6 +320,11 @@ and Field =
       Field: Id
       Span: Span }
 
+and TupleAccess =
+    { Receiver: Expr
+      Index: uint64 * Span
+      Span: Span }
+
 and Index =
     { Container: Expr
       Index: Expr
@@ -303,9 +332,9 @@ and Index =
 
 and Block = { Stmt: Stmt[]; Span: Span }
 
-and ArrayRepeat = { Ele: Expr; Count: Expr; Span: Span }
+and ArrayRepeat = { Ele: Expr; Len: Expr; Span: Span }
 
-and Seq = { Ele: Expr[]; span: Span }
+and Seq = { Ele: Expr[]; Span: Span }
 
 and RangeExpr =
     { From: Option<Expr>
@@ -315,24 +344,26 @@ and RangeExpr =
 
 and KeyValueField = { Name: Id; Value: Expr; Span: Span }
 
+and RestField = { Value: Expr; Span: Span }
+
 and StructField =
     | ShorthandField of Id
     | KeyValueField of KeyValueField
-    | RestField of Span * Expr
+    | RestField of RestField
 
     member this.Span =
         match this with
         | ShorthandField i -> i.Span
         | KeyValueField k -> k.Span
-        | RestField(s, _) -> s
+        | RestField s -> s.Span
 
 and StructLit =
-    { Ty: Path
+    { Struct: Path
       Field: StructField[]
       Span: Span }
 
 and For =
-    { Var: Pat
+    { Pat: Pat
       Iter: Expr
       Body: Block
       Span: Span }
@@ -363,7 +394,7 @@ and Return = { Value: Option<Expr>; Span: Span }
 and Expr =
     | Id of Id
     | SelfExpr of Span
-    | LitExpr of Lit * Span
+    | LitExpr of Literal
     | If of If
     | Block of Block
     | Call of Call
@@ -371,6 +402,7 @@ and Expr =
     | Assign of Assign
     | Binary of Binary
     | Field of Field
+    | TupleAccess of TupleAccess
     | Index of Index
     | Array of Seq
     | ArrayRepeat of ArrayRepeat
@@ -391,7 +423,7 @@ and Expr =
     member this.Span =
         match this with
         | Id i -> i.Span
-        | LitExpr(_, s) -> s
+        | LitExpr l -> l.Span
         | SelfExpr s -> s
         | If i -> i.Span
         | Block b -> b.Span
@@ -400,9 +432,10 @@ and Expr =
         | Assign a -> a.Span
         | Binary b -> b.Span
         | Field f -> f.Span
+        | TupleAccess t -> t.Span
         | Index i -> i.Span
         | Array t
-        | Tuple t -> t.span
+        | Tuple t -> t.Span
         | StructLit s -> s.Span
         | Closure c -> c.Span
         | ArrayRepeat a -> a.Span
@@ -416,13 +449,34 @@ and Expr =
         | TryReturn t -> t.Span
         | Match m -> m.Span
 
-    member this.IsPlace =
+    member this.WithSpan span =
         match this with
-        | Id _
-        | Field _
-        | Unary { Op = Deref }
-        | Index _ -> true
-        | _ -> false
+        | Id i -> Id { i with Span = span }
+        | LitExpr l -> LitExpr { l with Span = span }
+        | SelfExpr _ -> SelfExpr span
+        | If i -> If { i with Span = span }
+        | Block b -> Block { b with Span = span }
+        | Call c -> Call { c with Span = span }
+        | Unary u -> Unary { u with Span = span }
+        | Assign a -> Assign { a with Span = span }
+        | Binary b -> Binary { b with Span = span }
+        | Field f -> Field { f with Span = span }
+        | TupleAccess t -> TupleAccess { t with Span = t.Span }
+        | Index i -> Index { i with Span = span }
+        | Array t -> Array { t with Span = span }
+        | Tuple t -> Tuple { t with Span = span }
+        | StructLit s -> StructLit { s with Span = span }
+        | Closure c -> Closure { c with Span = span }
+        | ArrayRepeat a -> ArrayRepeat { a with Span = span }
+        | Path p -> Path { p with Span = span }
+        | Break _ -> Break span
+        | Continue _ -> Continue span
+        | Return r -> Return { r with Span = span }
+        | Range r -> Range { r with Span = span }
+        | For f -> For { f with Span = span }
+        | While w -> While { w with Span = span }
+        | TryReturn t -> TryReturn { t with Span = span }
+        | Match m -> Match { m with Span = span }
 
 and Let =
     { Pat: Pat
@@ -432,7 +486,7 @@ and Let =
       Span: Span }
 
 and Const =
-    { Pat: Pat
+    { Name: Id
       Ty: Option<Type>
       Value: Expr
       Span: Span }
@@ -452,20 +506,20 @@ and UseItem =
     | UseAll of Span
     | UseSelf of Span
     | UseItem of Id
-    | UsePath of Span * UsePath[]
+    | UseMany of Span * UsePath[]
 
     member this.Span =
         match this with
         | UseAll a -> a
         | UseSelf s -> s
         | UseItem i -> i.Span
-        | UsePath(s, _) -> s
+        | UseMany(s, _) -> s
 
 and Use =
     { Span: Span
       Prefix: Option<PathPrefix>
       Seg: Id[]
-      Item: UseItem[] }
+      Item: UseItem }
 
 and TypeDecl = { Name: Id; Ty: Type; Span: Span }
 
@@ -494,14 +548,13 @@ and EnumDecl =
 
 and TraitMethod =
     { Name: Id
-      TyParam: TyParam[]
       Param: Param[]
       Ret: Option<Type>
       Default: Option<Block>
       Span: Span }
 
 and TraitType =
-    { Id: Id
+    { Name: Id
       Bound: Path[]
       DefaultTy: Option<Type>
       Span: Span }
@@ -549,7 +602,7 @@ and ImplItem =
 and Impl =
     { Trait: Option<Path>
       TyParam: TyParam[]
-      Type: Type
+      Ty: Type
       Item: ImplItem[]
       Span: Span }
 
@@ -579,6 +632,11 @@ and Decl =
 and Stmt =
     | ExprStmt of Expr
     | DeclStmt of Decl
+
+    member this.Span =
+        match this with
+        | ExprStmt e -> e.Span
+        | DeclStmt d -> d.Span
 
 type ModuleItem =
     { Vis: Visibility

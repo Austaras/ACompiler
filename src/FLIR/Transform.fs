@@ -137,7 +137,7 @@ let transform (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
             | None -> ()
 
             v
-        | AST.LitExpr(AST.Int i, span) ->
+        | AST.LitExpr({ Value = AST.Int i; Span = span }) ->
             let v = Const i
 
             match target with

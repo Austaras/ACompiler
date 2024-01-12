@@ -1,10 +1,10 @@
-Binary@1..15
-    left: Binary@1..5
+Binary@0..16
+    left: Binary@0..6
         left: 1@1..1
         op: +
         right: 2@5..5
     op: *
-    right: Binary@11..15
+    right: Binary@10..16
         left: 4@11..11
         op: -
         right: 5@15..15

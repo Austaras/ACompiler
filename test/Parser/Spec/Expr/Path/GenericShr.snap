@@ -1,5 +1,5 @@
 Binary@0..12
-    left: Path@0..10
+    left: Path@0..9
         seg: Vec@0..2
         type arg: i32@6..8
     op: >>

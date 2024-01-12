@@ -10,7 +10,7 @@ pub trait IndexAssign<Idx>: Index<Idx> {
 
 pub trait PartialEq {
     // Required method
-    fn eq(&self, other: &Self) -> bool;
+    fn eq(&self, other: &Self) -> bool
 
     // Provided method
     fn ne(&self, other: &Self) -> bool { 
@@ -20,13 +20,11 @@ pub trait PartialEq {
 
 pub trait Eq: PartialEq { }
 
-pub enum Ordering {
-    Less = -1,
-    Equal = 0,
-    Greater = 1,
-}
-
-use Ordering::*;
+// pub enum Ordering {
+//     Less = -1,
+//     Equal = 0,
+//     Greater = 1,
+// }
 
 pub trait PartialOrd: PartialEq {
     // Required method

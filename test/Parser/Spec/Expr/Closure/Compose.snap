@@ -1,5 +1,5 @@
-Binary@1..25
-    left: Closure@1..9
+Binary@0..25
+    left: Closure@0..10
         param@2..2
             pat: x@2..2
         body: Binary@5..9

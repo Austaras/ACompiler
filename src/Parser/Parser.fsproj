@@ -2,20 +2,16 @@
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
-    <OtherFlags>$(OtherFlags) --tailcalls+</OtherFlags>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Lexer.fs" />
     <Compile Include="Common.fs" />
-    <Compile Include="Pat.fs" />
-    <Compile Include="Type.fs" />
-    <Compile Include="Expr.fs" />
-    <Compile Include="Stmt.fs" />
+    <Compile Include="Lexer.fs" />
     <Compile Include="Library.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.fsproj" />
     <ProjectReference Include="..\AST\AST.fsproj" />
+    <ProjectReference Include="..\Util\Util.fsproj" />
   </ItemGroup>
   <ItemGroup>
     <AssemblyAttribute Include="System.Runtime.CompilerServices.InternalsVisibleTo">

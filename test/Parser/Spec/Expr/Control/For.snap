@@ -1,5 +1,5 @@
 For@0..25
-    var: i@4..4
+    pat: i@4..4
     iterator: Range@9..12
         from: 0@9..9
         exclusive: False

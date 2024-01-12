@@ -1,0 +1,4 @@
+pub struct Range<Idx> {
+    pub start: Idx,
+    pub end: Idx
+}

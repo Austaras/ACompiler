@@ -4,91 +4,9 @@ open System.Globalization
 
 open Common.Span
 open AST
+open Parser.Common
 
-type Pair =
-    | Open
-    | Close
-
-type Delimiter =
-    | CR
-    | LF
-    | Semi
-
-type Reserved =
-    | IF
-    | ELSE
-    | MATCH
-    | FOR
-    | IN
-    | WHILE
-    | CONTINUE
-    | BREAK
-    | RETURN
-    | FUNCTION
-    | LET
-    | MUTABLE
-    | CONST
-    | TYPE
-    | TRAIT
-    | IMPL
-    | USE
-    | PUBLIC
-    | INTERNAL
-    | WITH
-    | STRUCT
-    | ENUM
-    | SELF
-    | LOWSELF
-    | PACKAGE
-
-type CommentKind =
-    | SingleLine
-    | MultiLine
-
-type TokenData =
-    | Paren of Pair
-    | Bracket of Pair
-    | Curly of Pair
-    | Colon
-    | ColonColon
-    | Tilde
-    | Comma
-    | Arrow
-    | FatArrow
-    | Dot
-    | DotDot
-    | DotDotCaret
-    | Delimiter of Delimiter
-    | Lit of AST.Lit
-    | Not
-    | Eq
-    | Question
-    | Operator of AST.BinaryOp
-    | AssignOp of AST.ArithOp
-    | Identifier of string
-    | Reserved of Reserved
-    | Comment of CommentKind * string
-    | Underline
-
-type Token =
-    { Data: TokenData
-      Span: Span }
-
-    static member Make data span = { Data = data; Span = span }
-
-type Error =
-    | IncompleteExp of Span
-    | IncompleteEscapeSeq of Span
-    | IncompleteMultilineComment of Span
-    | UnrecognizablePattern of Span * char
-    | Unmatched of Span * char
-    | MissingIntContent of Span
-    | MissingExpContent of Span
-    | CharEmpty of Span
-    | CharTooMany of Span
-    | UnknownNumberPrefix of Span * char
-
-let internal parseIdentifier input =
+let internal classify input =
     match input with
     | "if" -> Reserved IF
     | "else" -> Reserved ELSE
@@ -111,7 +29,6 @@ let internal parseIdentifier input =
     | "use" -> Reserved USE
     | "pub" -> Reserved PUBLIC
     | "intl" -> Reserved INTERNAL
-    | "with" -> Reserved WITH
     | "Self" -> Reserved SELF
     | "self" -> Reserved LOWSELF
     | "pak" -> Reserved PACKAGE
@@ -147,418 +64,549 @@ let internal isIdContinue c =
        | UnicodeCategory.Format -> true
        | _ -> false
 
-type private State =
-    { i: int
-      data: ResizeArray<Token>
-      error: Error[] }
-
-[<TailCall>]
-let internal lex_inner (input: string) =
+type internal Lexer(input: string, error: ResizeArray<Error>) =
     let len = input.Length
-    let makeSpan i j = Span.Make i j
 
-    let rec lex state =
-        let i = state.i
+    let mutable pos = 0
 
-        let withNewToken token j =
-            let span = makeSpan i (j - 1)
+    let mutable prevToken = None
 
-            state.data.Add(Token.Make token span)
+    member _.Len = len
 
-            let newState = { state with i = j }
+    member _.Token data j =
+        let span = Span.Make pos j
+        pos <- j + 1
+        { Data = data; Span = span }
 
-            lex newState
+    member this.Single p = this.Token p pos
 
-        let withNewError error j =
-            let span = makeSpan i (j - 1)
+    // TODO: use table
+    // TODO: parse int and float
+    member this.Int alphabet i =
+        let mutable j = i
 
-            let newState =
-                { state with
-                    i = j
-                    error = Array.append state.error [| error span |] }
+        while j < len && (Array.contains input[j] alphabet || input[j] = '_') do
+            j <- j + 1
 
-            lex newState
+        if alphabet.Length <> 10 || j = len then
+            j - 1
+        else if input[j] = '.' then
+            this.Dec(j + 1)
+        else if input[j] = 'e' || input[j] = 'E' then
+            this.Exp(j + 1)
+        else
+            j - 1
 
-        let punc p = withNewToken p (i + 1)
+    member this.Dec start =
+        let mutable j = start
 
-        let delimiter kind = withNewToken (Delimiter kind) (i + 1)
+        while j < len && (System.Char.IsAsciiDigit input[j] || (j <> pos && input[j] = '_')) do
+            j <- j + 1
 
-        let maybeAssign op =
-            let token, j =
-                if i + 1 < len && input[i + 1] = '=' then
-                    AssignOp op, i + 2
+        if j = len || (input[j] <> 'e' && input[j] <> 'E') then
+            j - 1
+        else
+            this.Exp(j + 1)
+
+    member _.Exp start =
+        if start = len then
+            raise (ParserExp(MissingExpContent(Span.Make pos (start - 1))))
+        else
+            let start =
+                if input[start] = '+' || input[start] = '-' then
+                    start + 1
                 else
-                    Operator(AST.Arith op), i + 1
+                    start
 
-            withNewToken token j
-
-        let maybeAssignOrDouble char op double =
-            let token, j =
-                // if i + 2 < len && input[i + 1] = char && input[i + 2] = '=' then
-                //     AssignOp double, i + 3
-                if i + 1 < len && input[i + 1] = char then
-                    Operator(AST.Logic double), i + 2
-                else if i + 1 < len && input[i + 1] = '=' then
-                    AssignOp op, i + 2
-                else
-                    Operator(AST.Arith op), i + 1
-
-            withNewToken token j
-
-        let rec parseInt alphabet i =
-            let rec takeWhen i =
-                if i = len then
-                    i
-                else if Array.contains input[i] alphabet || input[i] = '_' then
-                    takeWhen (i + 1)
-                else
-                    i
-
-            let j = takeWhen i
-
-            if alphabet.Length <> 10 || j = len then
-                Ok j
-            else if input[j] = '.' then
-                parseDec (j + 1)
-            else if input[j] = 'e' || input[j] = 'E' then
-                parseExp (j + 1)
-            else
-                Ok j
-
-        and parseDec i =
             let rec takeWhen j =
                 if j = len then
                     j
                 else if System.Char.IsAsciiDigit input[j] then
                     takeWhen (j + 1)
-                else if j <> i && input[j] = '_' then
+                else if j <> pos && input[j] = '_' then
                     takeWhen (j + 1)
                 else
                     j
 
-            let j = takeWhen i
-
-            if j = len || (input[j] <> 'e' && input[j] <> 'E') then
-                Ok j
+            if start = len then
+                raise (ParserExp(MissingExpContent(Span.Make pos (start - 1))))
             else
-                parseExp (j + 1)
+                takeWhen start
 
-        and parseExp i =
-            if i = len then
-                Error(MissingExpContent, i)
+    member this.MayAssign op =
+        let token, j =
+            if pos + 1 < len && input[pos + 1] = '=' then
+                AssignOp op, pos + 1
             else
-                let i = if input[i] = '+' || input[i] = '-' then i + 1 else i
+                Operator(AST.Arith op), pos
 
-                let rec takeWhen j =
-                    if j = len then
-                        j
-                    else if System.Char.IsAsciiDigit input[j] then
-                        takeWhen (j + 1)
-                    else if j <> i && input[j] = '_' then
-                        takeWhen (j + 1)
+        this.Token token j
+
+    member this.NextInner needOp =
+        match input[pos] with
+        | ';' -> this.Single(Delimiter Semi)
+        | '\n' -> this.Single(Delimiter CR)
+        | '\r' -> this.Single(Delimiter LF)
+
+        | '(' -> this.Single(Open Paren)
+        | ')' -> this.Single(Close Paren)
+        | '[' -> this.Single(Open Bracket)
+        | ']' -> this.Single(Close Bracket)
+        | '{' -> this.Single(Open Curly)
+        | '}' -> this.Single(Close Curly)
+        | '~' -> this.Single Tilde
+        | ',' -> this.Single Comma
+        | '?' -> this.Single Question
+        | ':' ->
+            let token, j =
+                if pos + 1 < len && input[pos + 1] = ':' then
+                    ColonColon, pos + 1
+                else
+                    Colon, pos
+
+            this.Token token j
+
+        | '.' ->
+            let token, j =
+                if pos + 1 < len && input[pos + 1] = '.' then
+                    if pos + 2 < len && input[pos + 2] = '^' then
+                        DotDotCaret, pos + 2
                     else
-                        j
+                        DotDot, pos + 1
+                else if pos + 1 < len && System.Char.IsAsciiDigit input[pos + 1] then
+                    let j = this.Dec(pos + 1)
 
+                    let str = input[pos..j]
+
+                    Lit(AST.Float(float str)), j
+                else
+                    Dot, pos
+
+            this.Token token j
+
+        | '=' ->
+            let token, j =
+                if pos + 1 < len then
+                    match input[pos + 1] with
+                    | '>' -> FatArrow, pos + 1
+                    | '=' -> Operator(AST.Cmp AST.EqEq), pos + 1
+                    | _ -> Eq, pos
+                else
+                    Eq, pos
+
+            this.Token token j
+
+        | '!' ->
+            let token, j =
+                if pos + 1 < len && input[pos + 1] = '=' then
+                    Operator(AST.Cmp AST.NotEq), pos + 1
+                else
+                    Not, pos
+
+            this.Token token j
+
+        | '+' -> this.MayAssign AST.Add
+        | '%' -> this.MayAssign AST.Rem
+        | '^' -> this.MayAssign AST.BitXor
+
+        | '*' -> this.MayAssign AST.Mul
+
+        | '-' ->
+            if pos + 1 < len && input[pos + 1] = '>' then
+                this.Token Arrow (pos + 1)
+            else
+                this.MayAssign AST.Sub
+
+        | '&' ->
+            if not needOp then
+                this.Single(Operator(AST.Arith AST.BitAnd))
+            else if pos + 1 < len && input[pos + 1] = '&' then
+                this.Token (Operator(AST.Logic AST.And)) (pos + 1)
+            else
+                this.MayAssign AST.BitAnd
+
+        | '|' ->
+            if not needOp then
+                this.Single(Operator(AST.Arith AST.BitOr))
+            else if pos + 1 < len && input[pos + 1] = '>' then
+                this.Token (Operator AST.Pipe) (pos + 1)
+            else if pos + 1 < len && input[pos + 1] = '|' then
+                this.Token (Operator(AST.Logic AST.Or)) (pos + 1)
+            else
+                this.MayAssign AST.BitOr
+
+        | '>' ->
+            let token, j =
+                if not needOp then
+                    Operator(AST.Cmp AST.Gt), pos
+                else if pos + 2 < len && input[pos + 1] = '>' && input[pos + 2] = '=' then
+                    AssignOp AST.Shr, pos + 2
+                else if pos + 1 < len && input[pos + 1] = '>' then
+                    Operator(AST.Arith AST.Shr), pos + 1
+                else if pos + 1 < len && input[pos + 1] = '=' then
+                    Operator(AST.Cmp AST.GtEq), pos + 1
+                else
+                    Operator(AST.Cmp AST.Gt), pos
+
+            this.Token token j
+
+        | '<' ->
+            let token, j =
+                if pos + 2 < len && input[pos + 1] = '<' && input[pos + 2] = '=' then
+                    AssignOp AST.Shl, pos + 2
+                else if pos + 1 < len && input[pos + 1] = '<' then
+                    Operator(AST.Arith AST.Shl), pos + 1
+                else if pos + 1 < len && input[pos + 1] = '=' then
+                    Operator(AST.Cmp AST.LtEq), pos + 1
+                else
+                    Operator(AST.Cmp AST.Lt), pos
+
+            this.Token token j
+
+        | '/' ->
+            let data, j =
+                if pos + 1 < len then
+                    match input[pos + 1] with
+                    | '/' ->
+                        let rec takeWhen i =
+                            if i = len || input[i] = '\n' || input[i] = '\r' then
+                                i
+                            else
+                                takeWhen (i + 1)
+
+                        let j = takeWhen (pos + 1)
+                        let token = Comment(SingleLine, input[(pos + 2) .. (j - 1)])
+
+                        token, j - 1
+                    | '*' ->
+                        let rec takeWhen j =
+                            if j = len then
+                                raise (ParserExp(IncompleteMultilineComment(Span.Make pos (j - 1))))
+                            else if j + 1 < len && input[j] = '*' && input[j + 1] = '/' then
+                                let token = Comment(MultiLine, input[pos .. (j + 1)])
+                                token, j + 1
+                            else
+                                takeWhen (j + 1)
+
+                        takeWhen (pos + 1)
+                    | '=' -> AssignOp(AST.Div), pos + 1
+                    | _ -> Operator(AST.Arith AST.Div), pos
+                else
+                    Operator(AST.Arith AST.Div), pos
+
+            this.Token data j
+        | '"' ->
+            let rec takeWhen j =
+                if j = len then
+                    raise (ParserExp(Unmatched(Span.Make pos (j - 1), '"')))
+                else if input[j] = '\\' then
+                    if j = len - 1 then
+                        raise (ParserExp(IncompleteEscapeSeq(Span.Make pos j)))
+                    else
+                        takeWhen (j + 2)
+                else if input[j] = '"' then
+                    j
+                else
+                    takeWhen (j + 1)
+
+            let j = takeWhen (pos + 1)
+
+            let token = unescapeStr input[(pos + 1) .. (j - 1)] |> AST.String |> Lit
+            this.Token token j
+
+        | ''' ->
+            let rec takeWhen i =
                 if i = len then
-                    Error(MissingExpContent, i)
+                    raise (ParserExp(Unmatched(Span.Make i i, ''')))
+                else if input[i] = '\\' then
+                    if i = len - 1 then
+                        raise (ParserExp(IncompleteEscapeSeq(Span.Make i i)))
+                    else
+                        takeWhen (i + 2)
+                else if input[i] = ''' then
+                    i
                 else
-                    Ok(takeWhen i)
+                    takeWhen (i + 1)
 
-        if i = input.Length then
-            if state.error.Length = 0 then
-                Ok state.data
-            else
-                Error state.error
+            let j = takeWhen (pos + 1)
+            let str = unescapeStr input[(pos + 1) .. (j - 1)]
 
-        else
-            match input[i] with
-            | '(' -> punc (Paren Open)
-            | ')' -> punc (Paren Close)
-            | '[' -> punc (Bracket Open)
-            | ']' -> punc (Bracket Close)
-            | '{' -> punc (Curly Open)
-            | '}' -> punc (Curly Close)
-            | '~' -> punc Tilde
-            | ',' -> punc Comma
-            | '?' -> punc Question
-            | ';' -> delimiter Semi
-            | '\n' -> delimiter CR
-            | '\r' -> delimiter LF
-            | ':' ->
-                let token, j =
-                    if i + 1 < len && input[i + 1] = ':' then
-                        ColonColon, i + 2
-                    else
-                        Colon, i + 1
+            match str.Length with
+            | 0 ->
+                error.Add(CharEmpty(Span.Make pos j))
 
-                withNewToken token j
+                this.Token (Lit(AST.Char ' ')) j
+            | 1 ->
+                let token = Lit(AST.Char str[0])
 
-            | '.' ->
-                let token, j =
-                    if i + 1 < len && input[i + 1] = '.' then
-                        if i + 2 < len && input[i + 2] = '^' then
-                            Ok DotDotCaret, i + 3
-                        else
-                            Ok DotDot, i + 2
-                    else if i + 1 < len && System.Char.IsAsciiDigit input[i + 1] then
-                        let j = parseDec (i + 1)
+                this.Token token j
 
-                        match j with
-                        | Ok j ->
-                            let str = input[i .. (j - 1)]
+            | _ ->
+                error.Add(CharTooMany(Span.Make pos j))
 
-                            Ok(Lit(AST.Float(float str))), j
-                        | Error(e, j) -> Error e, j
-                    else
-                        Ok Dot, i + 1
+                let token = Lit(AST.Char str[0])
 
-                match token with
-                | Ok token -> withNewToken token j
-                | Error msg -> withNewError msg j
+                this.Token token j
 
-            | ' '
-            | '\t' ->
-                let rec skipWhen i =
-                    if i = len then
-                        i
-                    else if input[i] = ' ' || input[i] = '\t' then
-                        skipWhen (i + 1)
-                    else
-                        i
+        | c when isIdStart c ->
+            let rec takeWhen i =
+                if i = len then i - 1
+                else if isIdContinue input[i] then takeWhen (i + 1)
+                else i - 1
 
-                lex { state with i = skipWhen (i + 1) }
+            let j = takeWhen (pos + 1)
+            let token = classify input[pos..j]
+            this.Token token j
 
-            | '=' ->
-                let token, j =
-                    if i + 1 < len then
-                        match input[i + 1] with
-                        | '>' -> FatArrow, i + 2
-                        | '=' -> Operator(AST.Cmp AST.EqEq), i + 2
-                        | _ -> Eq, i + 1
-                    else
-                        Eq, i + 1
+        | c when System.Char.IsAsciiDigit c ->
+            let alphabet, newI =
+                if c = '0' && pos + 1 < len then
+                    match input[pos + 1] with
+                    | 'b'
+                    | 'B' -> seq { '0' .. '1' }, pos + 2
+                    | 'o'
+                    | 'O' -> seq { '0' .. '8' }, pos + 2
+                    | 'x'
+                    | 'X' -> Seq.concat [ seq { '0' .. '9' }; seq { 'a' .. 'f' }; seq { 'A' .. 'F' } ], pos + 2
+                    | _ -> seq { '0' .. '9' }, pos
 
-                withNewToken token j
-
-            | '!' ->
-                let token, j =
-                    if i + 1 < len && input[i + 1] = '=' then
-                        Operator(AST.Cmp AST.NotEq), i + 2
-                    else
-                        Not, i + 1
-
-                withNewToken token j
-
-            | '+' -> maybeAssign AST.Add
-            | '%' -> maybeAssign AST.Rem
-            | '^' -> maybeAssign AST.BitXor
-
-            | '*' -> maybeAssign AST.Mul
-
-            | '-' ->
-                if i + 1 < len && input[i + 1] = '>' then
-                    withNewToken Arrow (i + 2)
                 else
-                    maybeAssign AST.Sub
+                    seq { '0' .. '9' }, pos
 
-            | '&' -> maybeAssignOrDouble '&' AST.BitAnd AST.And
+            let alphabet = Seq.toArray alphabet
 
-            | '|' ->
-                if i + 1 < len && input[i + 1] = '>' then
-                    withNewToken (Operator AST.Pipe) (i + 2)
+            let j =
+                if newI = len then
+                    if alphabet.Length <> 10 then
+                        raise (ParserExp(MissingIntContent(Span.Make pos (newI - 1))))
+
+                    newI
                 else
-                    maybeAssignOrDouble '|' AST.BitOr AST.Or
+                    this.Int alphabet newI
 
-            | '>' ->
-                let token, j =
-                    if i + 2 < len && input[i + 1] = '>' && input[i + 2] = '=' then
-                        AssignOp AST.Shr, i + 3
-                    else if i + 1 < len && input[i + 1] = '>' then
-                        Operator(AST.Arith AST.Shr), i + 2
-                    else if i + 1 < len && input[i + 1] = '=' then
-                        Operator(AST.Cmp AST.GtEq), i + 2
-                    else
-                        Operator(AST.Cmp AST.Gt), i + 1
+            let str = input[pos..j]
 
-                withNewToken token j
+            let token, j =
+                if str.EndsWith '.' && j < len - 1 && (isIdStart input[j] || input[j] = '.') then
+                    let token = Lit(AST.Int(uint64 str[.. (str.Length - 2)]))
 
-            | '<' ->
-                let token, j =
-                    if i + 2 < len && input[i + 1] = '<' && input[i + 2] = '=' then
-                        AssignOp AST.Shl, i + 3
-                    else if i + 1 < len && input[i + 1] = '<' then
-                        Operator(AST.Arith AST.Shl), i + 2
-                    else if i + 1 < len && input[i + 1] = '=' then
-                        Operator(AST.Cmp AST.LtEq), i + 2
-                    else
-                        Operator(AST.Cmp AST.Lt), i + 1
-
-                withNewToken token j
-
-            | '/' ->
-                let data, j =
-                    if i + 1 < len then
-                        match input[i + 1] with
-                        | '/' ->
-                            let rec takeWhen i =
-                                if i = len || input[i] = '\n' || input[i] = '\r' then
-                                    i
-                                else
-                                    takeWhen (i + 1)
-
-                            let j = takeWhen (i + 1)
-                            let token = Comment(SingleLine, input[(i + 2) .. (j - 1)])
-
-                            Ok token, j
-                        | '*' ->
-                            let rec takeWhen j =
-                                if j = len then
-                                    Error IncompleteMultilineComment, j
-                                else if j + 1 < len && input[j] = '*' && input[j + 1] = '/' then
-                                    let token = Comment(MultiLine, input[(i + 2) .. (j - 1)])
-                                    Ok token, j + 2
-                                else
-                                    takeWhen (j + 1)
-
-                            takeWhen (i + 1)
-                        | '=' -> Ok(AssignOp(AST.Div)), i + 2
-                        | _ -> Ok(Operator(AST.Arith AST.Div)), i + 1
-                    else
-                        Ok(Operator(AST.Arith AST.Div)), i + 1
-
-                match data with
-                | Ok token -> withNewToken token j
-                | Error msg -> withNewError msg j
-
-            | '"' ->
-                let rec takeWhen j =
-                    if j = len then
-                        Error(Unmatched(makeSpan i (j - 1), '"'))
-                    else if input[j] = '\\' then
-                        if j = len - 1 then
-                            Error(IncompleteEscapeSeq(makeSpan i j))
+                    token, j - 1
+                else
+                    let token =
+                        if
+                            str.Contains '.'
+                            || (not (str.StartsWith "0x") && str.Contains "e" || str.Contains "E")
+                        then
+                            Lit(AST.Float(float str))
                         else
-                            takeWhen (j + 2)
-                    else if input[j] = '"' then
-                        Ok(j + 1)
-                    else
-                        takeWhen (j + 1)
+                            Lit(AST.Int(uint64 str))
 
-                let res = takeWhen (i + 1)
+                    token, j
 
-                match res with
-                | Error e ->
-                    let error = Array.append state.error [| e |]
+            this.Token token j
 
-                    Error error
-                | Ok j ->
-                    let token = unescapeStr input[(i + 1) .. (j - 2)] |> AST.String |> Lit
-                    withNewToken token j
-            | ''' ->
-                let rec takeWhen i =
-                    if i = len then
-                        Error i
-                    else if input[i] = '\\' then
-                        if i = len - 1 then Error i else takeWhen (i + 2)
-                    else if input[i] = ''' then
-                        Ok(i + 1)
-                    else
-                        takeWhen (i + 1)
+        | c -> raise (ParserExp(UnrecognizablePattern(Span.Make pos pos, c)))
 
-                let j = takeWhen (i + 1)
+    member _.WhiteSpace() =
+        while pos < len && (input[pos] = ' ' || input[pos] = '\t') do
+            pos <- pos + 1
 
-                match j with
-                | Error j ->
-                    let error = Array.append state.error [| IncompleteEscapeSeq(makeSpan j j) |]
+    member this.Next() =
+        match prevToken with
+        | Some t ->
+            prevToken <- None
+            Some t
+        | None ->
+            this.WhiteSpace()
 
-                    Error error
-                | Ok j ->
-                    let str = unescapeStr input[(i + 1) .. (j - 2)]
+            if pos = len then None else this.NextInner false |> Some
 
-                    match str.Length with
-                    | 0 -> withNewError CharEmpty j
-                    | 1 ->
-                        let token = Lit(AST.Char str[0])
+    member this.Read error =
+        match prevToken with
+        | Some t ->
+            prevToken <- None
+            t
+        | None ->
+            let rec read () =
+                this.WhiteSpace()
 
-                        withNewToken token j
+                if pos = len then
+                    raise (ParserExp(IncompleteAtEnd error))
+                else
+                    match this.NextInner false with
+                    | { Data = Comment _ | Delimiter(CR | LF) } -> read ()
+                    | token -> token
 
-                    | _ -> withNewError CharTooMany j
+            read ()
 
-            | c when isIdStart c ->
-                let rec takeWhen i =
-                    if i = len then i
-                    else if isIdContinue input[i] then takeWhen (i + 1)
-                    else i
+    member this.Expect token error =
+        match this.Read error with
+        | { Data = data; Span = span } when data = token -> span
+        | token -> raise (ParserExp(UnexpectedToken(token, error)))
 
-                let j = takeWhen (i + 1)
-                let token = parseIdentifier input[i .. (j - 1)]
-                withNewToken token j
+    member this.ReadId error : AST.Id =
+        match this.Read error with
+        | { Data = Identifier sym; Span = span } -> { Sym = sym; Span = span }
+        | token -> raise (ParserExp(UnexpectedToken(token, error)))
 
-            | c when System.Char.IsAsciiDigit c ->
-                let alphabet, newI =
-                    if c = '0' && i + 1 < len then
-                        match input[i + 1] with
-                        | 'b'
-                        | 'B' -> Ok(seq { '0' .. '1' }), i + 2
-                        | 'o'
-                        | 'O' -> Ok(seq { '0' .. '8' }), i + 2
-                        | 'x'
-                        | 'X' -> Ok(Seq.concat [ seq { '0' .. '9' }; seq { 'a' .. 'f' }; seq { 'A' .. 'F' } ]), i + 2
-                        | _ -> Ok(seq { '0' .. '9' }), i + 1
+    member _.Consume() = prevToken <- None
 
-                    else
-                        Ok(seq { '0' .. '9' }), i + 1
+    // the 1 of LL(1)
+    member this.Peek() =
+        match prevToken with
+        | Some t -> Some t
+        | None ->
+            let rec peek () =
+                match this.Next() with
+                | None -> None
+                | Some({ Data = Comment _ | Delimiter(CR | LF) }) -> peek ()
+                | Some t -> Some t
 
-                match alphabet with
-                | Ok a ->
-                    let alphabet = Seq.toArray a
+            let last = peek ()
 
-                    let j =
-                        if newI = len then
-                            if alphabet.Length <> 10 then
-                                Error(MissingIntContent, newI)
-                            else
-                                Ok newI
+            prevToken <- last
+
+            last
+
+    member this.PeekInline() =
+        match prevToken with
+        | Some t -> Some t
+        | None ->
+            let rec peek () =
+                match this.Next() with
+                | None -> None
+                | Some({ Data = Comment _ }) -> peek ()
+                | Some t -> Some t
+
+            let last = peek ()
+
+            prevToken <- last
+
+            last
+
+    member this.PeekOp() =
+        match prevToken with
+        | Some t ->
+            match t.Data with
+            | Operator(AST.Cmp AST.Gt) when pos < len ->
+                match input[pos] with
+                | '=' ->
+                    let token =
+                        { Data = Operator(AST.Cmp AST.GtEq)
+                          Span = t.Span.ExpandLast 1 }
+
+                    pos <- pos + 1
+                    prevToken <- Some token
+                    Some token
+
+                | '>' ->
+                    let token =
+                        if pos + 1 < len && input[pos + 1] = '=' then
+                            pos <- pos + 2
+
+                            { Data = AssignOp AST.Shr
+                              Span = t.Span.ExpandLast 2 }
                         else
-                            parseInt alphabet newI
+                            pos <- pos + 1
 
-                    match j with
-                    | Ok j ->
-                        let str = input[i .. (j - 1)]
+                            { Data = Operator(AST.Arith AST.Shr)
+                              Span = t.Span.ExpandLast 1 }
 
-                        let token, j =
-                            if str.EndsWith '.' && j < len && (isIdStart input[j] || input[j] = '.') then
-                                let token = Lit(AST.Int(uint64 str[.. (str.Length - 2)]))
+                    prevToken <- Some token
+                    Some token
+                | _ -> Some t
 
-                                token, j - 1
-                            else
-                                let token =
-                                    if
-                                        str.Contains '.'
-                                        || (not (str.StartsWith "0x") && str.Contains "e" || str.Contains "E")
-                                    then
-                                        Lit(AST.Float(float str))
-                                    else
-                                        Lit(AST.Int(uint64 str))
+            | Operator(AST.Arith AST.BitAnd) when pos < len ->
+                match input[pos] with
+                | '=' ->
+                    let token =
+                        { Data = AssignOp AST.BitAnd
+                          Span = t.Span.ExpandLast 1 }
 
-                                token, j
+                    pos <- pos + 1
+                    prevToken <- Some token
+                    Some token
 
-                        withNewToken token j
-                    | Error(msg, j) -> withNewError msg j
+                | '&' ->
+                    let token =
+                        { Data = Operator(AST.Logic AST.And)
+                          Span = t.Span.ExpandLast 1 }
 
-                | Error c -> withNewError (fun span -> UnknownNumberPrefix(span, c)) (i + 2)
+                    pos <- pos + 1
+                    prevToken <- Some token
+                    Some token
+                | _ -> Some t
 
-            | c ->
-                let error = Array.append state.error [| UnrecognizablePattern(makeSpan i i, c) |]
+            | Operator(AST.Arith AST.BitOr) when pos < len ->
+                match input[pos] with
+                | '=' ->
+                    let token =
+                        { Data = AssignOp AST.BitOr
+                          Span = t.Span.ExpandLast 1 }
 
-                Error error
+                    pos <- pos + 1
+                    prevToken <- Some token
+                    Some token
 
-    lex
-        { i = 0
-          data = ResizeArray()
-          error = [||] }
+                | '|' ->
+                    let token =
+                        { Data = Operator(AST.Logic AST.Or)
+                          Span = t.Span.ExpandLast 1 }
 
-let lex input =
-    match lex_inner input with
-    | Ok o -> Ok(o.ToArray())
-    | Error e -> Error e
+                    pos <- pos + 1
+                    prevToken <- Some token
+                    Some token
+                | _ -> Some t
+            | _ -> Some t
+        | None ->
+            let rec peek () =
+
+                this.WhiteSpace()
+
+                if pos = len then
+                    None
+                else
+                    match this.NextInner true with
+                    | { Data = Comment _ } -> peek ()
+                    | t -> Some t
+
+            let last = peek ()
+
+            prevToken <- last
+
+            last
+
+    member this.PeekPost() =
+        match prevToken with
+        | Some t -> Some t
+        | None ->
+            let rec peek () =
+                this.WhiteSpace()
+
+                if pos = len then
+                    None
+                else
+                    match input[pos] with
+                    | '.' when pos = len - 1 || input[pos + 1] <> '.' -> this.Single Dot |> Some
+                    | _ ->
+                        match this.NextInner false with
+                        | { Data = Comment _ } -> peek ()
+                        | token -> Some token
+
+            let last = peek ()
+
+            prevToken <- last
+
+            last
+
+    /// only for tests
+    member this.AllToken() =
+        let res = ResizeArray()
+        this.WhiteSpace()
+
+        while pos < len do
+            let token = this.NextInner true
+            res.Add token
+            this.WhiteSpace()
+
+        res.ToArray(), error.ToArray()

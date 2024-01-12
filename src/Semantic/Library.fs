@@ -73,12 +73,14 @@ and Type =
     | TFloat of Float
     | TBool
     | TChar
-    /// named type can refer each other
+    // named type can refer each other
     | TStruct of Id * Type[]
     | TEnum of Id * Type[]
     | TTuple of Type[]
+    | TArray of Type * uint64
     | TFn of Function
     | TRef of Type
+    | TSlice of Type
     | TVar of Var
     | TNever
 
@@ -97,12 +99,14 @@ and Type =
             | TTuple t ->
                 for t in t do
                     yield! t.FindTVar
+            | TArray(t, _) -> yield! t.FindTVar
             | TFn f ->
                 for p in f.Param do
                     yield! p.FindTVar
 
                 yield! f.Ret.FindTVar
             | TRef r -> yield! r.FindTVar
+            | TSlice s -> yield! s.FindTVar
             | TNever -> ()
         }
 
@@ -128,6 +132,7 @@ and Type =
                 let tvar = v |> Array.map _.ToString
                 let tvar = String.concat ", " tvar
                 $"{t.Sym}<{tvar}>"
+        | TArray(t, c) -> $"[{t.ToString}; {c}]"
         | TTuple t ->
             let element = t |> Array.map _.ToString |> String.concat ", "
 
@@ -143,6 +148,7 @@ and Type =
                 let tvar = f.TVar |> Array.map _.ToString |> String.concat ", "
                 $"<{tvar}>{fstr}"
         | TRef r -> $"&{r.ToString}"
+        | TSlice s -> $"[{s.ToString}]"
         | TVar v -> v.ToString
         | TNever -> "!"
 
@@ -155,12 +161,14 @@ and Type =
         | TStruct(s, v) -> TStruct(s, v |> Array.map _.Walk(onVar))
         | TEnum(e, v) -> TEnum(e, v |> Array.map _.Walk(onVar))
         | TTuple t -> t |> Array.map _.Walk(onVar) |> TTuple
+        | TArray(t, c) -> TArray(t.Walk onVar, c)
         | TFn f ->
             let param = f.Param |> Array.map _.Walk(onVar)
             let ret = f.Ret.Walk onVar
 
             TFn { f with Param = param; Ret = ret }
         | TRef r -> TRef(r.Walk onVar)
+        | TSlice s -> TSlice(s.Walk onVar)
         | TVar v -> onVar v
         | TNever -> TNever
 

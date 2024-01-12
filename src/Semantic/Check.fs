@@ -184,7 +184,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
         match ty with
         | NeverType _ -> TNever
-        | TypeId i -> resolve i
+        | IdType i -> resolve i
         | PathType p ->
             if p.Prefix <> None || p.Seg.Length > 1 then
                 failwith "Not Implemented"
@@ -211,6 +211,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
         | LitType _ -> failwith "Not Implemented"
         | ArrayType _ -> failwith "Not Implemented"
         | FnType _ -> failwith "Not Implemented"
+        | NegType(_) -> failwith "Not Implemented"
 
     let checkPat (scope: ActiveScope) mode pat ty =
         let mut, mayShadow, isCond, static_ =
@@ -230,24 +231,23 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
         let rec proc sym ty pat =
             match pat with
             | IdPat i -> addSym sym i ty
-            | LitPat(l, span) ->
+            | LitPat l ->
                 if not isCond then
-                    error.Add(RefutablePat span)
+                    error.Add(RefutablePat l.Span)
 
                 let litTy =
-                    match l with
+                    match l.Value with
                     | Int _ -> TInt(true, ISize)
                     | Bool _ -> TBool
                     | Char _ -> TChar
                     | Float _ -> TFloat F64
                     | String _ -> failwith "Not Implemented"
-                    | NegInt _ -> failwith "Unreachable"
 
                 currScope.Constr.Add(
                     CNormal
                         { Actual = litTy
                           Expect = ty
-                          Span = span }
+                          Span = l.Span }
                 )
 
                 sym
@@ -362,11 +362,6 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
                 Array.fold2 proc sym payloadTy e.Payload
             | StructPat(_) -> failwith "Not Implemented"
-            | RestPat span ->
-                if not isCond then
-                    error.Add(RefutablePat span)
-
-                sym
             | SelfPat(_) -> failwith "Not Implemented"
             | RefSelfPat(_) -> failwith "Not Implemented"
 
@@ -760,14 +755,13 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
             | As -> failwith "Not Implemented"
 
         | SelfExpr(_) -> failwith "Not Implemented"
-        | LitExpr(l, _) ->
-            match l with
+        | LitExpr l ->
+            match l.Value with
             | Int _ -> TInt(true, ISize)
             | Bool _ -> TBool
             | Char _ -> TChar
             | Float _ -> TFloat F64
             | String _ -> failwith "Not Implemented"
-            | NegInt _ -> failwith "Unreachable"
 
         | If i ->
             let then_ = checkCond scope i.Cond i.Then
@@ -971,6 +965,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                     error.Add(UndefinedField(f.Span, key))
                     TNever
 
+        | TupleAccess(_) -> failwith "Not Implemented"
         | Index(_) -> failwith "Not Implemented"
         | Array(_) -> failwith "Not Implemented"
         | ArrayRepeat(_) -> failwith "Not Implemented"

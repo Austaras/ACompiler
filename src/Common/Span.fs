@@ -7,12 +7,14 @@ type Span =
     static member dummy = { First = 0; Last = 0 }
     static member Make first last = { First = first; Last = last }
 
-    member this.WithFirst first = { this with First = first }
+    member this.WithFirst first = { this with First = first.First }
 
-    member this.WithLast last = { this with Last = last }
+    member this.WithLast last = { this with Last = last.Last }
 
     member this.ShrinkFirst i = { this with First = this.First + i }
     member this.ShrinkLast i = { this with Last = this.Last - i }
+
+    member this.ExpandLast i = { this with Last = this.Last + i }
 
 type Pos =
     { Line: int

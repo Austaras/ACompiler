@@ -1,29 +1,36 @@
 module Parser.Tests.Stmt
 
+open System.IO
+
 open Xunit
 
 open Snapshot
 open AST.Dump
-open Parser.Stmt
+open Parser.Lexer
+open Parser.Parser
 
-let parseTest = Util.makeTest parseStmt stmt
+let internal parseTest input (tw: TextWriter) =
+    let error = ResizeArray()
+    let lexer = Lexer(input, error)
+    let parser = Parser(lexer, error)
 
-let snap = Snapshot("snap")
+    let s = parser.Stmt()
 
-let basePath = __SOURCE_DIRECTORY__ + "/Spec/Stmt"
+    stmt tw 0 s
+
+let basePath = __SOURCE_DIRECTORY__ + "/Spec/Stmt/"
+let snap = TextSnapshot("snap", basePath)
 
 [<Theory>]
 [<InlineData("Function",
              "fn add<T: Add>(x: T, y: T) -> T {
     x + y
-}
-    a
 }")>]
 
 [<InlineData("Let",
              "let _ = {
-    let mut a = 10;
-    print(a);
+    let mut a = 10
+    print(a)
     a
 }")>]
 
@@ -44,4 +51,4 @@ let basePath = __SOURCE_DIRECTORY__ + "/Spec/Stmt"
 }")>]
 let Decl (name: string) (input: string) =
     let res = parseTest input
-    snap.ShouldMatchText res $"{basePath}/{name}"
+    snap.ShouldMatch res name
