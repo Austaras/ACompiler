@@ -15,7 +15,7 @@ let runCheck input =
         | Ok m -> m
         | Error(e, _) -> failwithf "parse error %A" e
 
-    let sema, error = typeCheck (Dictionary()) m
+    let sema, error = check (Dictionary()) m
 
     Assert.Empty error
 

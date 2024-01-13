@@ -159,7 +159,7 @@ type internal PatMode =
     | CondPat
     | LetPat of LetPat
 
-let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
+type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
     let mutable scopeId = 0
 
     let varRec = Dictionary(HashIdentity.Reference)
@@ -174,7 +174,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
         scopeId <- scopeId + 1
         Scope.Create scopeId scopeData
 
-    let rec checkType (scope: ActiveScope) ty =
+    member this.CheckType (scope: ActiveScope) ty =
         let resolve id =
             match scope.ResolveTy id with
             | Some ty -> ty
@@ -191,7 +191,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
             let id, ty = p.Seg[0]
 
-            let instType = Array.map (checkType scope) ty
+            let instType = Array.map (this.CheckType scope) ty
 
             let container = resolve id
 
@@ -202,8 +202,8 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                 error.Add(GenericMismatch(container, instType, p.Span))
 
                 TNever
-        | TupleType t -> TTuple(Array.map (checkType scope) t.Ele)
-        | RefType r -> TRef(checkType scope r.Ty)
+        | TupleType t -> TTuple(Array.map (this.CheckType scope) t.Ele)
+        | RefType r -> TRef(this.CheckType scope r.Ty)
         | InferedType span ->
             let newTVar = scope.Current.NewTVar None span
 
@@ -213,7 +213,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
         | FnType _ -> failwith "Not Implemented"
         | NegType(_) -> failwith "Not Implemented"
 
-    let checkPat (scope: ActiveScope) mode pat ty =
+    member this.CheckPat (scope: ActiveScope) mode pat ty =
         let mut, mayShadow, isCond, static_ =
             match mode with
             | LetPat { Mut = mut; Static = static_ } -> mut, not static_, false, static_
@@ -378,7 +378,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
             varRec[id] <- ty
 
-    let rec hoistDecl (scope: ActiveScope) (decl: seq<Decl>) =
+    member this.HoistDecl (scope: ActiveScope) (decl: seq<Decl>) =
         let currScope = scope.Current
 
         let topLevel =
@@ -456,7 +456,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                     if Map.containsKey name m then
                         error.Add(DuplicateField field.Name)
 
-                    Map.add name (checkType scope field.Ty) m
+                    Map.add name (this.CheckType scope field.Ty) m
 
                 let field = Array.fold processField Map.empty s.Field
 
@@ -489,7 +489,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                     if Map.containsKey name m then
                         error.Add(DuplicateVariant variant.Name)
 
-                    let payload = Array.map (checkType scope) variant.Payload
+                    let payload = Array.map (this.CheckType scope) variant.Payload
 
                     Map.add name payload m
 
@@ -502,7 +502,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
                 enumRec[e.Name] <- enum
 
-            | TypeDecl t -> currScope.Ty[t.Name.Sym] <- checkType scope t.Ty
+            | TypeDecl t -> currScope.Ty[t.Name.Sym] <- this.CheckType scope t.Ty
 
             | Use _ -> failwith "Not Implemented"
             | Trait _ -> failwith "Not Implemented"
@@ -538,7 +538,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
                 let paramTy (p: Param) =
                     match p.Ty with
-                    | Some ty -> checkType scope ty
+                    | Some ty -> this.CheckType scope ty
                     | None ->
                         let sym = p.Pat.Name
                         let newTVar = newScope.NewTVar sym p.Span
@@ -549,7 +549,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
                 let ret =
                     match f.Ret with
-                    | Some ty -> checkType scope ty
+                    | Some ty -> this.CheckType scope ty
                     | None -> TVar(newScope.NewTVar None f.Span)
 
                 let newScope =
@@ -569,7 +569,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
             | Let l ->
                 let ty =
                     match l.Ty with
-                    | Some ty -> checkType scope ty
+                    | Some ty -> this.CheckType scope ty
                     | None ->
                         let sym = l.Pat.Name
                         let newTVar = currScope.NewTVar sym l.Span
@@ -577,16 +577,16 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                         TVar newTVar
 
                 valueMap.Add(l.Pat, ty)
-                checkPat scope (LetPat { Mut = l.Mut; Static = true }) l.Pat ty
+                this.CheckPat scope (LetPat { Mut = l.Mut; Static = true }) l.Pat ty
             | _ -> ()
 
         for item in staticItem do
             match item with
             | FnDecl f ->
                 let newScope = scope.WithNew scopeMap[f]
-                checkFn newScope f
+                this.CheckFn newScope f
             | Let l ->
-                let value = checkExpr scope l.Value
+                let value = this.CheckExpr scope l.Value
 
                 currScope.Constr.Add(
                     CNormal
@@ -596,15 +596,15 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                 )
             | _ -> ()
 
-    and checkDecl (scope: ActiveScope) d =
+    member this.CheckDecl (scope: ActiveScope) d =
         match d with
         | Let l ->
-            let value = checkExpr scope l.Value
+            let value = this.CheckExpr scope l.Value
 
             let ty =
                 match l.Ty with
                 | Some ty ->
-                    let ty = checkType scope ty
+                    let ty = this.CheckType scope ty
 
                     scope.Current.Constr.Add(
                         CNormal
@@ -616,7 +616,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                     ty
                 | None -> value
 
-            checkPat scope (LetPat { Mut = l.Mut; Static = false }) l.Pat ty
+            this.CheckPat scope (LetPat { Mut = l.Mut; Static = false }) l.Pat ty
 
         | Const _ -> failwith "Not Implemented"
         | Use _ -> failwith "Not Implemented"
@@ -627,7 +627,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
         | Trait _
         | Impl _ -> ()
 
-    and checkCond (scope: ActiveScope) cond block =
+    member this.CheckCond (scope: ActiveScope) cond block =
         let currScope = scope.Current
 
         match cond with
@@ -635,25 +635,25 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
             currScope.Constr.Add(
                 CNormal
                     { Expect = TBool
-                      Actual = checkExpr scope b
+                      Actual = this.CheckExpr scope b
                       Span = b.Span }
             )
 
-            checkBlock scope block
+            this.CheckBlock scope block
         | LetCond c ->
-            let value = checkExpr scope c.Value
+            let value = this.CheckExpr scope c.Value
             let newScope = newScope BlockScope
             let scope = scope.WithNew newScope
 
-            checkPat scope CondPat c.Pat value
+            this.CheckPat scope CondPat c.Pat value
 
-            let ty = checkBlock scope block
+            let ty = this.CheckBlock scope block
 
-            unify newScope
+            this.Unify newScope
 
             union.Resolve ty
 
-    and checkExpr (scope: ActiveScope) e =
+    member this.CheckExpr (scope: ActiveScope) e =
         let currScope = scope.Current
 
         match e with
@@ -704,8 +704,8 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                 | t -> t
 
         | Binary b ->
-            let l = checkExpr scope b.Left
-            let r = checkExpr scope b.Right
+            let l = this.CheckExpr scope b.Left
+            let r = this.CheckExpr scope b.Right
 
             match b.Op with
             | Arith _ ->
@@ -764,10 +764,10 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
             | String _ -> failwith "Not Implemented"
 
         | If i ->
-            let then_ = checkCond scope i.Cond i.Then
+            let then_ = this.CheckCond scope i.Cond i.Then
 
             for br in i.ElseIf do
-                let elseif = checkCond scope br.Cond br.Block
+                let elseif = this.CheckCond scope br.Cond br.Block
 
                 currScope.Constr.Add(
                     CNormal
@@ -778,7 +778,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
             match i.Else with
             | Some else_ ->
-                let else_ = checkBlock scope else_
+                let else_ = this.CheckBlock scope else_
 
                 currScope.Constr.Add(
                     CNormal
@@ -796,27 +796,27 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
             then_
         | Match m ->
-            let value = checkExpr scope m.Value
+            let value = this.CheckExpr scope m.Value
 
             let typeOfBranch (br: MatchBranch) =
                 let newScope = newScope BlockScope
                 let scope = scope.WithNew newScope
 
-                checkPat scope CondPat br.Pat value
+                this.CheckPat scope CondPat br.Pat value
 
                 match br.Guard with
                 | Some g ->
                     newScope.Constr.Add(
                         CNormal
-                            { Actual = checkExpr scope g
+                            { Actual = this.CheckExpr scope g
                               Expect = TBool
                               Span = g.Span }
                     )
                 | None -> ()
 
-                let brTy = checkExpr scope br.Expr
+                let brTy = this.CheckExpr scope br.Expr
 
-                unify newScope
+                this.Unify newScope
 
                 union.Resolve brTy
 
@@ -837,11 +837,11 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
                 first
 
-        | Block b -> checkBlock scope b
+        | Block b -> this.CheckBlock scope b
         | Call c ->
-            let callee = checkExpr scope c.Callee
+            let callee = this.CheckExpr scope c.Callee
 
-            let arg = Array.map (checkExpr scope) c.Arg
+            let arg = Array.map (this.CheckExpr scope) c.Arg
             let ret = TVar(currScope.NewTVar None c.Span)
 
             currScope.Constr.Add(
@@ -858,7 +858,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                 currScope.Constr.Add(
                     CNormal
                         { Expect = TBool
-                          Actual = checkExpr scope u.Value
+                          Actual = this.CheckExpr scope u.Value
                           Span = u.Span }
                 )
 
@@ -867,7 +867,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                 currScope.Constr.Add(
                     CNormal
                         { Expect = TInt(true, ISize)
-                          Actual = checkExpr scope u.Value
+                          Actual = this.CheckExpr scope u.Value
                           Span = u.Span }
                 )
 
@@ -881,7 +881,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                     | Unary { Op = Deref; Value = expr } -> getVar expr
                     | _ -> None
 
-                TRef(checkExpr scope u.Value)
+                TRef(this.CheckExpr scope u.Value)
             | Deref ->
                 let sym =
                     match u.Value with
@@ -893,14 +893,14 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                 currScope.Constr.Add(
                     CNormal
                         { Expect = TRef ptr
-                          Actual = checkExpr scope u.Value
+                          Actual = this.CheckExpr scope u.Value
                           Span = u.Span }
                 )
 
                 ptr
         | Assign a ->
-            let value = checkExpr scope a.Value
-            let place = checkExpr scope a.Place
+            let value = this.CheckExpr scope a.Value
+            let place = this.CheckExpr scope a.Place
 
             currScope.Constr.Add(
                 CNormal
@@ -928,7 +928,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
             UnitType
         | Field f ->
-            let receiver = checkExpr scope f.Receiver
+            let receiver = this.CheckExpr scope f.Receiver
             let key = f.Field.Sym
 
             match receiver with
@@ -970,11 +970,11 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
         | Array(_) -> failwith "Not Implemented"
         | ArrayRepeat(_) -> failwith "Not Implemented"
         | StructLit(_) -> failwith "Not Implemented"
-        | Tuple s -> s.Ele |> Array.map (checkExpr scope) |> TTuple
+        | Tuple s -> s.Ele |> Array.map (this.CheckExpr scope) |> TTuple
         | Closure c ->
             let paramTy (p: Param) =
                 match p.Ty with
-                | Some ty -> checkType scope ty
+                | Some ty -> this.CheckType scope ty
                 | None ->
                     let sym = p.Pat.Name
                     let newTVar = currScope.NewTVar sym p.Span
@@ -985,7 +985,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
             let retTy =
                 match c.Ret with
-                | Some ty -> checkType scope ty
+                | Some ty -> this.CheckType scope ty
                 | None -> TVar(currScope.NewTVar None c.Span)
 
             let closureScope = newScope (ClosureScope { Closure = c; Ret = retTy })
@@ -993,9 +993,9 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
             let scope = scope.WithNew closureScope
 
             for (param, ty) in Array.zip c.Param paramTy do
-                checkPat scope ParamPat param.Pat ty
+                this.CheckPat scope ParamPat param.Pat ty
 
-            let ret = checkExpr scope c.Body
+            let ret = this.CheckExpr scope c.Body
 
             closureScope.Constr.Add(
                 CNormal
@@ -1004,7 +1004,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                       Span = c.Span }
             )
 
-            unify closureScope
+            this.Unify closureScope
 
             let resolve ty = union.Resolve ty
 
@@ -1069,7 +1069,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
             let ty =
                 match r.Value with
-                | Some v -> checkExpr scope v
+                | Some v -> this.CheckExpr scope v
                 | None -> UnitType
 
             currScope.Constr.Add(
@@ -1083,12 +1083,12 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
         | Range(_) -> failwith "Not Implemented"
         | For(_) -> TNever
         | While w ->
-            let _ = checkCond scope w.Cond w.Body
+            let _ = this.CheckCond scope w.Cond w.Body
 
             TNever
         | TryReturn(_) -> failwith "Not Implemented"
 
-    and checkBlock (scope: ActiveScope) (b: Block) =
+    member this.CheckBlock (scope: ActiveScope) (b: Block) =
         let blockScope = newScope BlockScope
 
         let scope = scope.WithNew blockScope
@@ -1100,23 +1100,23 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
 
         let decl = Seq.choose chooseDecl b.Stmt
 
-        hoistDecl scope decl
+        this.HoistDecl scope decl
 
         let typeof _ stmt =
             match stmt with
             | DeclStmt d ->
-                checkDecl scope d
+                this.CheckDecl scope d
 
                 UnitType
-            | ExprStmt e -> checkExpr scope e
+            | ExprStmt e -> this.CheckExpr scope e
 
         let ty = Array.fold typeof UnitType b.Stmt
 
-        unify blockScope
+        this.Unify blockScope
 
         union.Resolve ty
 
-    and checkFn (scope: ActiveScope) (f: Fn) =
+    member this.CheckFn (scope: ActiveScope) (f: Fn) =
         let fnTy =
             match varRec[f.Name] with
             | TFn f -> f
@@ -1125,9 +1125,9 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
         let currScope = scope.Current
 
         for (param, ty) in Array.zip f.Param fnTy.Param do
-            checkPat scope ParamPat param.Pat ty
+            this.CheckPat scope ParamPat param.Pat ty
 
-        let ret = checkBlock scope f.Body
+        let ret = this.CheckBlock scope f.Body
 
         currScope.Constr.Add(
             CNormal
@@ -1136,7 +1136,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
                   Span = f.Name.Span }
         )
 
-        unify currScope
+        this.Unify currScope
 
         let generalize ty =
             match union.Resolve ty with
@@ -1146,7 +1146,7 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
         let oldTy = varRec[f.Name]
         varRec[f.Name] <- generalize oldTy
 
-    and unify scope =
+    member this.Unify scope =
         let rec unifyNormal c deref =
             let addUnion v ty =
                 match union.TryFind v with
@@ -1237,27 +1237,33 @@ let typeCheck (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
             | CNormal c -> unifyNormal c false
             | CDeref c -> unifyNormal c true
 
-    let topLevel = newScope TopLevelScope
-    let scope = { Scope = [| Scope.Prelude; topLevel |] }
+    member this.CheckModule(m: Module) =
+        let topLevel = newScope TopLevelScope
+        let scope = { Scope = [| Scope.Prelude; topLevel |] }
 
-    let decl = m.Item |> Array.map _.Decl
+        let decl = m.Item |> Array.map _.Decl
 
-    hoistDecl scope decl
+        this.HoistDecl scope decl
 
-    unify topLevel
+        this.Unify topLevel
 
-    for id in varRec.Keys do
-        let oldTy = varRec[id]
-        varRec[id] <- union.Resolve oldTy
+        for id in varRec.Keys do
+            let oldTy = varRec[id]
+            varRec[id] <- union.Resolve oldTy
 
-    let sema =
-        { Var = dictToMap varRec
-          Struct = dictToMap structRec
-          Enum = dictToMap enumRec
-          Capture = captureRec
-          Module =
-            { Ty = Map.empty
-              Var = Map.empty
-              Module = Map.empty } }
+        let sema =
+            { Var = dictToMap varRec
+              Struct = dictToMap structRec
+              Enum = dictToMap enumRec
+              Capture = captureRec
+              Module =
+                { Ty = Map.empty
+                  Var = Map.empty
+                  Module = Map.empty } }
 
-    sema, error.ToArray()
+        sema, error.ToArray()
+
+let check (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
+    let checker = Checker moduleMap
+
+    checker.CheckModule m

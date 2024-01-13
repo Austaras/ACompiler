@@ -13,10 +13,11 @@ let internal parseTest input (tw: TextWriter) =
     let error = ResizeArray()
     let lexer = Lexer(input, error)
     let parser = Parser(lexer, error)
+    let dump = Dump(tw)
 
     let s = parser.Stmt()
 
-    stmt tw 0 s
+    dump.Stmt s
 
 let basePath = __SOURCE_DIRECTORY__ + "/Spec/Stmt/"
 let snap = TextSnapshot("snap", basePath)

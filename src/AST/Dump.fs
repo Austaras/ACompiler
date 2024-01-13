@@ -5,775 +5,747 @@ open System.IO
 open Common.Span
 open AST.AST
 
-let span (s: Span) = $"@{s.First}..{s.Last}"
 
-let indent (tw: TextWriter) level =
-    for _ in 0 .. level - 1 do
-        tw.Write "    "
+type Dump(tw: TextWriter) =
+    let mutable level = 0
 
-let id i = $"{i.Sym}{span i.Span}"
+    member _.Span(s: Span) = $"@{s.First}..{s.Last}"
 
-let lit (l: Literal) =
-    let value =
-        match l.Value with
-        | Bool b -> string b
-        | Int i -> string i
-        | Float f -> $"{f}f"
-        | Char c -> $"'{c}'"
-        | String s -> "\"" + s + "\""
+    member this.Id i =
+        tw.WriteLine $"{i.Sym}{this.Span i.Span}"
 
-    value + span l.Span
+    member _.Indent() =
+        for _ in 0 .. level - 1 do
+            tw.Write "    "
 
-let rec pat (tw: TextWriter) level (p: Pat) =
-    let s = span p.Span
-    let propIdent () = indent tw (level + 1)
-    let childIdent () = indent tw (level + 2)
+    member this.Prop name =
+        this.Indent()
+        tw.Write(name + ": ")
 
-    let path level (p: PathPat) =
+    member this.Child name span cb payload =
+        this.Indent()
+        tw.WriteLine(name + this.Span span)
+        level <- level + 1
+        cb payload
+        level <- level - 1
+
+    member this.Lit(l: Literal) =
+        let value =
+            match l.Value with
+            | Bool b -> string b
+            | Int i -> string i
+            | Float f -> $"{f}f"
+            | Char c -> $"'{c}'"
+            | String s -> "\"" + s + "\""
+
+        value + this.Span l.Span
+
+    member this.Pat(p: Pat) =
+        let s = this.Span p.Span
+
+        let path (p: PathPat) =
+            match p.Prefix with
+            | None -> ()
+            | Some p ->
+                this.Prop "prefix"
+                tw.WriteLine p.ToString
+
+            for s in p.Seg do
+                this.Prop "seg"
+                this.Id s
+
+        level <- level + 1
+
+        match p with
+        | IdPat i -> this.Id i
+        | LitPat l -> tw.WriteLine(this.Lit l)
+        | TuplePat t ->
+            tw.WriteLine("Tuple" + s)
+
+            for p in t.Ele do
+                this.Indent()
+                this.Pat p
+
+        | ArrayPat a ->
+            tw.WriteLine("Array" + s)
+
+            for p in a.Ele do
+                this.Indent()
+                this.Pat p
+
+        | AsPat a ->
+            tw.WriteLine("As" + s)
+
+            this.Prop "pat"
+            this.Pat a.Pat
+
+            this.Prop "id"
+            this.Id a.Id
+
+        | PathPat p -> path p
+        | EnumPat e ->
+            tw.WriteLine("Enum" + s)
+
+            this.Child "variant" e.Variant.Span path e.Variant
+
+            for p in e.Payload do
+                this.Prop "payload"
+                this.Pat p
+
+        | StructPat stru ->
+            tw.WriteLine("Struct" + s)
+
+            this.Child "struct" stru.Struct.Span path stru.Struct
+
+            for f in stru.Field do
+                this.Prop "field"
+
+                match f with
+                | ShorthandPat s -> this.Id s
+                | KeyValuePat k ->
+                    tw.WriteLine("key value" + this.Span k.Span)
+
+                    level <- level + 1
+
+                    this.Prop "key"
+                    this.Id k.Id
+
+                    this.Prop "value"
+                    this.Pat k.Pat
+                    level <- level - 1
+
+        | OrPat o ->
+            tw.WriteLine("Or" + s)
+
+            for p in o.Pat do
+                this.Indent()
+                this.Pat p
+
+        | CatchAllPat _ -> tw.WriteLine("_" + s)
+        | RangePat r ->
+            tw.WriteLine("Range" + s)
+
+            match r.From with
+            | None -> ()
+            | Some f ->
+                this.Prop "from"
+                this.Pat f
+
+            match r.To with
+            | None -> ()
+            | Some t ->
+                this.Prop "to"
+                this.Pat t
+
+        | SelfPat _ -> tw.WriteLine("self" + s)
+        | RefSelfPat _ -> tw.WriteLine("ref self" + s)
+
+        level <- level - 1
+
+    member this.Path(p: Path) =
         match p.Prefix with
         | None -> ()
         | Some p ->
-            indent tw level
-            tw.WriteLine("prefix: " + p.ToString)
-
-        for s in p.Seg do
-            indent tw level
-            tw.WriteLine("seg: " + id s)
-
-    match p with
-    | IdPat i -> tw.WriteLine(id i)
-    | LitPat l -> tw.WriteLine(lit l)
-    | TuplePat t ->
-        tw.WriteLine("Tuple" + s)
-
-        for p in t.Ele do
-            propIdent ()
-            pat tw (level + 1) p
-
-    | ArrayPat a ->
-        tw.WriteLine("Array" + s)
-
-        for p in a.Ele do
-            propIdent ()
-            pat tw (level + 1) p
-
-    | AsPat a ->
-        tw.WriteLine("As" + s)
-
-        propIdent ()
-        tw.Write "pat: "
-        pat tw (level + 1) a.Pat
-
-        propIdent ()
-        tw.WriteLine("id: " + id a.Id)
-
-    | PathPat p -> path (level + 1) p
-    | EnumPat e ->
-        tw.WriteLine("Enum" + s)
-
-        propIdent ()
-        tw.WriteLine("variant" + span e.Variant.Span)
-        path (level + 2) e.Variant
-
-        for p in e.Payload do
-            propIdent ()
-            tw.Write "payload: "
-            pat tw (level + 1) p
-
-    | StructPat stru ->
-        tw.WriteLine("Struct" + s)
-
-        propIdent ()
-        tw.WriteLine("struct" + span stru.Struct.Span)
-        path (level + 2) stru.Struct
-
-        for f in stru.Field do
-            propIdent ()
-            tw.Write $"field: "
-
-            match f with
-            | ShorthandPat s -> tw.WriteLine(id s)
-            | KeyValuePat k ->
-                tw.WriteLine("key value" + span k.Span)
-
-                childIdent ()
-                tw.WriteLine $"key: {id k.Id}"
-
-                childIdent ()
-                tw.Write $"value: "
-                pat tw (level + 2) k.Pat
-
-    | OrPat o ->
-        tw.WriteLine("Or" + s)
-
-        for p in o.Pat do
-            propIdent ()
-            pat tw (level + 1) p
-
-    | CatchAllPat _ -> tw.WriteLine("_" + s)
-    | RangePat r ->
-        tw.WriteLine("Range" + s)
-
-        match r.From with
-        | None -> ()
-        | Some f ->
-            propIdent ()
-            tw.Write "from: "
-            pat tw (level + 1) f
-
-        match r.To with
-        | None -> ()
-        | Some t ->
-            propIdent ()
-            tw.Write "to: "
-            pat tw (level + 1) t
-
-    | SelfPat _ -> tw.WriteLine("self" + s)
-    | RefSelfPat _ -> tw.WriteLine("ref self" + s)
-
-let rec path (tw: TextWriter) level (p: Path) =
-    match p.Prefix with
-    | None -> ()
-    | Some p ->
-        indent tw level
-        tw.WriteLine("prefix: " + p.ToString)
-
-    for (i, t) in p.Seg do
-        indent tw level
-        tw.WriteLine $"seg: {id i}"
-
-        for t in t do
-            indent tw level
-            tw.Write "type arg: "
-            ty tw (level) t
-
-and ty (tw: TextWriter) level (t: Type) =
-    let s = span t.Span
-    let propIdent () = indent tw (level + 1)
-
-    match t with
-    | IdType i -> tw.WriteLine(id i)
-    | LitType l -> tw.WriteLine(lit l)
-    | PathType p ->
-        tw.WriteLine("Path" + s)
-
-        path tw (level + 1) p
-    | InferedType _ -> tw.WriteLine("_" + s)
-    | NeverType _ -> tw.WriteLine("!" + s)
-    | NegType r ->
-        tw.WriteLine("Neg" + s)
-        propIdent ()
-        ty tw (level + 1) r.Ty
-    | RefType r ->
-        tw.WriteLine("Ref" + s)
-        propIdent ()
-        ty tw (level + 1) r.Ty
-
-    | TupleType t ->
-        tw.WriteLine("Tuple" + s)
-
-        for t in t.Ele do
-            propIdent ()
-            ty tw (level + 1) t
-
-    | ArrayType a ->
-        tw.WriteLine("Array" + s)
-
-        propIdent ()
-        tw.Write "element: "
-        ty tw (level + 1) a.Ele
-
-        match a.Len with
-        | None -> ()
-        | Some l ->
-            propIdent ()
-            tw.WriteLine $"length{span l.Span}"
-            indent tw (level + 2)
-            ty tw (level + 2) l
-
-    | FnType f ->
-        tw.WriteLine("Fn" + s)
-
-        for t in f.Param do
-            propIdent ()
-            tw.Write("param: ")
-            ty tw (level + 1) t
-
-        propIdent ()
-        tw.Write "ret: "
-        ty tw (level + 1) f.Ret
-
-and tyParam (tw: TextWriter) level (p: TyParam) =
-    indent tw level
-    tw.WriteLine("id: " + id p.Id)
-
-    if p.Const then
-        indent tw level
-        tw.WriteLine("const: true")
-
-    for b in p.Bound do
-        indent tw level
-        tw.WriteLine("bound" + span b.Span)
-        path tw (level + 1) b
-
-let param (tw: TextWriter) level (p: Param) =
-    indent tw level
-    tw.Write "pat: "
-    pat tw (level + 1) p.Pat
-
-    match p.Ty with
-    | None -> ()
-    | Some t ->
-        indent tw level
-        tw.Write "type: "
-        ty tw (level + 1) t
-
-let rec cond (tw: TextWriter) level (c: Cond) =
-    let propIdent () = indent tw (level + 1)
-
-    match c with
-    | BoolCond e -> expr tw level e
-    | LetCond l ->
-        tw.WriteLine $"Let{span l.Span}"
-
-        propIdent ()
-        tw.Write "pat: "
-        pat tw (level + 1) l.Pat
-
-        propIdent ()
-        tw.Write "value: "
-        expr tw (level + 1) l.Value
-
-and expr (tw: TextWriter) level (e: Expr) =
-    let s = span e.Span
-    let propIdent () = indent tw (level + 1)
-    let childIdent () = indent tw (level + 2)
-
-    match e with
-    | Id i -> tw.WriteLine(id i)
-    | SelfExpr _ -> tw.WriteLine("Self" + s)
-    | LitExpr l -> tw.WriteLine(lit l)
-    | Call c ->
-        tw.WriteLine("Call" + s)
-
-        propIdent ()
-        tw.Write $"callee: "
-        expr tw (level + 1) c.Callee
-
-        for arg in c.Arg do
-            propIdent ()
-            tw.Write "arg: "
-            expr tw (level + 1) arg
-
-    | Unary u ->
-        tw.WriteLine("Unary" + s)
-
-        propIdent ()
-        tw.WriteLine("op: " + u.Op.ToString)
-
-        propIdent ()
-        tw.Write "value: "
-        expr tw (level + 1) u.Value
-
-    | Assign a ->
-        tw.WriteLine("Assign" + s)
-
-        propIdent ()
-        tw.Write "place: "
-        expr tw (level + 1) a.Place
-
-        propIdent ()
-
-        match a.Op with
-        | Some op -> tw.WriteLine $"op: {op.ToString}="
-        | None -> tw.WriteLine "op: ="
-
-        propIdent ()
-        tw.Write "value: "
-        expr tw (level + 1) a.Value
-
-    | Binary b ->
-        tw.WriteLine("Binary" + s)
-
-        propIdent ()
-        tw.Write "left: "
-        expr tw (level + 1) b.Left
-
-        propIdent ()
-        tw.WriteLine("op: " + b.Op.ToString)
-
-        propIdent ()
-        tw.Write "right: "
-        expr tw (level + 1) b.Right
-
-    | Field f ->
-        tw.WriteLine("Field" + s)
-
-        propIdent ()
-        tw.Write "receiver: "
-        expr tw (level + 1) f.Receiver
-
-        propIdent ()
-        tw.Write "field: "
-        tw.WriteLine(id f.Field)
-
-    | TupleAccess t ->
-        tw.WriteLine("TupleAccess" + s)
-
-        propIdent ()
-        tw.Write "receiver: "
-        expr tw (level + 1) t.Receiver
-
-        propIdent ()
-        let idx, s = t.Index
-        tw.WriteLine $"field: {idx}{span s}"
-
-    | Index i ->
-        tw.WriteLine("Index" + s)
-
-        propIdent ()
-        tw.Write "container: "
-        expr tw (level + 1) i.Container
-
-        propIdent ()
-        tw.Write $"index: "
-        expr tw (level + 1) i.Index
-
-    | Array a ->
-        tw.WriteLine("Array" + s)
-
-        for item in a.Ele do
-            propIdent ()
-            expr tw (level + 1) item
-
-    | ArrayRepeat a ->
-        tw.WriteLine("Array" + s)
-
-        propIdent ()
-        tw.Write "ele: "
-        expr tw (level + 1) a.Ele
-
-        propIdent ()
-        tw.Write "length: "
-        expr tw (level + 1) a.Len
-
-    | Tuple t ->
-        tw.WriteLine("Tuple" + s)
-
-        for item in t.Ele do
-            propIdent ()
-            expr tw (level + 1) item
-
-    | Range r ->
-        tw.WriteLine("Range" + s)
-
-        match r.From with
-        | Some from ->
-            propIdent ()
-            tw.Write "from: "
-            expr tw (level + 1) from
-        | None -> ()
-
-        propIdent ()
-        tw.WriteLine("exclusive: " + string r.Exclusive)
-
-        match r.To with
-        | Some to_ ->
-            propIdent ()
-            tw.Write "to: "
-            expr tw (level + 1) to_
-        | None -> ()
-
-    | StructLit stru ->
-        tw.WriteLine("Struct" + s)
-
-        propIdent ()
-        tw.WriteLine("struct" + span stru.Struct.Span)
-        path tw (level + 2) stru.Struct
-
-        for f in stru.Field do
-            propIdent ()
-            tw.Write $"field: "
-
-            match f with
-            | ShorthandField s -> tw.WriteLine(id s)
-            | KeyValueField k ->
-                tw.WriteLine("key value" + span k.Span)
-
-                childIdent ()
-                tw.WriteLine $"key: {id k.Name}"
-
-                childIdent ()
-                tw.Write $"value: "
-                expr tw (level + 2) k.Value
-            | RestField s ->
-                tw.WriteLine("rest" + span s.Span)
-                childIdent ()
-                expr tw (level + 2) s.Value
-
-    | Closure c ->
-        tw.WriteLine("Closure" + s)
-
-        for p in c.Param do
-            propIdent ()
-            tw.WriteLine("param" + span p.Span)
-            param tw (level + 2) p
-
-        match c.Ret with
-        | None -> ()
-        | Some r ->
-            propIdent ()
-            tw.Write $"ret: "
-            ty tw (level + 1) r
-
-        propIdent ()
-        tw.Write $"body: "
-        expr tw (level + 1) c.Body
-
-    | Path p ->
-        tw.WriteLine("Path" + s)
-
-        path tw (level + 1) p
-    | Break _ -> tw.WriteLine("Break" + s)
-    | Continue _ -> tw.WriteLine("Continue" + s)
-    | Return r ->
-        tw.WriteLine("Return" + s)
-
-        match r.Value with
-        | Some v ->
-            propIdent ()
-            tw.Write "value: "
-            expr tw (level + 1) v
-        | None -> ()
-
-    | TryReturn t ->
-        tw.WriteLine("TryReturn" + s)
-
-        propIdent ()
-        expr tw (level + 1) t.Base
-
-    | Block b ->
-        tw.WriteLine("Block" + s)
-        block tw (level + 1) b
-
-    | If i ->
-        tw.WriteLine("If" + s)
-
-        propIdent ()
-        tw.Write "cond: "
-        cond tw (level + 1) i.Cond
-
-        propIdent ()
-        tw.WriteLine("then" + span i.Then.Span)
-        block tw (level + 2) i.Then
-
-        for e in i.ElseIf do
-            propIdent ()
-            tw.WriteLine("else if" + span e.Span)
-
-            childIdent ()
-            tw.Write "cond: "
-            cond tw (level + 2) e.Cond
-
-            childIdent ()
-            tw.WriteLine("body" + span e.Block.Span)
-            block tw (level + 3) i.Then
-
-        match i.Else with
-        | Some e ->
-            propIdent ()
-            tw.WriteLine("else" + span e.Span)
-            block tw (level + 2) e
-        | None -> ()
-
-    | Match m ->
-        tw.WriteLine("Match" + s)
-
-        propIdent ()
-        tw.Write "value: "
-        expr tw (level + 1) m.Value
-
-        for b in m.Branch do
-            propIdent ()
-            tw.WriteLine("branch" + span b.Span)
-
-            childIdent ()
-            tw.Write "pat: "
-            pat tw (level + 2) b.Pat
-
-            match b.Guard with
+            this.Prop "prefix"
+            tw.WriteLine p.ToString
+
+        for (i, t) in p.Seg do
+            this.Prop "seg"
+            this.Id i
+
+            for t in t do
+                this.Prop "type arg"
+                this.Type t
+
+    member this.Type(t: Type) =
+        let s = this.Span t.Span
+
+        level <- level + 1
+
+        match t with
+        | IdType i -> this.Id i
+        | LitType l -> tw.WriteLine(this.Lit l)
+        | PathType p ->
+            tw.WriteLine("Path" + s)
+            this.Path p
+        | InferedType _ -> tw.WriteLine("_" + s)
+        | NeverType _ -> tw.WriteLine("!" + s)
+        | NegType r ->
+            tw.WriteLine("Neg" + s)
+            this.Indent()
+            this.Type r.Ty
+        | RefType r ->
+            tw.WriteLine("Ref" + s)
+            this.Indent()
+            this.Type r.Ty
+
+        | TupleType t ->
+            tw.WriteLine("Tuple" + s)
+
+            for t in t.Ele do
+                this.Indent()
+                this.Type t
+
+        | ArrayType a ->
+            tw.WriteLine("Array" + s)
+
+            this.Prop "element"
+            this.Type a.Ele
+
+            match a.Len with
             | None -> ()
-            | Some g ->
-                childIdent ()
-                tw.Write "guard: "
-                expr tw (level + 2) g
+            | Some l ->
+                this.Indent()
+                tw.WriteLine("length" + this.Span l.Span)
+                level <- level + 1
+                this.Indent()
+                this.Type l
+                level <- level - 1
 
-            childIdent ()
-            tw.Write "expr: "
-            expr tw (level + 2) b.Expr
+        | FnType f ->
+            tw.WriteLine("Fn" + s)
 
-    | While w ->
-        tw.WriteLine("While" + s)
+            for t in f.Param do
+                this.Prop "param"
+                this.Type t
 
-        propIdent ()
-        tw.Write "cond: "
-        cond tw (level + 1) w.Cond
+            this.Prop "ret"
+            this.Type f.Ret
 
-        propIdent ()
-        tw.WriteLine("body" + span w.Body.Span)
-        block tw (level + 2) w.Body
+        level <- level - 1
 
-    | For f ->
-        tw.WriteLine("For" + s)
+    member this.TyParam(p: TyParam) =
+        this.Prop "id"
+        this.Id p.Id
 
-        propIdent ()
-        tw.Write "pat: "
-        pat tw (level + 1) f.Pat
+        if p.Const then
+            this.Prop "const"
+            tw.WriteLine("true")
 
-        propIdent ()
-        tw.Write "iterator: "
-        expr tw (level + 1) f.Iter
+        for b in p.Bound do
+            this.Child "bound" b.Span this.Path b
 
-        propIdent ()
-        tw.WriteLine("body" + span f.Body.Span)
-        block tw (level + 2) f.Body
+    member this.Param(p: Param) =
+        level <- level + 1
 
-and block (tw: TextWriter) level (b: Block) =
-    for s in b.Stmt do
-        indent tw level
-        stmt tw level s
+        this.Prop "pat"
+        this.Pat p.Pat
 
-and stmt (tw: TextWriter) level s =
-    match s with
-    | ExprStmt e -> expr tw level e
-    | DeclStmt d -> decl tw level d
-
-and decl (tw: TextWriter) level (decl: Decl) =
-    let s = span decl.Span
-    let propIdent () = indent tw (level + 1)
-    let childIdent () = indent tw (level + 2)
-
-    let name (i: Id) =
-        propIdent ()
-        tw.WriteLine("name: " + id i)
-
-    let tyParam level (param: TyParam[]) =
-        for p in param do
-            propIdent ()
-            tw.WriteLine("type param" + span p.Span)
-            tyParam tw (level + 1) p
-
-    let func level (f: Fn) =
-        indent tw level
-        tw.WriteLine("name: " + id f.Name)
-
-        tyParam level f.TyParam
-
-        for p in f.Param do
-            indent tw level
-            tw.WriteLine("param" + span p.Span)
-            param tw (level + 1) p
-
-        match f.Ret with
-        | None -> ()
-        | Some r ->
-            indent tw level
-            tw.Write "ret: "
-            ty tw (level + 1) r
-
-        indent tw level
-        tw.WriteLine("body" + span f.Body.Span)
-        block tw (level + 1) f.Body
-
-    match decl with
-    | Let l ->
-        tw.WriteLine("Let" + s)
-
-        if l.Mut then
-            propIdent ()
-            tw.WriteLine "mut: true"
-
-        propIdent ()
-        tw.Write "pat: "
-        pat tw (level + 1) l.Pat
-
-        match l.Ty with
+        match p.Ty with
         | None -> ()
         | Some t ->
-            propIdent ()
-            tw.Write "type: "
-            ty tw (level + 1) t
+            this.Prop "type"
+            this.Type t
 
-        propIdent ()
-        tw.Write "value: "
-        expr tw (level + 1) l.Value
+        level <- level - 1
 
-    | Const _ -> failwith "Not Implemented"
-    | FnDecl f ->
-        tw.WriteLine("Function" + s)
-        func (level + 1) f
+    member this.Cond(c: Cond) =
+        match c with
+        | BoolCond e -> this.Expr e
+        | LetCond l ->
+            tw.WriteLine("Let" + this.Span l.Span)
 
-    | StructDecl stru ->
-        tw.WriteLine("Struct" + s)
+            level <- level + 1
 
-        name stru.Name
+            this.Prop "pat"
+            this.Pat l.Pat
 
-        tyParam (level + 1) stru.TyParam
+            this.Prop "value"
+            this.Expr l.Value
+            level <- level - 1
 
-        for p in stru.Field do
-            propIdent ()
-            tw.WriteLine("field" + span p.Span)
+    member this.Expr(e: Expr) =
+        let s = this.Span e.Span
 
-            childIdent ()
-            tw.WriteLine("vis: " + p.Vis.ToString)
+        level <- level + 1
 
-            childIdent ()
-            tw.WriteLine("name: " + id p.Name)
+        match e with
+        | Id i -> this.Id i
+        | SelfExpr _ -> tw.WriteLine("Self" + s)
+        | LitExpr l -> tw.WriteLine(this.Lit l)
+        | Call c ->
+            tw.WriteLine("Call" + s)
 
-            childIdent ()
-            tw.Write "type: "
-            ty tw (level + 2) p.Ty
+            this.Prop "callee"
+            this.Expr c.Callee
 
-    | EnumDecl e ->
-        tw.WriteLine("Enum" + s)
+            for arg in c.Arg do
+                this.Prop "arg"
+                this.Expr arg
 
-        name e.Name
+        | Unary u ->
+            tw.WriteLine("Unary" + s)
 
-        tyParam (level + 1) e.TyParam
+            this.Prop "op"
+            tw.WriteLine u.Op.ToString
 
-        for p in e.Variant do
-            propIdent ()
-            tw.WriteLine("variant" + span p.Span)
+            this.Prop "value"
+            this.Expr u.Value
 
-            childIdent ()
-            tw.WriteLine("name: " + id p.Name)
+        | Assign a ->
+            tw.WriteLine("Assign" + s)
 
-            for p in p.Payload do
-                childIdent ()
-                tw.Write "payload: "
-                ty tw (level + 2) p
+            this.Prop "place"
+            this.Expr a.Place
 
-    | TypeDecl t ->
-        tw.WriteLine("Type" + s)
+            this.Prop "op"
 
-        name t.Name
+            match a.Op with
+            | Some op -> tw.Write op.ToString
+            | None -> ()
 
-        propIdent ()
-        tw.WriteLine("type" + span t.Ty.Span)
-        ty tw (level + 1) t.Ty
+            tw.WriteLine "="
 
-    | Use u ->
-        tw.WriteLine("Use" + s)
+            this.Prop "value"
+            this.Expr a.Value
 
-        match u.Prefix with
-        | None -> ()
-        | Some p ->
-            propIdent ()
-            tw.WriteLine("prefix: " + p.ToString)
+        | Binary b ->
+            tw.WriteLine("Binary" + s)
 
-        for s in u.Seg do
-            propIdent ()
-            tw.WriteLine("seg: " + id s)
+            this.Prop "left"
+            this.Expr b.Left
 
-        propIdent ()
-        tw.WriteLine("item" + span u.Item.Span)
+            this.Prop "op"
+            tw.WriteLine b.Op.ToString
 
-    | Trait t ->
-        tw.WriteLine("Trait" + s)
+            this.Prop "right"
+            this.Expr b.Right
 
-        name t.Name
+        | Field f ->
+            tw.WriteLine("Field" + s)
 
-        tyParam (level + 1) t.TyParam
+            this.Prop "receiver"
+            this.Expr f.Receiver
 
-        for s in t.Super do
-            propIdent ()
-            tw.WriteLine("super" + span s.Span)
-            path tw (level + 2) s
+            this.Prop "field"
+            this.Id f.Field
 
-        for i in t.Item do
-            propIdent ()
-            tw.Write("item: ")
+        | TupleAccess t ->
+            tw.WriteLine("TupleAccess" + s)
 
-            let s = span i.Span
+            this.Prop "receiver"
+            this.Expr t.Receiver
 
-            match i with
-            | TraitMethod m ->
-                tw.WriteLine("trait method" + s)
+            this.Prop "field"
+            let idx, s = t.Index
+            tw.WriteLine $"{idx}{this.Span s}"
 
-                childIdent ()
-                tw.WriteLine("name: " + id m.Name)
+        | Index i ->
+            tw.WriteLine("Index" + s)
 
-                for p in m.Param do
-                    childIdent ()
-                    tw.WriteLine("param" + span p.Span)
-                    param tw (level + 3) p
+            this.Prop "container"
+            this.Expr i.Container
 
-                match m.Ret with
+            this.Prop "index"
+            this.Expr i.Index
+
+        | Array a ->
+            tw.WriteLine("Array" + s)
+
+            for item in a.Ele do
+                this.Indent()
+                this.Expr item
+
+        | ArrayRepeat a ->
+            tw.WriteLine("Array" + s)
+
+            this.Prop "ele"
+            this.Expr a.Ele
+
+            this.Prop "length"
+            this.Expr a.Len
+
+        | Tuple t ->
+            tw.WriteLine("Tuple" + s)
+
+            for item in t.Ele do
+                this.Indent()
+                this.Expr item
+
+        | Range r ->
+            tw.WriteLine("Range" + s)
+
+            match r.From with
+            | Some from ->
+                this.Prop "from"
+                this.Expr from
+            | None -> ()
+
+            this.Prop "exclusive"
+            tw.WriteLine(string r.Exclusive)
+
+            match r.To with
+            | Some to_ ->
+                this.Prop "to"
+                this.Expr to_
+            | None -> ()
+
+        | StructLit stru ->
+            tw.WriteLine("Struct" + s)
+
+            this.Child "struct" stru.Struct.Span this.Path stru.Struct
+
+            for f in stru.Field do
+                this.Prop "field"
+
+                level <- level + 1
+
+                match f with
+                | ShorthandField s -> this.Id s
+                | KeyValueField k ->
+                    tw.WriteLine("key value" + this.Span k.Span)
+
+                    this.Prop "key"
+                    this.Id k.Name
+
+                    this.Prop "value"
+                    this.Expr k.Value
+                | RestField s ->
+                    tw.WriteLine("rest" + this.Span s.Span)
+                    this.Indent()
+                    this.Expr s.Value
+
+                level <- level - 1
+
+        | Closure c ->
+            tw.WriteLine("Closure" + s)
+
+            for p in c.Param do
+                this.Indent()
+                tw.WriteLine("param" + this.Span p.Span)
+                this.Param p
+
+            match c.Ret with
+            | Some r ->
+                this.Prop "ret"
+                this.Type r
+            | None -> ()
+
+            this.Prop "body"
+            this.Expr c.Body
+
+        | Path p ->
+            tw.WriteLine("Path" + s)
+            this.Path p
+
+        | Break _ -> tw.WriteLine("Break" + s)
+        | Continue _ -> tw.WriteLine("Continue" + s)
+        | Return r ->
+            tw.WriteLine("Return" + s)
+
+            match r.Value with
+            | Some v ->
+                this.Prop "value"
+                this.Expr v
+            | None -> ()
+
+        | TryReturn t ->
+            tw.WriteLine("TryReturn" + s)
+            this.Indent()
+            this.Expr t.Base
+
+        | Block b ->
+            tw.WriteLine("Block" + s)
+            this.Block b
+
+        | If i ->
+            tw.WriteLine("If" + s)
+
+            this.Prop "cond"
+            this.Cond i.Cond
+
+            this.Child "then" i.Then.Span this.Block i.Then
+
+            for e in i.ElseIf do
+                this.Indent()
+                tw.WriteLine("else if" + this.Span e.Span)
+
+                level <- level + 1
+
+                this.Prop "cond"
+                this.Cond e.Cond
+
+                this.Child "body" e.Block.Span this.Block e.Block
+
+                level <- level - 1
+
+            match i.Else with
+            | Some e -> this.Child "else" e.Span this.Block e
+            | None -> ()
+
+        | Match m ->
+            tw.WriteLine("Match" + s)
+
+            this.Prop "value"
+            this.Expr m.Value
+
+            for b in m.Branch do
+                this.Indent()
+                tw.WriteLine("branch" + this.Span b.Span)
+
+                level <- level + 1
+                this.Prop "pat"
+                this.Pat b.Pat
+
+                match b.Guard with
                 | None -> ()
-                | Some r ->
-                    childIdent ()
-                    tw.Write "ret: "
-                    ty tw (level + 3) r
+                | Some g ->
+                    this.Prop "guard"
+                    this.Expr g
 
-                match m.Default with
-                | None -> ()
-                | Some f ->
-                    childIdent ()
-                    tw.WriteLine("body" + span f.Span)
-                    block tw (level + 3) f
+                this.Prop "expr"
+                this.Expr b.Expr
 
-            | TraitType t -> tw.WriteLine("trait type" + s)
-            | TraitValue v -> tw.WriteLine("trait value" + s)
+                level <- level - 1
 
-    | Impl i ->
-        tw.WriteLine("Impl" + s)
+        | While w ->
+            tw.WriteLine("While" + s)
 
-        tyParam (level + 1) i.TyParam
+            this.Prop "cond"
+            this.Cond w.Cond
 
-        match i.Trait with
-        | None -> ()
-        | Some t ->
-            propIdent ()
-            tw.WriteLine("trait" + span t.Span)
-            path tw (level + 2) t
+            this.Child "body" w.Body.Span this.Block w.Body
 
-        propIdent ()
-        tw.Write "type: "
-        ty tw (level + 1) i.Ty
+        | For f ->
+            tw.WriteLine("For" + s)
 
-        for i in i.Item do
-            propIdent ()
-            tw.WriteLine("visibility: " + i.Vis.ToString)
+            this.Prop "pat"
+            this.Pat f.Pat
 
-            propIdent ()
-            tw.Write("item: ")
+            this.Prop "iterator"
+            this.Expr f.Iter
 
-            let s = span i.Span
+            this.Child "body" f.Body.Span this.Block f.Body
 
-            match i.Item with
-            | Method f ->
-                tw.WriteLine("method" + s)
-                func (level + 2) f
+        level <- level - 1
 
-            | AssocType(_) -> failwith "Not Implemented"
-            | AssocValue(_) -> failwith "Not Implemented"
+    member this.Block(b: Block) =
+        for s in b.Stmt do
+            this.Indent()
+            this.Stmt s
 
-let moduleItem (tw: TextWriter) level (item: ModuleItem) =
-    let propIdent () = indent tw (level + 1)
+    member this.Stmt s =
+        match s with
+        | ExprStmt e -> this.Expr e
+        | DeclStmt d -> this.Decl d
 
-    tw.WriteLine $"ModuleItem{span item.Span}"
+    member this.Decl(decl: Decl) =
+        let s = this.Span decl.Span
+        level <- level + 1
 
-    propIdent ()
-    tw.WriteLine("visibility: " + item.Vis.ToString)
+        let name (i: Id) =
+            this.Prop "name"
+            this.Id i
 
-    propIdent ()
-    tw.Write "item: "
-    decl tw (level + 1) item.Decl
+        let tyParam (param: TyParam[]) =
+            for p in param do
+                this.Child "type param" p.Span this.TyParam p
+
+        let func (f: Fn) =
+            name f.Name
+
+            tyParam f.TyParam
+
+            for p in f.Param do
+                this.Indent()
+                tw.WriteLine("param" + this.Span p.Span)
+                this.Param p
+
+            match f.Ret with
+            | None -> ()
+            | Some r ->
+                this.Prop "ret"
+                level <- level + 1
+                this.Type r
+                level <- level - 1
+
+            this.Child "body" f.Body.Span this.Block f.Body
+
+        match decl with
+        | Let l ->
+            tw.WriteLine("Let" + s)
+
+            if l.Mut then
+                this.Prop "mut"
+                tw.WriteLine "true"
+
+            this.Prop "pat"
+            this.Pat l.Pat
+
+            match l.Ty with
+            | None -> ()
+            | Some t ->
+                this.Prop "type"
+                this.Type t
+
+            this.Prop "value"
+            this.Expr l.Value
+
+        | Const _ -> failwith "Not Implemented"
+        | FnDecl f ->
+            tw.WriteLine("Function" + s)
+            func f
+
+        | StructDecl stru ->
+            tw.WriteLine("Struct" + s)
+
+            name stru.Name
+
+            tyParam stru.TyParam
+
+            for p in stru.Field do
+                this.Indent()
+                tw.WriteLine("field" + this.Span p.Span)
+
+                level <- level + 1
+                this.Prop "visibility"
+                tw.WriteLine p.Vis.ToString
+
+                name p.Name
+
+                this.Prop "type"
+                this.Type p.Ty
+                level <- level - 1
+
+        | EnumDecl e ->
+            tw.WriteLine("Enum" + s)
+
+            name e.Name
+
+            tyParam e.TyParam
+
+            for v in e.Variant do
+                this.Indent()
+                tw.WriteLine("variant" + this.Span v.Span)
+
+                level <- level + 1
+
+                name v.Name
+
+                for p in v.Payload do
+                    this.Prop "payload"
+                    this.Type p
+
+                level <- level - 1
+
+        | TypeDecl t ->
+            tw.WriteLine("Type" + s)
+
+            name t.Name
+
+            this.Child "type" t.Ty.Span this.Type t.Ty
+
+        | Use u ->
+            tw.WriteLine("Use" + s)
+
+            match u.Prefix with
+            | None -> ()
+            | Some p ->
+                this.Prop "prefix"
+                tw.WriteLine p.ToString
+
+            for s in u.Seg do
+                this.Prop "seg"
+                this.Id s
+
+            this.Prop "item"
+            tw.WriteLine(this.Span u.Item.Span)
+
+        | Trait t ->
+            tw.WriteLine("Trait" + s)
+
+            name t.Name
+
+            tyParam t.TyParam
+
+            for s in t.Super do
+                this.Child "super" s.Span this.Path s
+
+            for i in t.Item do
+                this.Prop "item"
+
+                let s = this.Span i.Span
+
+                level <- level + 1
+
+                match i with
+                | TraitMethod m ->
+                    tw.WriteLine("trait method" + s)
+
+                    name m.Name
+
+                    for p in m.Param do
+                        this.Indent()
+                        tw.WriteLine("param" + this.Span p.Span)
+                        this.Param p
+
+                    match m.Ret with
+                    | None -> ()
+                    | Some r ->
+                        this.Prop "ret"
+                        this.Type r
+
+                    match m.Default with
+                    | None -> ()
+                    | Some f -> this.Child "body" f.Span this.Block f
+
+                | TraitType t -> tw.WriteLine("trait type" + s)
+                | TraitValue v -> tw.WriteLine("trait value" + s)
+
+                level <- level - 1
+
+        | Impl i ->
+            tw.WriteLine("Impl" + s)
+
+            tyParam i.TyParam
+
+            match i.Trait with
+            | None -> ()
+            | Some t -> this.Child "trait" t.Span this.Path t
+
+            this.Prop "type"
+            this.Type i.Ty
+
+            for i in i.Item do
+                this.Prop "visibility"
+                tw.WriteLine i.Vis.ToString
+
+                this.Prop "item"
+
+                let s = this.Span i.Span
+
+                level <- level + 1
+
+                match i.Item with
+                | Method f ->
+                    tw.WriteLine("method" + s)
+                    func f
+
+                | AssocType(_) -> failwith "Not Implemented"
+                | AssocValue(_) -> failwith "Not Implemented"
+
+                level <- level - 1
+
+        level <- level - 1
+
+    member this.ModuleItem(item: ModuleItem) =
+        tw.WriteLine $"ModuleItem{this.Span item.Span}"
+
+        tw.WriteLine("visibility: " + item.Vis.ToString)
+
+        tw.Write "item: "
+        this.Decl item.Decl
+
+    member this.Module(m: Module) =
+        tw.WriteLine $"Module{this.Span m.Span}"
+        level <- level + 1
+
+        for item in m.Item do
+            this.Indent()
+            this.ModuleItem item
+
+        level <- level - 1
 
 let dump (tw: TextWriter) (m: Module) =
-    tw.WriteLine $"Module{span m.Span}"
-
-    for item in m.Item do
-        indent tw 1
-
-        moduleItem tw 1 item
+    let d = Dump(tw)
+    d.Module m
