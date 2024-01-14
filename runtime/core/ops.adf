@@ -20,11 +20,11 @@ pub trait PartialEq {
 
 pub trait Eq: PartialEq { }
 
-// pub enum Ordering {
-//     Less = -1,
-//     Equal = 0,
-//     Greater = 1,
-// }
+pub enum Ordering {
+    Less = -1,
+    Equal = 0,
+    Greater = 1,
+}
 
 pub trait PartialOrd: PartialEq {
     // Required method

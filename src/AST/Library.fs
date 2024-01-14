@@ -538,6 +538,7 @@ and StructDecl =
 and EnumVariantDef =
     { Name: Id
       Payload: Type[]
+      Tag: Option<Expr>
       Span: Span }
 
 and EnumDecl =

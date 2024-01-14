@@ -622,6 +622,16 @@ type Dump(tw: TextWriter) =
 
                 name v.Name
 
+                match v.Tag with
+                | Some v ->
+                    this.Indent()
+                    tw.WriteLine("tag" + this.Span v.Span)
+                    level <- level + 1
+                    this.Indent()
+                    this.Expr v
+                    level <- level - 1
+                | None -> ()
+
                 for p in v.Payload do
                     this.Prop "payload"
                     this.Type p

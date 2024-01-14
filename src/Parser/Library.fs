@@ -1308,8 +1308,20 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                         this.CommaSeq this.Type (Close Paren)
                     | _ -> [||], name.Span
 
+                let value, last =
+                    match lexer.PeekInline() with
+                    | Some { Data = Eq } ->
+                        lexer.Consume()
+
+                        let value = this.Expr()
+
+                        Some value, value.Span
+
+                    | _ -> None, last
+
                 { Name = name
                   Payload = payload
+                  Tag = value
                   Span = name.Span.WithLast last }
 
             let old = ctx
