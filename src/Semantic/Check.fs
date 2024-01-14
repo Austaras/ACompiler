@@ -752,7 +752,6 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
 
                 TBool
             | Pipe -> failwith "Not Implemented"
-            | As -> failwith "Not Implemented"
 
         | SelfExpr(_) -> failwith "Not Implemented"
         | LitExpr l ->
@@ -852,6 +851,7 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
             )
 
             ret
+        | As _ -> failwith "Not Implemented"
         | Unary u ->
             match u.Op with
             | Not ->

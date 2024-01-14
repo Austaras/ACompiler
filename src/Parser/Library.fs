@@ -290,7 +290,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
 
     member this.PatAs pat =
         match lexer.Peek() with
-        | Some { Data = Operator As } ->
+        | Some { Data = Reserved AS } ->
             lexer.Consume()
 
             let id = lexer.ReadId "As Pattern Name"
@@ -955,6 +955,19 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
 
             this.ExprPostfix tryReturn
 
+        | Some { Data = Reserved AS; Span = span } ->
+            lexer.Consume()
+
+            let ty = this.Type()
+
+            let as_ =
+                As
+                    { Value = expr
+                      Ty = ty
+                      Span = expr.Span.WithLast ty.Span }
+
+            this.ExprPostfix as_
+
         | _ -> expr
 
     member this.ExprPrec (prec: int) (canCurly: bool) (expr: Expr) =
@@ -1133,33 +1146,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
             match lexer.Peek() with
             | Some { Data = ColonColon } ->
                 lexer.Consume()
-                let { Data = data; Span = span } as token = lexer.Read "Use Segment"
-
-                match data with
-                | Identifier sym ->
-                    let id = { Sym = sym; Span = span }
-                    seg.Push id
-
-                    item seg
-                | Operator(Arith Mul) -> seg.ToArray(), UseAll span
-                | Reserved LOWSELF -> seg.ToArray(), UseSelf span
-                | Open Curly ->
-                    let parser () =
-                        let seg, item = item (Stack())
-
-                        let first = Array.tryHead seg |> Option.map _.Span |> Option.defaultValue item.Span
-
-                        { Seg = seg
-                          Item = item
-                          Span = first.WithLast item.Span }
-
-                    let item, last = this.CommaSeq parser (Close Curly)
-
-                    let span = span.WithLast last
-
-                    seg.ToArray(), UseMany(span, item)
-                | _ -> raise (ParserExp(UnexpectedToken(token, "Path Segment")))
-
+                subItem seg
             | _ ->
                 if seg.Count = 0 then
                     seg.ToArray(), UseSelf Span.dummy
@@ -1167,6 +1154,33 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                     let last = seg.Pop()
 
                     seg.ToArray(), UseItem last
+
+        and subItem (seg: Stack<Id>) =
+            let { Data = data; Span = span } as token = lexer.Read "Use Segment"
+
+            match data with
+            | Identifier sym ->
+                let id = { Sym = sym; Span = span }
+                seg.Push id
+                item seg
+            | Operator(Arith Mul) -> seg.ToArray(), UseAll span
+            | Reserved LOWSELF -> seg.ToArray(), UseSelf span
+            | Open Curly ->
+                let parser () =
+                    let seg, item = subItem (Stack())
+
+                    let first = Array.tryHead seg |> Option.map _.Span |> Option.defaultValue item.Span
+
+                    { Seg = seg
+                      Item = item
+                      Span = first.WithLast item.Span }
+
+                let item, last = this.CommaSeq parser (Close Curly)
+
+                let span = span.WithLast last
+
+                seg.ToArray(), UseMany(span, item)
+            | _ -> raise (ParserExp(UnexpectedToken(token, "Use Segment")))
 
         match prefix with
         | Left id ->

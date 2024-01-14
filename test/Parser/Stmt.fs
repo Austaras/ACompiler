@@ -50,6 +50,8 @@ let snap = TextSnapshot("snap", basePath)
              "trait Summary {
     fn summarize(&self) -> String
 }")>]
+
+[<InlineData("Use", "use some_name::foo::{self, bar::*, baz::Baz}")>]
 let Decl (name: string) (input: string) =
     let res = parseTest input
     snap.ShouldMatch res name

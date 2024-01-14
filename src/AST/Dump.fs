@@ -273,6 +273,15 @@ type Dump(tw: TextWriter) =
                 this.Prop "arg"
                 this.Expr arg
 
+        | As a ->
+            tw.WriteLine("As" + s)
+
+            this.Prop "value"
+            this.Expr a.Value
+
+            this.Prop "type"
+            this.Type a.Ty
+
         | Unary u ->
             tw.WriteLine("Unary" + s)
 
@@ -658,8 +667,29 @@ type Dump(tw: TextWriter) =
                 this.Prop "seg"
                 this.Id s
 
-            this.Prop "item"
-            tw.WriteLine(this.Span u.Item.Span)
+            let rec item i =
+                this.Prop "item"
+                let s = this.Span u.Item.Span
+
+                match i with
+                | UseAll _ -> tw.WriteLine("*" + s)
+                | UseSelf _ -> tw.WriteLine("self" + s)
+                | UseItem i -> tw.WriteLine(i.Sym + s)
+                | UseMany(_, m) ->
+                    tw.WriteLine("many item" + s)
+
+                    level <- level + 1
+
+                    for path in m do
+                        for i in path.Seg do
+                            this.Prop "seg"
+                            this.Id i
+
+                        item path.Item
+
+                    level <- level - 1
+
+            item u.Item
 
         | Trait t ->
             tw.WriteLine("Trait" + s)

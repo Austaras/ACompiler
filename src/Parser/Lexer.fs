@@ -32,7 +32,7 @@ let internal classify input =
     | "Self" -> Reserved SELF
     | "self" -> Reserved LOWSELF
     | "pak" -> Reserved PACKAGE
-    | "as" -> Operator AST.As
+    | "as" -> Reserved AS
     | "true" -> Lit(AST.Bool true)
     | "false" -> Lit(AST.Bool false)
     | "NaN" -> Lit(AST.Float nan)

@@ -1,0 +1,9 @@
+Use@0..43
+    seg: foo@15..17
+    seg: some_name@0..2
+    item: many item@20..43
+        item: self@20..43
+        seg: bar@27..29
+        item: *@20..43
+        seg: baz@35..37
+        item: Baz@20..43

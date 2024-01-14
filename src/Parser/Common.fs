@@ -38,6 +38,7 @@ type Reserved =
     | SELF
     | LOWSELF
     | PACKAGE
+    | AS
 
 type CommentKind =
     | SingleLine
@@ -176,7 +177,6 @@ let internal canStartExpr token =
 
 let precedence op =
     match op with
-    | As -> 10
     | Arith Mul
     | Arith Div
     | Arith Rem -> 9

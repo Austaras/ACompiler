@@ -82,7 +82,6 @@ type BinaryOp =
     | Logic of LogicOp
     | Cmp of CmpOp
     | Pipe
-    | As
 
     member this.ToString =
         match this with
@@ -90,7 +89,6 @@ type BinaryOp =
         | Logic l -> l.ToString
         | Cmp c -> c.ToString
         | Pipe -> "|>"
-        | As -> "as"
 
 type Visibility =
     | Public
@@ -315,6 +313,8 @@ and Binary =
       Right: Expr
       Span: Span }
 
+and As = { Value: Expr; Ty: Type; Span: Span }
+
 and Field =
     { Receiver: Expr
       Field: Id
@@ -398,6 +398,7 @@ and Expr =
     | If of If
     | Block of Block
     | Call of Call
+    | As of As
     | Unary of Unary
     | Assign of Assign
     | Binary of Binary
@@ -428,6 +429,7 @@ and Expr =
         | If i -> i.Span
         | Block b -> b.Span
         | Call c -> c.Span
+        | As a -> a.Span
         | Unary u -> u.Span
         | Assign a -> a.Span
         | Binary b -> b.Span
@@ -457,6 +459,7 @@ and Expr =
         | If i -> If { i with Span = span }
         | Block b -> Block { b with Span = span }
         | Call c -> Call { c with Span = span }
+        | As a -> As { a with Span = span }
         | Unary u -> Unary { u with Span = span }
         | Assign a -> Assign { a with Span = span }
         | Binary b -> Binary { b with Span = span }
