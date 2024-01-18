@@ -298,7 +298,7 @@ let transform (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
         env.EnterBlock
 
         let fnTy =
-            match sema.Var[f.Name] with
+            match sema.Binding[f.Name] with
             | Semantic.TFn f -> f
             | _ -> failwith "Unreachable"
 

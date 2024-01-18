@@ -3,7 +3,7 @@ module Util.MultiMap
 open System.Collections.Generic
 open System.Linq
 
-type MultiMap<'K, 'V when 'K: equality>(?comparer: IEqualityComparer<'K>) =
+type MultiMap<'K, 'V when 'K: equality and 'K: comparison>(?comparer: IEqualityComparer<'K>) =
 
     let map =
         match comparer with
@@ -43,4 +43,6 @@ type MultiMap<'K, 'V when 'K: equality>(?comparer: IEqualityComparer<'K>) =
 
             elems.GetEnumerator()
 
-    member _.Values = map.Values
+    member _.ToMap =
+        let toArray (k, v) = k, Array.ofSeq v
+        map |> Seq.map (|KeyValue|) |> Seq.map toArray |> Map.ofSeq

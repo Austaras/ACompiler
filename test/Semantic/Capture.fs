@@ -19,9 +19,7 @@ let runCheck input =
 
     Assert.Empty error
 
-    let reform (value: ResizeArray<AST.Id>) = value |> Seq.map _.Sym |> Array.ofSeq
-
-    sema.Capture.Values |> Seq.map reform |> Array.ofSeq
+    Map.values sema.Capture |> Seq.map (Array.map _.Sym) |> Array.ofSeq
 
 [<Fact>]
 let Add () =

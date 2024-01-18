@@ -22,18 +22,6 @@ type Function =
         Ret: Type
     }
 
-    member this.Generalize scopeId =
-        let ofScope (v: Var) = v.Scope = scopeId
-
-        let tvar =
-            (TFn this).FindTVar
-            |> Seq.filter ofScope
-            |> Array.ofSeq
-            |> Array.append this.TVar
-            |> Array.distinct
-
-        { this with TVar = tvar }
-
     member this.Instantiate ty =
         let map = Array.zip this.TVar ty |> Map.ofArray
 
@@ -73,6 +61,7 @@ and Type =
     | TFloat of Float
     | TBool
     | TChar
+    | TString
     // named type can refer each other
     | TStruct of Id * Type[]
     | TEnum of Id * Type[]
@@ -90,7 +79,8 @@ and Type =
             | TInt _
             | TFloat _
             | TBool
-            | TChar -> ()
+            | TChar
+            | TString -> ()
             | TVar v -> yield v
             | TStruct(_, v)
             | TEnum(_, v) ->
@@ -124,6 +114,7 @@ and Type =
         | TFloat F32 -> "f32"
         | TFloat F64 -> "f64"
         | TChar -> "char"
+        | TString -> "string"
         | TStruct(t, v)
         | TEnum(t, v) ->
             if v.Length = 0 then
@@ -157,7 +148,8 @@ and Type =
         | TInt _
         | TFloat _
         | TBool
-        | TChar -> this
+        | TChar
+        | TString -> this
         | TStruct(s, v) -> TStruct(s, v |> Array.map _.Walk(onVar))
         | TEnum(e, v) -> TEnum(e, v |> Array.map _.Walk(onVar))
         | TTuple t -> t |> Array.map _.Walk(onVar) |> TTuple
@@ -198,10 +190,10 @@ type ModuleType =
       Module: Map<string, ModuleType> }
 
 type SemanticInfo =
-    { Var: Map<Id, Type>
+    { Binding: Map<Id, Type>
       Struct: Map<Id, Struct>
       Enum: Map<Id, Enum>
-      Capture: MultiMap<Closure, Id>
+      Capture: Map<Closure, Id[]>
       Module: ModuleType }
 
 type Error =

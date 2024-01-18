@@ -22,7 +22,7 @@ let runInfer input =
 
     let map (id: AST.Id, t: Type) = (id.Sym, t.ToString)
 
-    sema.Var |> Map.toSeq |> Seq.map map |> Map.ofSeq
+    sema.Binding |> Map.toSeq |> Seq.map map |> Map.ofSeq
 
 let runInferFromExample path =
     File.ReadAllText(__SOURCE_DIRECTORY__ + "/../../example/" + path) |> runInfer
@@ -135,18 +135,18 @@ fn foo(f) {
 
     Assert.Equal("|Foo| -> &Foo", autoDeref["foo"])
 
-    //     let derefParam =
-    //         runInfer
-    //             "
-    // struct Foo {
-    //     b: uint
-    // }
+    let derefParam =
+        runInfer
+            "
+    struct Foo {
+        b: uint
+    }
 
-    // fn foo(f: &Foo) {
-    //     f.b
-    // }"
+    fn foo(f: &Foo) {
+        f.b
+    }"
 
-    //     Assert.Equal(derefParam["foo"], "|&Foo| -> &uint")
+    Assert.Equal(derefParam["foo"], "|&Foo| -> uint")
 
     let tuple =
         runInfer
@@ -213,6 +213,9 @@ fn id<T>(x: T) -> T {
     let polyDouble = runInfer "fn double(f, x) { f(f(x)) }"
     Assert.Equal("<Tx>||Tx| -> Tx, Tx| -> Tx", polyDouble["double"])
 
+    let polyDoubleCurly = runInfer "fn double(f) { |x| f(f(x)) }"
+    Assert.Equal("<Tx>||Tx| -> Tx| -> |Tx| -> Tx", polyDoubleCurly["double"])
+
     let polyRec =
         runInfer
             "
@@ -229,7 +232,7 @@ fn bar(x) {
     Assert.Equal("|int| -> int", polyRec["bar"])
 
     let weirdRec = runInfer "fn weird_rec(x) { weird_rec(1) }"
-    Assert.Equal("<T21>|int| -> T21", weirdRec["weird_rec"])
+    Assert.Equal("|int| -> !", weirdRec["weird_rec"])
 
     let explicit =
         runInfer

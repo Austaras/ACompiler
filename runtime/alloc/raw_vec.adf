@@ -1,11 +1,11 @@
 pub struct RawVec<T> {
-    pub ptr: uint,
-    pub len: uint,
-    pub cap: uint
+    ptr: uint,
+    len: uint,
+    cap: uint
 }
 
 impl<T> RawVec<T> {
-    fn malloc(size: uint) -> Self {
+    pub fn malloc(size: uint) -> Self {
         Self {
             ptr: alloc::<T>(size),
             len: 0,
@@ -13,7 +13,7 @@ impl<T> RawVec<T> {
         }
     }
 
-    fn realloc(&self, size: uint) {
+    pub fn realloc(&self, size: uint) {
         let new_ptr = realloc::<T>(self.ptr, size)
 
         self.ptr = new_ptr

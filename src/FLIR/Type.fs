@@ -20,27 +20,32 @@ and Type =
     | TFloat of Float
     | TFn of Function
     | TRef
-    | TSame of Type * int
+    | TSame of Type * uint64
     | TMany of Type[]
 
     static member FromSema (semantic: Semantic.SemanticInfo) (layout: Layout) (ty: Semantic.Type) =
-        match ty with
-        | Semantic.TBool -> TInt I1
-        | Semantic.TInt(_, Semantic.I8) -> TInt I8
-        | Semantic.TInt(_, Semantic.I32) -> TInt I32
-        | Semantic.TInt(_, Semantic.I64) -> TInt I64
-        | Semantic.TInt(_, Semantic.ISize) ->
+        let size =
             match layout.PtrSize with
             | 4 -> I32
             | 8 -> I64
             | _ -> failwith "Not Implemented"
             |> TInt
+
+        match ty with
+        | Semantic.TBool -> TInt I1
+        | Semantic.TInt(_, Semantic.I8) -> TInt I8
+        | Semantic.TInt(_, Semantic.I32) -> TInt I32
+        | Semantic.TInt(_, Semantic.I64) -> TInt I64
+        | Semantic.TInt(_, Semantic.ISize) -> size
         | Semantic.TFloat Semantic.F32 -> TFloat F32
         | Semantic.TFloat Semantic.F64 -> TFloat F64
         | Semantic.TChar -> TInt I32
         | Semantic.TRef _
         | Semantic.TFn _ -> TRef
+        | Semantic.TSlice _
+        | Semantic.TString -> TMany [| TRef; size |]
         | Semantic.TTuple t -> t |> Array.map (Type.FromSema semantic layout) |> TMany
+        | Semantic.TArray(t, n) -> TSame(Type.FromSema semantic layout t, n)
         | Semantic.TStruct(s, p) ->
             let strukt = semantic.Struct[s]
 
@@ -71,7 +76,7 @@ and Type =
         | TSame(s, n) ->
             let size, align = s.SizeAndAlign layout
 
-            size * n, align
+            size * int n, align
         | TMany ty ->
             let sum (size, align) (ty: Type) =
                 let s, a = ty.SizeAndAlign layout

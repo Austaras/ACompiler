@@ -25,7 +25,8 @@ let internal primitive =
        TBool
        TFloat(F32)
        TFloat(F64)
-       TChar |]
+       TChar
+       TString |]
 
 type internal NormalConstraint =
     { Expect: Type
@@ -117,20 +118,18 @@ type internal ActiveScope =
 
 // union find set
 type internal TyUnion() =
-    let pred = Dictionary<Var, Type>()
+    let rel = Dictionary<Var, Type>()
 
-    member _.Add k p = pred[k] <- p
+    member _.Add k p = rel[k] <- p
 
     member this.Find k =
-        if pred.ContainsKey k then
-            let p = pred[k]
+        if rel.ContainsKey k then
+            let p = rel[k]
 
             match p with
             | TVar v ->
                 let p = this.Find v
-
-                pred[k] <- p
-
+                rel[k] <- p
                 p
             | p -> p
         else
@@ -138,11 +137,9 @@ type internal TyUnion() =
 
     member this.Resolve ty =
         let onvar tvar =
-            if pred.ContainsKey tvar then
-                let p = this.Resolve pred[tvar]
-
-                pred[tvar] <- p
-
+            if rel.ContainsKey tvar then
+                let p = this.Resolve rel[tvar]
+                rel[tvar] <- p
                 p
             else
                 TVar tvar
@@ -150,7 +147,7 @@ type internal TyUnion() =
         ty.Walk onvar
 
     member this.TryFind k =
-        if pred.ContainsKey k then Some(this.Find k) else None
+        if rel.ContainsKey k then Some(this.Find k) else None
 
 type internal LetPat = { Mut: bool; Static: bool }
 
@@ -162,8 +159,8 @@ type internal PatMode =
 type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
     let mutable scopeId = 0
 
-    let varRec = Dictionary(HashIdentity.Reference)
-    let structRec = Dictionary(HashIdentity.Reference)
+    let bindingRec = Dictionary(HashIdentity.Reference)
+    let structRec: Dictionary<Id, Struct> = Dictionary(HashIdentity.Reference)
     let enumRec = Dictionary(HashIdentity.Reference)
     let captureRec = MultiMap(HashIdentity.Reference)
 
@@ -174,7 +171,7 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
         scopeId <- scopeId + 1
         Scope.Create scopeId scopeData
 
-    member this.CheckType (scope: ActiveScope) ty =
+    member this.Type (scope: ActiveScope) ty =
         let resolve id =
             match scope.ResolveTy id with
             | Some ty -> ty
@@ -191,7 +188,7 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
 
             let id, ty = p.Seg[0]
 
-            let instType = Array.map (this.CheckType scope) ty
+            let instType = Array.map (this.Type scope) ty
 
             let container = resolve id
 
@@ -202,8 +199,8 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
                 error.Add(GenericMismatch(container, instType, p.Span))
 
                 TNever
-        | TupleType t -> TTuple(Array.map (this.CheckType scope) t.Ele)
-        | RefType r -> TRef(this.CheckType scope r.Ty)
+        | TupleType t -> TTuple(Array.map (this.Type scope) t.Ele)
+        | RefType r -> TRef(this.Type scope r.Ty)
         | InferedType span ->
             let newTVar = scope.Current.NewTVar None span
 
@@ -213,7 +210,7 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
         | FnType _ -> failwith "Not Implemented"
         | NegType(_) -> failwith "Not Implemented"
 
-    member this.CheckPat (scope: ActiveScope) mode pat ty =
+    member _.Pat (scope: ActiveScope) mode pat ty =
         let mut, mayShadow, isCond, static_ =
             match mode with
             | LetPat { Mut = mut; Static = static_ } -> mut, not static_, false, static_
@@ -376,7 +373,470 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
                   Mut = mut
                   Static = static_ }
 
-            varRec[id] <- ty
+            bindingRec[id] <- ty
+
+    member this.Expr (scope: ActiveScope) e =
+        let currScope = scope.Current
+
+        match e with
+        | Id id ->
+            let rec resolveVar captured canCapture i =
+                let curr = scope.Scope[i]
+
+                if curr.Var.ContainsKey id.Sym then
+                    let info = curr.Var[id.Sym]
+
+                    let captured =
+                        if canCapture && not info.Static then
+                            captured
+                        else
+                            if not info.Static then
+                                error.Add(CaptureDynamic id)
+
+                            [||]
+
+                    Some(info, captured)
+                else if i = 0 then
+                    None
+                else
+                    let captured =
+                        match curr.Data with
+                        | ClosureScope { Closure = cl } -> Array.append captured [| cl |]
+                        | _ -> captured
+
+                    let canCapture =
+                        match curr.Data with
+                        | FnScope _ -> false
+                        | _ -> canCapture
+
+                    resolveVar captured canCapture (i - 1)
+
+            match resolveVar [||] true (scope.Scope.Length - 1) with
+            | None ->
+                error.Add(Undefined id)
+                TNever
+            | Some({ Def = def }, captured) ->
+                for c in captured do
+                    captureRec.Add c def
+
+                match bindingRec[def] with
+                | TFn f ->
+                    let newTVar = Array.map (fun _ -> currScope.NewTVar None id.Span) f.TVar
+                    TFn(f.Instantiate newTVar)
+                | t -> t
+
+        | Binary b ->
+            let l = this.Expr scope b.Left
+            let r = this.Expr scope b.Right
+
+            match b.Op with
+            | Arith _ ->
+                currScope.Constr.Add(
+                    CNormal
+                        { Expect = TInt(true, ISize)
+                          Actual = l
+                          Span = b.Left.Span }
+                )
+
+                currScope.Constr.Add(
+                    CNormal
+                        { Expect = TInt(true, ISize)
+                          Actual = r
+                          Span = b.Right.Span }
+                )
+
+                TInt(true, ISize)
+
+            | Logic _ ->
+                currScope.Constr.Add(
+                    CNormal
+                        { Expect = TBool
+                          Actual = l
+                          Span = b.Left.Span }
+                )
+
+                currScope.Constr.Add(
+                    CNormal
+                        { Expect = TBool
+                          Actual = r
+                          Span = b.Right.Span }
+                )
+
+                TBool
+
+            | Cmp _ ->
+                currScope.Constr.Add(
+                    CNormal
+                        { Expect = l
+                          Actual = r
+                          Span = b.Span }
+                )
+
+                TBool
+            | Pipe -> failwith "Not Implemented"
+
+        | SelfExpr(_) -> failwith "Not Implemented"
+        | LitExpr l ->
+            match l.Value with
+            | Int _ -> TInt(true, ISize)
+            | Bool _ -> TBool
+            | Char _ -> TChar
+            | Float _ -> TFloat F64
+            | String _ -> failwith "Not Implemented"
+
+        | If i ->
+            let then_ = this.Cond scope i.Cond i.Then
+
+            for br in i.ElseIf do
+                let elseif = this.Cond scope br.Cond br.Block
+
+                currScope.Constr.Add(
+                    CNormal
+                        { Expect = then_
+                          Actual = elseif
+                          Span = i.Span }
+                )
+
+            match i.Else with
+            | Some else_ ->
+                let else_ = this.Block scope else_
+
+                currScope.Constr.Add(
+                    CNormal
+                        { Expect = then_
+                          Actual = else_
+                          Span = i.Span }
+                )
+            | None ->
+                currScope.Constr.Add(
+                    CNormal
+                        { Expect = then_
+                          Actual = UnitType
+                          Span = i.Span }
+                )
+
+            then_
+        | Match m ->
+            let value = this.Expr scope m.Value
+
+            let typeOfBranch (br: MatchBranch) =
+                let newScope = newScope BlockScope
+                let scope = scope.WithNew newScope
+
+                this.Pat scope CondPat br.Pat value
+
+                match br.Guard with
+                | Some g ->
+                    newScope.Constr.Add(
+                        CNormal
+                            { Actual = this.Expr scope g
+                              Expect = TBool
+                              Span = g.Span }
+                    )
+                | None -> ()
+
+                let brTy = this.Expr scope br.Expr
+
+                this.Unify newScope
+
+                union.Resolve brTy
+
+            if Array.length m.Branch = 0 then
+                UnitType
+            else
+                let first = typeOfBranch m.Branch[0]
+
+                for br in m.Branch[1..] do
+                    let brTy = typeOfBranch br
+
+                    currScope.Constr.Add(
+                        CNormal
+                            { Expect = first
+                              Actual = brTy
+                              Span = br.Span }
+                    )
+
+                first
+
+        | Block b -> this.Block scope b
+        | Call c ->
+            let callee = this.Expr scope c.Callee
+
+            let arg = Array.map (this.Expr scope) c.Arg
+            let ret = TVar(currScope.NewTVar None c.Span)
+
+            currScope.Constr.Add(
+                CNormal
+                    { Expect = TFn { Param = arg; Ret = ret; TVar = [||] }
+                      Actual = callee
+                      Span = c.Span }
+            )
+
+            ret
+        | As _ -> failwith "Not Implemented"
+        | Unary u ->
+            match u.Op with
+            | Not ->
+                currScope.Constr.Add(
+                    CNormal
+                        { Expect = TBool
+                          Actual = this.Expr scope u.Value
+                          Span = u.Span }
+                )
+
+                TBool
+            | Neg ->
+                currScope.Constr.Add(
+                    CNormal
+                        { Expect = TInt(true, ISize)
+                          Actual = this.Expr scope u.Value
+                          Span = u.Span }
+                )
+
+                TInt(true, ISize)
+            | Ref ->
+                let rec getVar expr =
+                    match expr with
+                    | Id i -> Some i
+                    | Field { Receiver = receiver } -> getVar receiver
+                    | Index { Container = container } -> getVar container
+                    | Unary { Op = Deref; Value = expr } -> getVar expr
+                    | _ -> None
+
+                TRef(this.Expr scope u.Value)
+            | Deref ->
+                let sym =
+                    match u.Value with
+                    | Id i -> Some i.Sym
+                    | _ -> None
+
+                let ptr = TVar(currScope.NewTVar sym u.Value.Span)
+
+                currScope.Constr.Add(
+                    CNormal
+                        { Expect = TRef ptr
+                          Actual = this.Expr scope u.Value
+                          Span = u.Span }
+                )
+
+                ptr
+        | Assign a ->
+            let value = this.Expr scope a.Value
+            let place = this.Expr scope a.Place
+
+            currScope.Constr.Add(
+                CNormal
+                    { Expect = place
+                      Actual = value
+                      Span = a.Span }
+            )
+
+            let rec getVar expr =
+                match expr with
+                | Id i -> Some i
+                | Field { Receiver = receiver } -> getVar receiver
+                | Index { Container = container } -> getVar container
+                | Unary { Op = Deref; Value = expr } -> getVar expr
+                | _ -> None
+
+            match getVar a.Place with
+            | None -> ()
+            | Some id ->
+                match scope.ResolveVar id with
+                | None -> ()
+                | Some(info) ->
+                    if not info.Mut then
+                        error.Add(AssignImmutable(info.Def, a.Span))
+
+            UnitType
+        | Field f ->
+            let receiver = this.Expr scope f.Receiver
+            let key = f.Field.Sym
+
+            match receiver with
+            | TStruct(i, inst) ->
+                let stru = structRec[i]
+
+                match Map.tryFind key stru.Field with
+                | Some f -> f.Instantiate stru.TVar inst
+                | None ->
+                    error.Add(UndefinedField(f.Span, key))
+
+                    TNever
+            | _ ->
+                let findStruct scope =
+                    match scope.Field.Get key with
+                    | None -> None
+                    | Some id -> Some structRec[id]
+
+                let stru = scope.Pick findStruct
+
+                match stru with
+                | Some s ->
+                    let inst = Array.map (fun _ -> TVar(currScope.NewTVar None f.Span)) s.TVar
+
+                    currScope.Constr.Add(
+                        CDeref
+                            { Expect = TStruct(s.Name, inst)
+                              Actual = receiver
+                              Span = f.Span }
+                    )
+
+                    s.Field[key].Instantiate s.TVar inst
+                | None ->
+                    error.Add(UndefinedField(f.Span, key))
+                    TNever
+
+        | TupleAccess(_) -> failwith "Not Implemented"
+        | Index(_) -> failwith "Not Implemented"
+        | Array(_) -> failwith "Not Implemented"
+        | ArrayRepeat(_) -> failwith "Not Implemented"
+        | StructLit(_) -> failwith "Not Implemented"
+        | Tuple s -> s.Ele |> Array.map (this.Expr scope) |> TTuple
+        | Closure c ->
+            let paramTy (p: Param) =
+                match p.Ty with
+                | Some ty -> this.Type scope ty
+                | None ->
+                    let sym = p.Pat.Name
+                    let newTVar = currScope.NewTVar sym p.Span
+
+                    TVar newTVar
+
+            let paramTy = Array.map paramTy c.Param
+
+            let retTy =
+                match c.Ret with
+                | Some ty -> this.Type scope ty
+                | None -> TVar(currScope.NewTVar None c.Span)
+
+            let closureScope = newScope (ClosureScope { Closure = c; Ret = retTy })
+
+            let scope = scope.WithNew closureScope
+
+            for (param, ty) in Array.zip c.Param paramTy do
+                this.Pat scope ParamPat param.Pat ty
+
+            let ret = this.Expr scope c.Body
+
+            closureScope.Constr.Add(
+                CNormal
+                    { Expect = retTy
+                      Actual = ret
+                      Span = c.Span }
+            )
+
+            this.Unify closureScope
+
+            let resolve ty = union.Resolve ty
+
+            TFn
+                { Param = Array.map resolve paramTy
+                  Ret = resolve retTy
+                  TVar = [||] }
+
+        | Path p ->
+            if p.Prefix <> None || p.Seg.Length <> 2 then
+                failwith "Not Implemented"
+
+            let enumId, _ = p.Seg[0]
+            let variant, _ = p.Seg[1]
+
+            let enumTy =
+                match scope.ResolveTy enumId with
+                | Some ty -> ty
+                | None ->
+                    error.Add(Undefined enumId)
+                    TNever
+
+            match enumTy with
+            | TEnum(enum, _) ->
+                let enumData = enumRec[enum]
+                let inst = Array.map (fun _ -> TVar(currScope.NewTVar None e.Span)) enumData.TVar
+
+                if enumData.Variant.ContainsKey variant.Sym then
+                    let payload = enumData.Variant[variant.Sym]
+
+                    if payload.Length = 0 then
+                        TEnum(enum, inst)
+                    else
+                        let payload = Array.map (fun (t: Type) -> t.Instantiate enumData.TVar inst) payload
+
+                        TFn
+                            { Param = payload
+                              Ret = TEnum(enum, inst)
+                              TVar = [||] }
+                else
+                    error.Add(UndefinedVariant(enumId, variant))
+
+                    TNever
+
+            | ty ->
+                error.Add(ExpectEnum(enumId, ty))
+
+                TNever
+
+        | Break _ -> TNever
+        | Continue _ -> TNever
+        | Return r ->
+            let pickFn scope =
+                match scope.Data with
+                | FnScope f -> Some f
+                | _ -> None
+
+            let retTy =
+                match scope.Pick pickFn with
+                | Some { Ret = retTy } -> retTy
+                | None -> failwith "Unreachable"
+
+            let ty =
+                match r.Value with
+                | Some v -> this.Expr scope v
+                | None -> UnitType
+
+            currScope.Constr.Add(
+                CNormal
+                    { Expect = retTy
+                      Actual = ty
+                      Span = r.Span }
+            )
+
+            TNever
+        | Range(_) -> failwith "Not Implemented"
+        | For(_) -> TNever
+        | While w ->
+            let _ = this.Cond scope w.Cond w.Body
+
+            TNever
+        | TryReturn(_) -> failwith "Not Implemented"
+
+    member this.Block (scope: ActiveScope) (b: Block) =
+        let blockScope = newScope BlockScope
+
+        let scope = scope.WithNew blockScope
+
+        let chooseDecl s =
+            match s with
+            | DeclStmt d -> Some d
+            | ExprStmt _ -> None
+
+        let decl = Seq.choose chooseDecl b.Stmt
+
+        this.HoistDecl scope decl
+
+        let typeof _ stmt =
+            match stmt with
+            | DeclStmt d ->
+                this.Decl scope d
+
+                UnitType
+            | ExprStmt e -> this.Expr scope e
+
+        let ty = Array.fold typeof UnitType b.Stmt
+
+        this.Unify blockScope
+
+        union.Resolve ty
 
     member this.HoistDecl (scope: ActiveScope) (decl: seq<Decl>) =
         let currScope = scope.Current
@@ -456,7 +916,7 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
                     if Map.containsKey name m then
                         error.Add(DuplicateField field.Name)
 
-                    Map.add name (this.CheckType scope field.Ty) m
+                    Map.add name (this.Type scope field.Ty) m
 
                 let field = Array.fold processField Map.empty s.Field
 
@@ -489,7 +949,7 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
                     if Map.containsKey name m then
                         error.Add(DuplicateVariant variant.Name)
 
-                    let payload = Array.map (this.CheckType scope) variant.Payload
+                    let payload = Array.map (this.Type scope) variant.Payload
 
                     Map.add name payload m
 
@@ -502,7 +962,7 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
 
                 enumRec[e.Name] <- enum
 
-            | TypeDecl t -> currScope.Ty[t.Name.Sym] <- this.CheckType scope t.Ty
+            | TypeDecl t -> currScope.Ty[t.Name.Sym] <- this.Type scope t.Ty
 
             | Use _ -> failwith "Not Implemented"
             | Trait _ -> failwith "Not Implemented"
@@ -538,7 +998,7 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
 
                 let paramTy (p: Param) =
                     match p.Ty with
-                    | Some ty -> this.CheckType scope ty
+                    | Some ty -> this.Type scope ty
                     | None ->
                         let sym = p.Pat.Name
                         let newTVar = newScope.NewTVar sym p.Span
@@ -549,7 +1009,7 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
 
                 let ret =
                     match f.Ret with
-                    | Some ty -> this.CheckType scope ty
+                    | Some ty -> this.Type scope ty
                     | None -> TVar(newScope.NewTVar None f.Span)
 
                 let newScope =
@@ -564,12 +1024,12 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
                           Ret = ret
                           TVar = tvar }
 
-                varRec[f.Name] <- fnTy
+                bindingRec[f.Name] <- fnTy
 
             | Let l ->
                 let ty =
                     match l.Ty with
-                    | Some ty -> this.CheckType scope ty
+                    | Some ty -> this.Type scope ty
                     | None ->
                         let sym = l.Pat.Name
                         let newTVar = currScope.NewTVar sym l.Span
@@ -577,16 +1037,16 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
                         TVar newTVar
 
                 valueMap.Add(l.Pat, ty)
-                this.CheckPat scope (LetPat { Mut = l.Mut; Static = true }) l.Pat ty
+                this.Pat scope (LetPat { Mut = l.Mut; Static = true }) l.Pat ty
             | _ -> ()
 
         for item in staticItem do
             match item with
             | FnDecl f ->
                 let newScope = scope.WithNew scopeMap[f]
-                this.CheckFn newScope f
+                this.Fn newScope f
             | Let l ->
-                let value = this.CheckExpr scope l.Value
+                let value = this.Expr scope l.Value
 
                 currScope.Constr.Add(
                     CNormal
@@ -596,15 +1056,15 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
                 )
             | _ -> ()
 
-    member this.CheckDecl (scope: ActiveScope) d =
+    member this.Decl (scope: ActiveScope) d =
         match d with
         | Let l ->
-            let value = this.CheckExpr scope l.Value
+            let value = this.Expr scope l.Value
 
             let ty =
                 match l.Ty with
                 | Some ty ->
-                    let ty = this.CheckType scope ty
+                    let ty = this.Type scope ty
 
                     scope.Current.Constr.Add(
                         CNormal
@@ -616,7 +1076,7 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
                     ty
                 | None -> value
 
-            this.CheckPat scope (LetPat { Mut = l.Mut; Static = false }) l.Pat ty
+            this.Pat scope (LetPat { Mut = l.Mut; Static = false }) l.Pat ty
 
         | Const _ -> failwith "Not Implemented"
         | Use _ -> failwith "Not Implemented"
@@ -627,7 +1087,7 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
         | Trait _
         | Impl _ -> ()
 
-    member this.CheckCond (scope: ActiveScope) cond block =
+    member this.Cond (scope: ActiveScope) cond block =
         let currScope = scope.Current
 
         match cond with
@@ -635,499 +1095,38 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
             currScope.Constr.Add(
                 CNormal
                     { Expect = TBool
-                      Actual = this.CheckExpr scope b
+                      Actual = this.Expr scope b
                       Span = b.Span }
             )
 
-            this.CheckBlock scope block
+            this.Block scope block
         | LetCond c ->
-            let value = this.CheckExpr scope c.Value
+            let value = this.Expr scope c.Value
             let newScope = newScope BlockScope
             let scope = scope.WithNew newScope
 
-            this.CheckPat scope CondPat c.Pat value
+            this.Pat scope CondPat c.Pat value
 
-            let ty = this.CheckBlock scope block
+            let ty = this.Block scope block
 
             this.Unify newScope
 
             union.Resolve ty
 
-    member this.CheckExpr (scope: ActiveScope) e =
-        let currScope = scope.Current
-
-        match e with
-        | Id id ->
-            let rec resolveVar captured canCapture i =
-                let curr = scope.Scope[i]
-
-                if curr.Var.ContainsKey id.Sym then
-                    let info = curr.Var[id.Sym]
-
-                    let captured =
-                        if canCapture && not info.Static then
-                            captured
-                        else
-                            if not info.Static then
-                                error.Add(CaptureDynamic id)
-
-                            [||]
-
-                    Some(info, captured)
-                else if i = 0 then
-                    None
-                else
-                    let captured =
-                        match curr.Data with
-                        | ClosureScope { Closure = cl } -> Array.append captured [| cl |]
-                        | _ -> captured
-
-                    let canCapture =
-                        match curr.Data with
-                        | FnScope _ -> false
-                        | _ -> canCapture
-
-                    resolveVar captured canCapture (i - 1)
-
-            match resolveVar [||] true (scope.Scope.Length - 1) with
-            | None ->
-                error.Add(Undefined id)
-                TNever
-            | Some({ Def = def }, captured) ->
-                for c in captured do
-                    captureRec.Add c def
-
-                match varRec[def] with
-                | TFn f ->
-                    let newTVar = Array.map (fun _ -> currScope.NewTVar None id.Span) f.TVar
-                    TFn(f.Instantiate newTVar)
-                | t -> t
-
-        | Binary b ->
-            let l = this.CheckExpr scope b.Left
-            let r = this.CheckExpr scope b.Right
-
-            match b.Op with
-            | Arith _ ->
-                currScope.Constr.Add(
-                    CNormal
-                        { Expect = TInt(true, ISize)
-                          Actual = l
-                          Span = b.Left.Span }
-                )
-
-                currScope.Constr.Add(
-                    CNormal
-                        { Expect = TInt(true, ISize)
-                          Actual = r
-                          Span = b.Right.Span }
-                )
-
-                TInt(true, ISize)
-
-            | Logic _ ->
-                currScope.Constr.Add(
-                    CNormal
-                        { Expect = TBool
-                          Actual = l
-                          Span = b.Left.Span }
-                )
-
-                currScope.Constr.Add(
-                    CNormal
-                        { Expect = TBool
-                          Actual = r
-                          Span = b.Right.Span }
-                )
-
-                TBool
-
-            | Cmp _ ->
-                currScope.Constr.Add(
-                    CNormal
-                        { Expect = l
-                          Actual = r
-                          Span = b.Span }
-                )
-
-                TBool
-            | Pipe -> failwith "Not Implemented"
-
-        | SelfExpr(_) -> failwith "Not Implemented"
-        | LitExpr l ->
-            match l.Value with
-            | Int _ -> TInt(true, ISize)
-            | Bool _ -> TBool
-            | Char _ -> TChar
-            | Float _ -> TFloat F64
-            | String _ -> failwith "Not Implemented"
-
-        | If i ->
-            let then_ = this.CheckCond scope i.Cond i.Then
-
-            for br in i.ElseIf do
-                let elseif = this.CheckCond scope br.Cond br.Block
-
-                currScope.Constr.Add(
-                    CNormal
-                        { Expect = then_
-                          Actual = elseif
-                          Span = i.Span }
-                )
-
-            match i.Else with
-            | Some else_ ->
-                let else_ = this.CheckBlock scope else_
-
-                currScope.Constr.Add(
-                    CNormal
-                        { Expect = then_
-                          Actual = else_
-                          Span = i.Span }
-                )
-            | None ->
-                currScope.Constr.Add(
-                    CNormal
-                        { Expect = then_
-                          Actual = UnitType
-                          Span = i.Span }
-                )
-
-            then_
-        | Match m ->
-            let value = this.CheckExpr scope m.Value
-
-            let typeOfBranch (br: MatchBranch) =
-                let newScope = newScope BlockScope
-                let scope = scope.WithNew newScope
-
-                this.CheckPat scope CondPat br.Pat value
-
-                match br.Guard with
-                | Some g ->
-                    newScope.Constr.Add(
-                        CNormal
-                            { Actual = this.CheckExpr scope g
-                              Expect = TBool
-                              Span = g.Span }
-                    )
-                | None -> ()
-
-                let brTy = this.CheckExpr scope br.Expr
-
-                this.Unify newScope
-
-                union.Resolve brTy
-
-            if Array.length m.Branch = 0 then
-                UnitType
-            else
-                let first = typeOfBranch m.Branch[0]
-
-                for br in m.Branch[1..] do
-                    let brTy = typeOfBranch br
-
-                    currScope.Constr.Add(
-                        CNormal
-                            { Expect = first
-                              Actual = brTy
-                              Span = br.Span }
-                    )
-
-                first
-
-        | Block b -> this.CheckBlock scope b
-        | Call c ->
-            let callee = this.CheckExpr scope c.Callee
-
-            let arg = Array.map (this.CheckExpr scope) c.Arg
-            let ret = TVar(currScope.NewTVar None c.Span)
-
-            currScope.Constr.Add(
-                CNormal
-                    { Expect = TFn { Param = arg; Ret = ret; TVar = [||] }
-                      Actual = callee
-                      Span = c.Span }
-            )
-
-            ret
-        | As _ -> failwith "Not Implemented"
-        | Unary u ->
-            match u.Op with
-            | Not ->
-                currScope.Constr.Add(
-                    CNormal
-                        { Expect = TBool
-                          Actual = this.CheckExpr scope u.Value
-                          Span = u.Span }
-                )
-
-                TBool
-            | Neg ->
-                currScope.Constr.Add(
-                    CNormal
-                        { Expect = TInt(true, ISize)
-                          Actual = this.CheckExpr scope u.Value
-                          Span = u.Span }
-                )
-
-                TInt(true, ISize)
-            | Ref ->
-                let rec getVar expr =
-                    match expr with
-                    | Id i -> Some i
-                    | Field { Receiver = receiver } -> getVar receiver
-                    | Index { Container = container } -> getVar container
-                    | Unary { Op = Deref; Value = expr } -> getVar expr
-                    | _ -> None
-
-                TRef(this.CheckExpr scope u.Value)
-            | Deref ->
-                let sym =
-                    match u.Value with
-                    | Id i -> Some i.Sym
-                    | _ -> None
-
-                let ptr = TVar(currScope.NewTVar sym u.Value.Span)
-
-                currScope.Constr.Add(
-                    CNormal
-                        { Expect = TRef ptr
-                          Actual = this.CheckExpr scope u.Value
-                          Span = u.Span }
-                )
-
-                ptr
-        | Assign a ->
-            let value = this.CheckExpr scope a.Value
-            let place = this.CheckExpr scope a.Place
-
-            currScope.Constr.Add(
-                CNormal
-                    { Expect = place
-                      Actual = value
-                      Span = a.Span }
-            )
-
-            let rec getVar expr =
-                match expr with
-                | Id i -> Some i
-                | Field { Receiver = receiver } -> getVar receiver
-                | Index { Container = container } -> getVar container
-                | Unary { Op = Deref; Value = expr } -> getVar expr
-                | _ -> None
-
-            match getVar a.Place with
-            | None -> ()
-            | Some id ->
-                match scope.ResolveVar id with
-                | None -> ()
-                | Some(info) ->
-                    if not info.Mut then
-                        error.Add(AssignImmutable(info.Def, a.Span))
-
-            UnitType
-        | Field f ->
-            let receiver = this.CheckExpr scope f.Receiver
-            let key = f.Field.Sym
-
-            match receiver with
-            | TStruct(i, inst) ->
-                let stru = structRec[i]
-
-                match Map.tryFind key stru.Field with
-                | Some f -> f.Instantiate stru.TVar inst
-                | None ->
-                    error.Add(UndefinedField(f.Span, key))
-
-                    TNever
-            | _ ->
-                let findStruct scope =
-                    match scope.Field.Get key with
-                    | None -> None
-                    | Some id -> Some structRec[id]
-
-                let stru = scope.Pick findStruct
-
-                match stru with
-                | Some s ->
-                    let inst = Array.map (fun _ -> TVar(currScope.NewTVar None f.Span)) s.TVar
-
-                    currScope.Constr.Add(
-                        CDeref
-                            { Expect = TStruct(s.Name, inst)
-                              Actual = receiver
-                              Span = f.Span }
-                    )
-
-                    s.Field[key].Instantiate s.TVar inst
-                | None ->
-                    error.Add(UndefinedField(f.Span, key))
-                    TNever
-
-        | TupleAccess(_) -> failwith "Not Implemented"
-        | Index(_) -> failwith "Not Implemented"
-        | Array(_) -> failwith "Not Implemented"
-        | ArrayRepeat(_) -> failwith "Not Implemented"
-        | StructLit(_) -> failwith "Not Implemented"
-        | Tuple s -> s.Ele |> Array.map (this.CheckExpr scope) |> TTuple
-        | Closure c ->
-            let paramTy (p: Param) =
-                match p.Ty with
-                | Some ty -> this.CheckType scope ty
-                | None ->
-                    let sym = p.Pat.Name
-                    let newTVar = currScope.NewTVar sym p.Span
-
-                    TVar newTVar
-
-            let paramTy = Array.map paramTy c.Param
-
-            let retTy =
-                match c.Ret with
-                | Some ty -> this.CheckType scope ty
-                | None -> TVar(currScope.NewTVar None c.Span)
-
-            let closureScope = newScope (ClosureScope { Closure = c; Ret = retTy })
-
-            let scope = scope.WithNew closureScope
-
-            for (param, ty) in Array.zip c.Param paramTy do
-                this.CheckPat scope ParamPat param.Pat ty
-
-            let ret = this.CheckExpr scope c.Body
-
-            closureScope.Constr.Add(
-                CNormal
-                    { Expect = retTy
-                      Actual = ret
-                      Span = c.Span }
-            )
-
-            this.Unify closureScope
-
-            let resolve ty = union.Resolve ty
-
-            TFn
-                { Param = Array.map resolve paramTy
-                  Ret = resolve retTy
-                  TVar = [||] }
-
-        | Path p ->
-            if p.Prefix <> None || p.Seg.Length <> 2 then
-                failwith "Not Implemented"
-
-            let enumId, _ = p.Seg[0]
-            let variant, _ = p.Seg[1]
-
-            let enumTy =
-                match scope.ResolveTy enumId with
-                | Some ty -> ty
-                | None ->
-                    error.Add(Undefined enumId)
-                    TNever
-
-            match enumTy with
-            | TEnum(enum, _) ->
-                let enumData = enumRec[enum]
-                let inst = Array.map (fun _ -> TVar(currScope.NewTVar None e.Span)) enumData.TVar
-
-                if enumData.Variant.ContainsKey variant.Sym then
-                    let payload = enumData.Variant[variant.Sym]
-
-                    if payload.Length = 0 then
-                        TEnum(enum, inst)
-                    else
-                        let payload = Array.map (fun (t: Type) -> t.Instantiate enumData.TVar inst) payload
-
-                        TFn
-                            { Param = payload
-                              Ret = TEnum(enum, inst)
-                              TVar = [||] }
-                else
-                    error.Add(UndefinedVariant(enumId, variant))
-
-                    TNever
-
-            | ty ->
-                error.Add(ExpectEnum(enumId, ty))
-
-                TNever
-
-        | Break _ -> TNever
-        | Continue _ -> TNever
-        | Return r ->
-            let pickFn scope =
-                match scope.Data with
-                | FnScope f -> Some f
-                | _ -> None
-
-            let retTy =
-                match scope.Pick pickFn with
-                | Some { Ret = retTy } -> retTy
-                | None -> failwith "Unreachable"
-
-            let ty =
-                match r.Value with
-                | Some v -> this.CheckExpr scope v
-                | None -> UnitType
-
-            currScope.Constr.Add(
-                CNormal
-                    { Expect = retTy
-                      Actual = ty
-                      Span = r.Span }
-            )
-
-            TNever
-        | Range(_) -> failwith "Not Implemented"
-        | For(_) -> TNever
-        | While w ->
-            let _ = this.CheckCond scope w.Cond w.Body
-
-            TNever
-        | TryReturn(_) -> failwith "Not Implemented"
-
-    member this.CheckBlock (scope: ActiveScope) (b: Block) =
-        let blockScope = newScope BlockScope
-
-        let scope = scope.WithNew blockScope
-
-        let chooseDecl s =
-            match s with
-            | DeclStmt d -> Some d
-            | ExprStmt _ -> None
-
-        let decl = Seq.choose chooseDecl b.Stmt
-
-        this.HoistDecl scope decl
-
-        let typeof _ stmt =
-            match stmt with
-            | DeclStmt d ->
-                this.CheckDecl scope d
-
-                UnitType
-            | ExprStmt e -> this.CheckExpr scope e
-
-        let ty = Array.fold typeof UnitType b.Stmt
-
-        this.Unify blockScope
-
-        union.Resolve ty
-
-    member this.CheckFn (scope: ActiveScope) (f: Fn) =
+    member this.Fn (scope: ActiveScope) (f: Fn) =
         let fnTy =
-            match varRec[f.Name] with
+            match bindingRec[f.Name] with
             | TFn f -> f
             | _ -> failwith "Unreachable"
 
         let currScope = scope.Current
 
         for (param, ty) in Array.zip f.Param fnTy.Param do
-            this.CheckPat scope ParamPat param.Pat ty
+            this.Pat scope ParamPat param.Pat ty
 
-        let ret = this.CheckBlock scope f.Body
+        let lastScope = scopeId
+
+        let ret = this.Block scope f.Body
 
         currScope.Constr.Add(
             CNormal
@@ -1138,15 +1137,37 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
 
         this.Unify currScope
 
-        let generalize ty =
-            match union.Resolve ty with
-            | TFn f -> TFn(f.Generalize scope.Current.Id)
-            | _ -> failwith "Unreachable"
+        let param = Array.map union.Resolve fnTy.Param
 
-        let oldTy = varRec[f.Name]
-        varRec[f.Name] <- generalize oldTy
+        let inScope (v: Var) =
+            v.Scope = currScope.Id || v.Scope > lastScope
 
-    member this.Unify scope =
+        let tvar =
+            param
+            |> Seq.map _.FindTVar
+            |> Seq.concat
+            |> Seq.filter inScope
+            |> Seq.append fnTy.TVar
+            |> Seq.distinct
+            |> Array.ofSeq
+
+        let toNever t =
+            if inScope t && not (Array.contains t tvar) then
+                TNever
+            else
+                TVar t
+
+        let ret = union.Resolve fnTy.Ret
+        let ret = ret.Walk toNever
+
+        let fnTy =
+            { TVar = tvar
+              Param = param
+              Ret = ret }
+
+        bindingRec[f.Name] <- TFn fnTy
+
+    member _.Unify scope =
         let rec unifyNormal c deref =
             let addUnion v ty =
                 match union.TryFind v with
@@ -1171,8 +1192,6 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
                     addUnion v2 t1
             | TVar v, ty
             | ty, TVar v ->
-                // let ty = tyUnion.Resolve ty
-
                 match ty.FindTVar |> Seq.tryFind ((=) v) with
                 | Some _ -> error.Add(FailToUnify(c.Expect, c.Actual, c.Span))
                 | None -> addUnion v ty
@@ -1237,7 +1256,7 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
             | CNormal c -> unifyNormal c false
             | CDeref c -> unifyNormal c true
 
-    member this.CheckModule(m: Module) =
+    member this.Module(m: Module) =
         let topLevel = newScope TopLevelScope
         let scope = { Scope = [| Scope.Prelude; topLevel |] }
 
@@ -1247,15 +1266,15 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
 
         this.Unify topLevel
 
-        for id in varRec.Keys do
-            let oldTy = varRec[id]
-            varRec[id] <- union.Resolve oldTy
+        for id in bindingRec.Keys do
+            let oldTy = bindingRec[id]
+            bindingRec[id] <- union.Resolve oldTy
 
         let sema =
-            { Var = dictToMap varRec
+            { Binding = dictToMap bindingRec
               Struct = dictToMap structRec
               Enum = dictToMap enumRec
-              Capture = captureRec
+              Capture = captureRec.ToMap
               Module =
                 { Ty = Map.empty
                   Var = Map.empty
@@ -1266,4 +1285,4 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
 let check (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
     let checker = Checker moduleMap
 
-    checker.CheckModule m
+    checker.Module m
