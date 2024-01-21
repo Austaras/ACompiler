@@ -53,7 +53,8 @@ type internal Env(offset: int) =
 
     member _.FinalizeBlock trans span =
         block.Add
-            { Stm = instr.ToArray()
+            { Phi = [||]
+              Instr = instr.ToArray()
               Trans = trans
               Span = span }
 
@@ -299,11 +300,12 @@ let transform (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
 
         let fnTy =
             match sema.Binding[f.Name] with
-            | Semantic.TFn f -> f
-            | _ -> failwith "Unreachable"
+            | Semantic.BFn(tvar, f) ->
+                if tvar.Length > 0 then
+                    failwith "Not Implemented"
 
-        if fnTy.TVar.Length > 0 then
-            failwith "Not Implemented"
+                f
+            | _ -> failwith "Unreachable"
 
         let ret =
             if habitable fnTy.Ret > 1 then

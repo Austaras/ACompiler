@@ -15,24 +15,15 @@ type Float =
     | F64
 
 type Function =
-    {
-        /// type variables waiting to be instantiated
-        TVar: Var[]
-        Param: Type[]
-        Ret: Type
-    }
+    { Param: Type[]
+      Ret: Type }
 
-    member this.Instantiate ty =
-        let map = Array.zip this.TVar ty |> Map.ofArray
+    member this.Print() =
+        let param = this.Param |> Array.map _.Print() |> String.concat ", "
 
-        let getMap t =
-            match Map.tryFind t map with
-            | None -> TVar t
-            | Some t -> TVar t
+        let fstr = $"|{param}| -> {this.Ret.Print()}"
 
-        { TVar = [||]
-          Ret = this.Ret.Walk getMap
-          Param = this.Param |> Array.map _.Walk(getMap) }
+        fstr
 
 and Struct =
     { Name: Id
@@ -45,15 +36,15 @@ and Enum =
       TVar: Var[] }
 
 and Var =
-    { Scope: int
+    { Level: int
       Id: int
       Span: Span
       Sym: Option<string> }
 
-    member this.ToString =
+    member this.Print() =
         match this.Sym with
         | Some s -> if System.Char.IsUpper s[0] then s else "T" + s
-        | None -> $"T{this.Scope}{this.Id}"
+        | None -> $"T{this.Id}"
 
 and Type =
     /// bool signs if it's signed
@@ -100,7 +91,7 @@ and Type =
             | TNever -> ()
         }
 
-    member this.ToString =
+    member this.Print() =
         match this with
         | TInt(true, I8) -> "i8"
         | TInt(false, I8) -> "u8"
@@ -120,27 +111,18 @@ and Type =
             if v.Length = 0 then
                 t.Sym
             else
-                let tvar = v |> Array.map _.ToString
+                let tvar = v |> Array.map _.Print()
                 let tvar = String.concat ", " tvar
                 $"{t.Sym}<{tvar}>"
-        | TArray(t, c) -> $"[{t.ToString}; {c}]"
+        | TArray(t, c) -> $"[{t.Print}; {c}]"
         | TTuple t ->
-            let element = t |> Array.map _.ToString |> String.concat ", "
+            let element = t |> Array.map _.Print() |> String.concat ", "
 
             $"({element})"
-        | TFn f ->
-            let param = f.Param |> Array.map _.ToString |> String.concat ", "
-
-            let fstr = $"|{param}| -> {f.Ret.ToString}"
-
-            if f.TVar.Length = 0 then
-                fstr
-            else
-                let tvar = f.TVar |> Array.map _.ToString |> String.concat ", "
-                $"<{tvar}>{fstr}"
-        | TRef r -> $"&{r.ToString}"
-        | TSlice s -> $"[{s.ToString}]"
-        | TVar v -> v.ToString
+        | TFn f -> f.Print()
+        | TRef r -> $"&{r.Print()}"
+        | TSlice s -> $"[{s.Print()}]"
+        | TVar v -> v.Print()
         | TNever -> "!"
 
     member this.Walk onVar =
@@ -189,8 +171,24 @@ type ModuleType =
       Var: Map<string, Type>
       Module: Map<string, ModuleType> }
 
+type Binding =
+    | BTy of Type
+    | BFn of Var[] * Function
+
+    member this.Print() =
+        match this with
+        | BTy t -> t.Print()
+        | BFn(tvar, fn) ->
+            let fstr = fn.Print()
+
+            if tvar.Length = 0 then
+                fstr
+            else
+                let tvar = tvar |> Array.map _.Print() |> String.concat ", "
+                $"<{tvar}>{fstr}"
+
 type SemanticInfo =
-    { Binding: Map<Id, Type>
+    { Binding: Map<Id, Binding>
       Struct: Map<Id, Struct>
       Enum: Map<Id, Enum>
       Capture: Map<Closure, Id[]>

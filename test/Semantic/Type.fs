@@ -20,7 +20,7 @@ let runInfer input =
 
     Assert.Empty error
 
-    let map (id: AST.Id, t: Type) = (id.Sym, t.ToString)
+    let map (id: AST.Id, t: Binding) = (id.Sym, t.Print())
 
     sema.Binding |> Map.toSeq |> Seq.map map |> Map.ofSeq
 
@@ -245,6 +245,20 @@ pub fn swap<T1, T2>(t: (T1, T2)) -> (T2, T1) {
 
     Assert.Equal("<T1, T2>|(T1, T2)| -> (T2, T1)", explicit["swap"])
 
+    let otherScope =
+        runInfer
+            "
+fn former(x) {
+    later(x)
+}
+
+fn later(x) {
+    x
+}"
+
+    Assert.Equal("<Tx>|Tx| -> Tx", otherScope["former"])
+    Assert.Equal("<Tx>|Tx| -> Tx", otherScope["later"])
+
 [<Fact>]
 let Match () =
     let fib = runInferFromExample "function/fib.adf"
@@ -288,9 +302,9 @@ fn main() {
             "
 fn foo(f) {
     match f {
-        true => |t, f| -> uint t,
+        true => |t, f| t,
         false => |t, f| f
     }
 }"
 
-    Assert.Equal("|bool| -> |uint, uint| -> uint", closure["foo"])
+    Assert.Equal("<Tt>|bool| -> |Tt, Tt| -> Tt", closure["foo"])

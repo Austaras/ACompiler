@@ -39,7 +39,7 @@ type Negative =
       Value: Value
       Span: Span }
 
-type Stm =
+type Instr =
     | Load
     | Store
     | Assign of Assign
@@ -66,7 +66,8 @@ type Transfer =
     | Ret of Option<int>
 
 type Block =
-    { Stm: Stm[]
+    { Phi: unit[]
+      Instr: Instr[]
       Trans: Transfer
       Span: Span }
 
@@ -113,7 +114,7 @@ type Func =
             let id = labelToString idx
             tw.WriteLine $"    {id}: {{"
 
-            for stm in block.Stm do
+            for stm in block.Instr do
                 let stm =
                     String.replicate 8 " "
                     + varToString stm.Target
