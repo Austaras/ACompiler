@@ -3,6 +3,7 @@ Test out various compiler technology with a toy compiler for a toy language **in
 - _Modern Compiler Implementation in ML_
 - _Engineering a Compiler_
 - _OCaml Programming: Correct + Efficient + Beautiful_
+- _Programming Language Concepts_
 
 ### Design Decisions
 

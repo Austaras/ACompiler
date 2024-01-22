@@ -22,7 +22,7 @@ let runInfer input =
 
     let map (id: AST.Id, t: Binding) = (id.Sym, t.Print())
 
-    sema.Binding |> Map.toSeq |> Seq.map map |> Map.ofSeq
+    sema.Binding |> Seq.map (|KeyValue|) |> Seq.map map |> Map.ofSeq
 
 let runInferFromExample path =
     File.ReadAllText(__SOURCE_DIRECTORY__ + "/../../example/" + path) |> runInfer
@@ -259,6 +259,20 @@ fn later(x) {
     Assert.Equal("<Tx>|Tx| -> Tx", otherScope["former"])
     Assert.Equal("<Tx>|Tx| -> Tx", otherScope["later"])
 
+    let nested =
+        runInfer
+            "
+fn outer(x) {
+    fn inner(y) {
+        outer(y) == y
+    }
+    
+    x
+}"
+
+    Assert.Equal("<Tx>|Tx| -> Tx", nested["outer"])
+    Assert.Equal("|Tx| -> bool", nested["inner"])
+
 [<Fact>]
 let Match () =
     let fib = runInferFromExample "function/fib.adf"
@@ -300,11 +314,11 @@ fn main() {
     let closure =
         runInfer
             "
-fn foo(f) {
+fn church(f) {
     match f {
         true => |t, f| t,
         false => |t, f| f
     }
 }"
 
-    Assert.Equal("<Tt>|bool| -> |Tt, Tt| -> Tt", closure["foo"])
+    Assert.Equal("<Tt>|bool| -> |Tt, Tt| -> Tt", closure["church"])

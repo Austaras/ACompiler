@@ -108,7 +108,7 @@ type internal Environment(error: ResizeArray<Error>) =
         if curr.Ty.ContainsKey id.Sym then
             error.Add(DuplicateDefinition id)
 
-        curr.Ty.Add(id.Sym, ty)
+        curr.Ty[id.Sym] <- ty
 
     member this.GetTy(id: Id) =
         let pickId scope =
@@ -119,6 +119,14 @@ type internal Environment(error: ResizeArray<Error>) =
                 None
 
         this.Pick pickId
+
+    member _.RegisterVar (mayShadow: bool) (info: VarInfo) =
+        let curr = scope.Peek()
+
+        if not mayShadow && curr.Var.ContainsKey info.Def.Sym then
+            error.Add(DuplicateDefinition info.Def)
+
+        curr.Var[info.Def.Sym] <- info
 
     member _.GetVarInfoWithCapture(id: Id) =
         let rec resolveVar captured canCapture (i: int) =
@@ -166,26 +174,11 @@ type internal Environment(error: ResizeArray<Error>) =
 
     member _.AddConstr constr = scope.Peek().Constr.Add constr
 
-    member this.Find k =
-        if union.ContainsKey k then
-            let p = union[k]
-
-            match p with
-            | TVar v ->
-                let p = this.Find v
-                union[k] <- p
-                p
-            | p -> p
-        else
-            TVar k
-
-    member this.TryFind k =
-        if union.ContainsKey k then Some(this.Find k) else None
-
-    member this.ResolveTy ty =
+    member this.NormalizeTy ty =
         let onvar tvar =
             if union.ContainsKey tvar then
-                let p = this.ResolveTy union[tvar]
+                // we don't need to find tvar here, all the work has been done in unify
+                let p = this.NormalizeTy union[tvar]
                 union[tvar] <- p
                 p
             else
@@ -193,104 +186,111 @@ type internal Environment(error: ResizeArray<Error>) =
 
         ty.Walk onvar
 
-    /// unify last scope then exit
-    member this.FinishScope() =
-        let rec unifyNormal c deref =
-            let addUnion v ty =
-                match this.TryFind v with
-                | None -> union[v] <- ty
-                | Some prev ->
-                    unifyNormal
-                        { Expect = ty
-                          Actual = prev
-                          Span = c.Span }
+    member this.UnifyNormal c deref =
+        let span = c.Span
+        let expect = this.NormalizeTy c.Expect
+        let actual = this.NormalizeTy c.Actual
+
+        let rec find k =
+            let p = union[k]
+
+            match p with
+            | TVar v ->
+                let p = if union.ContainsKey v then find v else TVar v
+                union[k] <- p
+                p
+            | p -> p
+
+        match expect, actual with
+        | p1, p2 when p1 = p2 -> ()
+        | TNever, _
+        | _, TNever -> ()
+        | TVar v1 as t1, (TVar v2 as t2) ->
+            if v1.Level > v2.Level then
+                union.Add(v1, t2)
+            else if v1.Level = v2.Level then
+                if v1.Id > v2.Id then
+                    union.Add(v1, t2)
+                else
+                    union.Add(v2, t1)
+            else
+                union.Add(v2, t1)
+
+        | TVar v, ty
+        | ty, TVar v ->
+            match ty.FindTVar |> Seq.tryFind ((=) v) with
+            | Some _ -> error.Add(FailToUnify(expect, actual, span))
+            | None -> union.Add(v, ty)
+
+        | TFn f1, TFn f2 ->
+            if f1.Param.Length <> f2.Param.Length then
+                error.Add(TypeMismatch(expect, actual, span))
+            else
+                for (p1, p2) in (Array.zip f1.Param f2.Param) do
+                    this.UnifyNormal
+                        { Expect = p1
+                          Actual = p2
+                          Span = span }
                         deref
 
-                    union[v] <- this.ResolveTy prev
-
-            match c.Expect, c.Actual with
-            | p1, p2 when p1 = p2 -> ()
-            | TVar v1 as t1, (TVar v2 as t2) ->
-                if v1.Level > v2.Level then
-                    addUnion v1 t2
-                else if v1.Level = v2.Level then
-                    if v1.Id > v2.Id then addUnion v1 t2 else addUnion v2 t1
-                else
-                    addUnion v2 t1
-            | TVar v, ty
-            | ty, TVar v ->
-                match ty.FindTVar |> Seq.tryFind ((=) v) with
-                | Some _ -> error.Add(FailToUnify(c.Expect, c.Actual, c.Span))
-                | None -> addUnion v ty
-
-            | TFn f1, TFn f2 ->
-                if f1.Param.Length <> f2.Param.Length then
-                    error.Add(TypeMismatch(c.Expect, c.Actual, c.Span))
-                else
-                    for (p1, p2) in (Array.zip f1.Param f2.Param) do
-                        unifyNormal
-                            { Expect = p1
-                              Actual = p2
-                              Span = c.Span }
-                            deref
-
-                    unifyNormal
-                        { Expect = f1.Ret
-                          Actual = f2.Ret
-                          Span = c.Span }
-                        false
-
-            | TRef r1, TRef r2 ->
-                unifyNormal
-                    { Expect = r1
-                      Actual = r2
-                      Span = c.Span }
+                this.UnifyNormal
+                    { Expect = f1.Ret
+                      Actual = f2.Ret
+                      Span = span }
                     false
 
-            | TRef r, t
-            | t, TRef r when deref ->
-                unifyNormal
-                    { Expect = r.StripRef
-                      Actual = t
-                      Span = c.Span }
+        | TRef r1, TRef r2 ->
+            this.UnifyNormal
+                { Expect = r1
+                  Actual = r2
+                  Span = span }
+                false
+
+        | TRef r, t
+        | t, TRef r when deref ->
+            this.UnifyNormal
+                { Expect = r.StripRef
+                  Actual = t
+                  Span = span }
+                false
+
+        | TStruct(id1, v1), TStruct(id2, v2)
+        | TEnum(id1, v1), TEnum(id2, v2) when id1 = id2 ->
+            for (v1, v2) in Array.zip v1 v2 do
+                this.UnifyNormal
+                    { Expect = v1
+                      Actual = v2
+                      Span = span }
                     false
 
-            | TNever, _
-            | _, TNever -> ()
-            | TStruct(id1, v1), TStruct(id2, v2)
-            | TEnum(id1, v1), TEnum(id2, v2) when id1 = id2 ->
-                for (v1, v2) in Array.zip v1 v2 do
-                    unifyNormal
-                        { Expect = v1
-                          Actual = v2
-                          Span = c.Span }
+        | TTuple t1, TTuple t2 ->
+            if t1.Length <> t2.Length then
+                error.Add(TupleLengthMismatch(span, t1.Length, t2.Length))
+            else
+                for (t1, t2) in Array.zip t1 t2 do
+                    this.UnifyNormal
+                        { Expect = t1
+                          Actual = t2
+                          Span = span }
                         false
 
-            | TTuple t1, TTuple t2 ->
-                if t1.Length <> t2.Length then
-                    error.Add(TupleLengthMismatch(c.Span, t1.Length, t2.Length))
-                else
-                    for (t1, t2) in Array.zip t1 t2 do
-                        unifyNormal
-                            { Expect = t1
-                              Actual = t2
-                              Span = c.Span }
-                            false
-            | _, _ -> error.Add(TypeMismatch(c.Expect, c.Actual, c.Span))
+        | _, _ -> error.Add(TypeMismatch(expect, actual, span))
 
+    /// unify last scope then exit
+    member this.FinishScope() =
         for c in scope.Peek().Constr do
             match c with
-            | CNormal c -> unifyNormal c false
-            | CDeref c -> unifyNormal c true
+            | CNormal c -> this.UnifyNormal c false
+            | CDeref c -> this.UnifyNormal c true
 
         scope.Pop() |> ignore
 
     member this.Generalize tvar fnTy =
         let inScope (v: Var) = v.Level > scope.Count
 
-        let param = Array.map this.ResolveTy fnTy.Param
+        let param = Array.map this.NormalizeTy fnTy.Param
         let fromRet = fnTy.Ret.FindTVar |> Set.ofSeq
-        let ret = this.ResolveTy fnTy.Ret
+        let ret = this.NormalizeTy fnTy.Ret
 
         let newTVar = param |> Seq.map _.FindTVar |> Seq.concat
 

@@ -1,0 +1,31 @@
+trait Clone {
+    fn clone(self) -> Self
+
+    fn clone_from(&self, source: &Self) {
+        *self = source.clone()
+    }
+}
+
+impl Clone for u8 {
+    fn clone(self) {
+        self
+    }
+}
+
+impl Clone for i32 {
+    fn clone(self) {
+        self
+    }
+}
+
+impl Clone for int {
+    fn clone(self) {
+        self
+    }
+}
+
+impl Clone for uint {
+    fn clone(self) {
+        self
+    }
+}

@@ -19,7 +19,7 @@ let runCheck input =
 
     Assert.Empty error
 
-    Map.values sema.Capture |> Seq.map (Array.map _.Sym) |> Array.ofSeq
+    Map.values sema.Capture.ToMap |> Seq.map (Array.map _.Sym) |> Array.ofSeq
 
 [<Fact>]
 let Add () =

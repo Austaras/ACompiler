@@ -160,6 +160,8 @@ let transform (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
                 | AST.Cmp AST.GtEq -> GtEq true, TInt I1
                 | AST.Cmp AST.Lt -> Lt true, TInt I1
                 | AST.Cmp AST.LtEq -> LtEq true, TInt I1
+                | AST.Cmp AST.EqEq -> Eq, TInt I1
+                | AST.Cmp AST.NotEq -> NotEq, TInt I1
 
             let target = makeTarget ty
 

@@ -21,7 +21,7 @@ type internal PatMode =
     | CondPat
     | LetPat of LetPat
 
-type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
+type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
     let bindingRec = Dictionary(HashIdentity.Reference)
     let structRec: Dictionary<Id, Struct> = Dictionary(HashIdentity.Reference)
     let enumRec = Dictionary(HashIdentity.Reference)
@@ -225,13 +225,12 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
         let map = proc Map.empty ty pat
 
         for (id, ty) in map.Values do
-            if not mayShadow && currScope.Var.ContainsKey id.Sym then
-                error.Add(DuplicateDefinition id)
-
-            currScope.Var[id.Sym] <-
+            let info =
                 { Def = id
                   Mut = mut
                   Static = static_ }
+
+            env.RegisterVar mayShadow info
 
             bindingRec[id] <- BTy ty
 
@@ -363,7 +362,7 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
 
                 env.FinishScope()
 
-                env.ResolveTy brTy
+                env.NormalizeTy brTy
 
             if Array.length m.Branch = 0 then
                 UnitType
@@ -556,7 +555,7 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
 
             env.FinishScope()
 
-            let resolve ty = env.ResolveTy ty
+            let resolve ty = env.NormalizeTy ty
 
             TFn
                 { Param = Array.map resolve paramTy
@@ -661,7 +660,7 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
 
         env.FinishScope()
 
-        env.ResolveTy ty
+        env.NormalizeTy ty
 
     member _.TyParam(p: TyParam[]) =
         let proc (p: TyParam) =
@@ -773,13 +772,12 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
         for item in staticItem do
             match item with
             | FnDecl f ->
-                if currScope.Var.ContainsKey f.Name.Sym then
-                    error.Add(DuplicateDefinition f.Name)
-
-                currScope.Var[f.Name.Sym] <-
+                let info =
                     { Def = f.Name
                       Mut = false
                       Static = true }
+
+                env.RegisterVar false info
 
                 env.EnterScope TypeScope
 
@@ -887,7 +885,7 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
 
             env.FinishScope()
 
-            env.ResolveTy ty
+            env.NormalizeTy ty
 
     member this.Fn(f: Fn) =
         let tvar, fnTy =
@@ -932,19 +930,20 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
 
             let binding =
                 match binding with
-                | BTy ty -> env.ResolveTy ty |> BTy
+                | BTy ty -> env.NormalizeTy ty |> BTy
                 | BFn(tvar, fn) ->
-                    let param = Array.map env.ResolveTy fn.Param
-                    let ret = (env.ResolveTy fn.Ret).Walk(toNever tvar)
+                    let param = Array.map env.NormalizeTy fn.Param
+                    let ret = (env.NormalizeTy fn.Ret).Walk(toNever tvar)
                     BFn(tvar, { Param = param; Ret = ret })
 
             bindingRec[id] <- binding
 
         let sema =
-            { Binding = dictToMap bindingRec
-              Struct = dictToMap structRec
-              Enum = dictToMap enumRec
-              Capture = captureRec.ToMap
+            { Binding = bindingRec
+              Expr = Dictionary()
+              Struct = structRec
+              Enum = enumRec
+              Capture = captureRec
               Module =
                 { Ty = Map.empty
                   Var = Map.empty
@@ -953,6 +952,6 @@ type internal Checker(moduleMap: Dictionary<string, ModuleType>) =
         sema, error.ToArray()
 
 let check (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
-    let checker = Checker moduleMap
+    let checker = Traverse moduleMap
 
     checker.Module m

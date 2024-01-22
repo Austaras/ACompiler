@@ -8,6 +8,12 @@ impl Default for bool {
     }
 }
 
+impl Default for int {
+    fn default() {
+        0
+    }
+}
+
 impl Default for uint {
     fn default() {
         0

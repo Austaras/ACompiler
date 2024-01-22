@@ -1,5 +1,7 @@
 module Semantic.Semantic
 
+open System.Collections.Generic
+
 open Common.Span
 open AST.AST
 open Util.MultiMap
@@ -188,10 +190,11 @@ type Binding =
                 $"<{tvar}>{fstr}"
 
 type SemanticInfo =
-    { Binding: Map<Id, Binding>
-      Struct: Map<Id, Struct>
-      Enum: Map<Id, Enum>
-      Capture: Map<Closure, Id[]>
+    { Binding: Dictionary<Id, Binding>
+      Expr: Dictionary<Expr, Binding>
+      Struct: Dictionary<Id, Struct>
+      Enum: Dictionary<Id, Enum>
+      Capture: MultiMap<Closure, Id>
       Module: ModuleType }
 
 type Error =
