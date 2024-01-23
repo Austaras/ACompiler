@@ -16,13 +16,11 @@ let runInfer input =
         | Ok m -> m
         | Error(e, _) -> failwithf "parse error %A" e
 
-    let sema, error = check (Dictionary()) m
-
-    Assert.Empty error
-
-    let map (id: AST.Id, t: Binding) = (id.Sym, t.Print())
-
-    sema.Binding |> Seq.map (|KeyValue|) |> Seq.map map |> Map.ofSeq
+    match check (Dictionary()) m with
+    | Ok sema ->
+        let map (id: AST.Id, t: Binding) = (id.Sym, t.Print())
+        sema.Binding |> Seq.map (|KeyValue|) |> Seq.map map |> Map.ofSeq
+    | Error e -> failwithf "type error %A" e
 
 let runInferFromExample path =
     File.ReadAllText(__SOURCE_DIRECTORY__ + "/../../example/" + path) |> runInfer

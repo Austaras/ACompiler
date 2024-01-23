@@ -8,7 +8,6 @@ open System.Collections.Generic
 // TODO: pipe and compose operator
 
 open Common.Span
-open Util.Util
 open Util.MultiMap
 open AST.AST
 open Semantic
@@ -23,6 +22,7 @@ type internal PatMode =
 
 type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
     let bindingRec = Dictionary(HashIdentity.Reference)
+    let exprRec = Dictionary(HashIdentity.Reference)
     let structRec: Dictionary<Id, Struct> = Dictionary(HashIdentity.Reference)
     let enumRec = Dictionary(HashIdentity.Reference)
     let captureRec = MultiMap(HashIdentity.Reference)
@@ -83,8 +83,6 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
             Map.add i.Sym (i, ty) sym
 
-        let currScope = env.Current
-
         let rec proc sym ty pat =
             match pat with
             | IdPat i -> addSym sym i ty
@@ -100,12 +98,11 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                     | Float _ -> TFloat F64
                     | String _ -> failwith "Not Implemented"
 
-                env.AddConstr(
-                    CNormal
-                        { Actual = litTy
-                          Expect = ty
-                          Span = l.Span }
-                )
+                env.Unify
+                    { Actual = litTy
+                      Expect = ty
+                      Span = l.Span }
+                    false
 
                 sym
             | RangePat { Span = span } -> failwith "Not Implemented"
@@ -119,12 +116,11 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
                 let patTy = t.Ele |> Array.map addBinding
 
-                env.AddConstr(
-                    CNormal
-                        { Actual = TTuple patTy
-                          Expect = ty
-                          Span = t.Span }
-                )
+                env.Unify
+                    { Actual = TTuple patTy
+                      Expect = ty
+                      Span = t.Span }
+                    false
 
                 Array.fold2 proc sym patTy t.Ele
             | AsPat a ->
@@ -151,12 +147,11 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                             let firstTy = snd first[key]
                             let id, currTy = sym[key]
 
-                            env.AddConstr(
-                                CNormal
-                                    { Expect = firstTy
-                                      Actual = currTy
-                                      Span = id.Span }
-                            )
+                            env.Unify
+                                { Expect = firstTy
+                                  Actual = currTy
+                                  Span = id.Span }
+                                false
 
                 let mergeSym sym curr =
                     Map.fold (fun sym _ (id, ty) -> addSym sym id ty) sym curr
@@ -188,12 +183,11 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                         let inst = Array.map (fun _ -> TVar(env.NewTVar None e.Span)) v
 
                         if enumData.Variant.ContainsKey variant.Sym then
-                            env.AddConstr(
-                                CNormal
-                                    { Expect = TEnum(enum, inst)
-                                      Actual = ty
-                                      Span = e.Span }
-                            )
+                            env.Unify
+                                { Expect = TEnum(enum, inst)
+                                  Actual = ty
+                                  Span = e.Span }
+                                false
 
                             let payload = enumData.Variant[variant.Sym]
 
@@ -255,46 +249,41 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
             match b.Op with
             | Arith _ ->
-                env.AddConstr(
-                    CNormal
-                        { Expect = TInt(true, ISize)
-                          Actual = l
-                          Span = b.Left.Span }
-                )
+                env.Unify
+                    { Expect = TInt(true, ISize)
+                      Actual = l
+                      Span = b.Left.Span }
+                    false
 
-                env.AddConstr(
-                    CNormal
-                        { Expect = TInt(true, ISize)
-                          Actual = r
-                          Span = b.Right.Span }
-                )
+                env.Unify
+                    { Expect = TInt(true, ISize)
+                      Actual = r
+                      Span = b.Right.Span }
+                    false
 
                 TInt(true, ISize)
 
             | Logic _ ->
-                env.AddConstr(
-                    CNormal
-                        { Expect = TBool
-                          Actual = l
-                          Span = b.Left.Span }
-                )
+                env.Unify
+                    { Expect = TBool
+                      Actual = l
+                      Span = b.Left.Span }
+                    false
 
-                env.AddConstr(
-                    CNormal
-                        { Expect = TBool
-                          Actual = r
-                          Span = b.Right.Span }
-                )
+                env.Unify
+                    { Expect = TBool
+                      Actual = r
+                      Span = b.Right.Span }
+                    false
 
                 TBool
 
             | Cmp _ ->
-                env.AddConstr(
-                    CNormal
-                        { Expect = l
-                          Actual = r
-                          Span = b.Span }
-                )
+                env.Unify
+                    { Expect = l
+                      Actual = r
+                      Span = b.Span }
+                    false
 
                 TBool
             | Pipe -> failwith "Not Implemented"
@@ -314,30 +303,28 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
             for br in i.ElseIf do
                 let elseif = this.Cond br.Cond br.Block
 
-                env.AddConstr(
-                    CNormal
-                        { Expect = then_
-                          Actual = elseif
-                          Span = i.Span }
-                )
+                env.Unify
+                    { Expect = then_
+                      Actual = elseif
+                      Span = i.Span }
+                    false
 
             match i.Else with
             | Some else_ ->
                 let else_ = this.Block else_
 
-                env.AddConstr(
-                    CNormal
-                        { Expect = then_
-                          Actual = else_
-                          Span = i.Span }
-                )
+                env.Unify
+                    { Expect = then_
+                      Actual = else_
+                      Span = i.Span }
+                    false
+
             | None ->
-                env.AddConstr(
-                    CNormal
-                        { Expect = then_
-                          Actual = UnitType
-                          Span = i.Span }
-                )
+                env.Unify
+                    { Expect = then_
+                      Actual = UnitType
+                      Span = i.Span }
+                    false
 
             then_
         | Match m ->
@@ -350,12 +337,11 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
                 match br.Guard with
                 | Some g ->
-                    env.AddConstr(
-                        CNormal
-                            { Actual = this.Expr g
-                              Expect = TBool
-                              Span = g.Span }
-                    )
+                    env.Unify
+                        { Actual = this.Expr g
+                          Expect = TBool
+                          Span = g.Span }
+                        false
                 | None -> ()
 
                 let brTy = this.Expr br.Expr
@@ -372,12 +358,11 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                 for br in m.Branch[1..] do
                     let brTy = typeOfBranch br
 
-                    env.AddConstr(
-                        CNormal
-                            { Expect = first
-                              Actual = brTy
-                              Span = br.Span }
-                    )
+                    env.Unify
+                        { Expect = first
+                          Actual = brTy
+                          Span = br.Span }
+                        false
 
                 first
 
@@ -388,45 +373,35 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
             let arg = Array.map this.Expr c.Arg
             let ret = TVar(env.NewTVar None c.Span)
 
-            env.AddConstr(
-                CNormal
-                    { Expect = TFn { Param = arg; Ret = ret }
-                      Actual = callee
-                      Span = c.Span }
-            )
+            env.Unify
+                { Expect = TFn { Param = arg; Ret = ret }
+                  Actual = callee
+                  Span = c.Span }
+                false
 
             ret
         | As _ -> failwith "Not Implemented"
         | Unary u ->
+            let value = this.Expr u.Value
+
             match u.Op with
             | Not ->
-                env.AddConstr(
-                    CNormal
-                        { Expect = TBool
-                          Actual = this.Expr u.Value
-                          Span = u.Span }
-                )
+                env.Unify
+                    { Expect = TBool
+                      Actual = value
+                      Span = u.Span }
+                    false
 
                 TBool
             | Neg ->
-                env.AddConstr(
-                    CNormal
-                        { Expect = TInt(true, ISize)
-                          Actual = this.Expr u.Value
-                          Span = u.Span }
-                )
+                env.Unify
+                    { Expect = TInt(true, ISize)
+                      Actual = value
+                      Span = u.Span }
+                    false
 
                 TInt(true, ISize)
-            | Ref ->
-                let rec getVar expr =
-                    match expr with
-                    | Id i -> Some i
-                    | Field { Receiver = receiver } -> getVar receiver
-                    | Index { Container = container } -> getVar container
-                    | Unary { Op = Deref; Value = expr } -> getVar expr
-                    | _ -> None
-
-                TRef(this.Expr u.Value)
+            | Ref -> TRef value
             | Deref ->
                 let sym =
                     match u.Value with
@@ -435,24 +410,22 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
                 let ptr = TVar(env.NewTVar sym u.Value.Span)
 
-                env.AddConstr(
-                    CNormal
-                        { Expect = TRef ptr
-                          Actual = this.Expr u.Value
-                          Span = u.Span }
-                )
+                env.Unify
+                    { Expect = TRef ptr
+                      Actual = value
+                      Span = u.Span }
+                    false
 
                 ptr
         | Assign a ->
             let value = this.Expr a.Value
             let place = this.Expr a.Place
 
-            env.AddConstr(
-                CNormal
-                    { Expect = place
-                      Actual = value
-                      Span = a.Span }
-            )
+            env.Unify
+                { Expect = place
+                  Actual = value
+                  Span = a.Span }
+                false
 
             let rec getVar expr =
                 match expr with
@@ -498,12 +471,11 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                 | Some s ->
                     let inst = Array.map (fun _ -> TVar(env.NewTVar None f.Span)) s.TVar
 
-                    env.AddConstr(
-                        CDeref
-                            { Expect = TStruct(s.Name, inst)
-                              Actual = receiver
-                              Span = f.Span }
-                    )
+                    env.Unify
+                        { Expect = TStruct(s.Name, inst)
+                          Actual = receiver
+                          Span = f.Span }
+                        true
 
                     s.Field[key].Instantiate s.TVar inst
                 | None ->
@@ -546,12 +518,11 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
             let ret = this.Expr c.Body
 
-            env.AddConstr(
-                CNormal
-                    { Expect = retTy
-                      Actual = ret
-                      Span = c.Span }
-            )
+            env.Unify
+                { Expect = retTy
+                  Actual = ret
+                  Span = c.Span }
+                false
 
             env.FinishScope()
 
@@ -620,12 +591,11 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                 | Some v -> this.Expr v
                 | None -> UnitType
 
-            env.AddConstr(
-                CNormal
-                    { Expect = retTy
-                      Actual = ty
-                      Span = r.Span }
-            )
+            env.Unify
+                { Expect = retTy
+                  Actual = ty
+                  Span = r.Span }
+                false
 
             TNever
         | Range(_) -> failwith "Not Implemented"
@@ -673,8 +643,6 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
         res
 
     member this.HoistDecl (decl: seq<Decl>) topLevel =
-        let currScope = env.Current
-
         // Process Type Decl Hoisted Name
         for d in decl do
             let dummyTVar _ =
@@ -691,14 +659,13 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
             | StructDecl s ->
                 let tvar = Array.map dummyTVar s.TyParam
                 env.RegisterTy s.Name (TStruct(s.Name, tvar))
-
-                for field in s.Field do
-                    currScope.Field.Add field.Name.Sym s.Name
+                env.RegisterField s
 
             | EnumDecl e ->
                 let tvar = Array.map dummyTVar e.TyParam
                 env.RegisterTy e.Name (TEnum(e.Name, tvar))
-            | TypeDecl t -> env.RegisterTy t.Name TNever
+
+            | TypeDecl _ -> failwith "Not Implemented"
             | Use _ -> failwith "Not Implemented"
             | Trait _ -> failwith "Not Implemented"
             | Impl _ -> failwith "Not Implemented"
@@ -761,8 +728,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
                 enumRec[e.Name] <- enum
 
-            | TypeDecl t -> currScope.Ty[t.Name.Sym] <- this.Type t.Ty
-
+            | TypeDecl _ -> failwith "Not Implemented"
             | Use _ -> failwith "Not Implemented"
             | Trait _ -> failwith "Not Implemented"
             | Impl _ -> failwith "Not Implemented"
@@ -825,12 +791,11 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
             | Let l ->
                 let value = this.Expr l.Value
 
-                env.AddConstr(
-                    CNormal
-                        { Expect = valueMap[l.Pat]
-                          Actual = value
-                          Span = l.Span }
-                )
+                env.Unify
+                    { Expect = valueMap[l.Pat]
+                      Actual = value
+                      Span = l.Span }
+                    false
             | _ -> ()
 
     member this.Decl d =
@@ -843,12 +808,11 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                 | Some ty ->
                     let ty = this.Type ty
 
-                    env.AddConstr(
-                        CNormal
-                            { Expect = ty
-                              Actual = value
-                              Span = l.Span }
-                    )
+                    env.Unify
+                        { Expect = ty
+                          Actual = value
+                          Span = l.Span }
+                        false
 
                     ty
                 | None -> value
@@ -867,12 +831,11 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
     member this.Cond cond block =
         match cond with
         | BoolCond b ->
-            env.AddConstr(
-                CNormal
-                    { Expect = TBool
-                      Actual = this.Expr b
-                      Span = b.Span }
-            )
+            env.Unify
+                { Expect = TBool
+                  Actual = this.Expr b
+                  Span = b.Span }
+                false
 
             this.Block block
         | LetCond c ->
@@ -900,12 +863,11 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
         let ret = this.Block f.Body
 
-        env.AddConstr(
-            CNormal
-                { Expect = fnTy.Ret
-                  Actual = ret
-                  Span = f.Name.Span }
-        )
+        env.Unify
+            { Expect = fnTy.Ret
+              Actual = ret
+              Span = f.Name.Span }
+            false
 
         env.FinishScope()
 
@@ -940,7 +902,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
         let sema =
             { Binding = bindingRec
-              Expr = Dictionary()
+              Expr = exprRec
               Struct = structRec
               Enum = enumRec
               Capture = captureRec
@@ -949,9 +911,9 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                   Var = Map.empty
                   Module = Map.empty } }
 
-        sema, error.ToArray()
+        if error.Count = 0 then Ok sema else Error(error.ToArray())
 
 let check (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
-    let checker = Traverse moduleMap
+    let traverse = Traverse moduleMap
 
-    checker.Module m
+    traverse.Module m

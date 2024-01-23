@@ -26,11 +26,9 @@ let runTansform input =
         | Ok m -> m
         | Error(e, _) -> failwithf "parse error %A" e
 
-    let sema, error = check (Dictionary()) m
-
-    Assert.Empty error
-
-    (transform arch m sema).Print
+    match check (Dictionary()) m with
+    | Ok sema -> (transform arch m sema).Print
+    | Error e -> failwithf "type error %A" e
 
 let spec = getAllFile "/Spec"
 

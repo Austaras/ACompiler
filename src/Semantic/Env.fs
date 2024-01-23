@@ -23,14 +23,10 @@ let internal primitive =
        TChar
        TString |]
 
-type internal NormalConstraint =
+type internal Constraint =
     { Expect: Type
       Actual: Type
       Span: Span }
-
-type internal Constraint =
-    | CNormal of NormalConstraint
-    | CDeref of NormalConstraint
 
 type internal FnScope = { Ret: Type }
 type internal ClosureScope = { Closure: Closure; Ret: Type }
@@ -48,14 +44,12 @@ type internal Scope =
     { Ty: Dictionary<string, Type>
       Var: Dictionary<string, VarInfo>
       Field: MultiMap<string, Id>
-      Constr: ResizeArray<Constraint>
       Data: ScopeData }
 
     static member Create data =
         { Ty = Dictionary()
           Var = Dictionary()
           Field = MultiMap()
-          Constr = ResizeArray()
           Data = data }
 
     static member Prelude =
@@ -128,6 +122,10 @@ type internal Environment(error: ResizeArray<Error>) =
 
         curr.Var[info.Def.Sym] <- info
 
+    member _.RegisterField(decl: StructDecl) =
+        for field in decl.Field do
+            scope.Peek().Field.Add field.Name.Sym decl.Name
+
     member _.GetVarInfoWithCapture(id: Id) =
         let rec resolveVar captured canCapture (i: int) =
             let curr = scope.ElementAt i
@@ -172,12 +170,11 @@ type internal Environment(error: ResizeArray<Error>) =
 
         this.Pick pickId
 
-    member _.AddConstr constr = scope.Peek().Constr.Add constr
-
     member this.NormalizeTy ty =
         let onvar tvar =
             if union.ContainsKey tvar then
-                // we don't need to find tvar here, all the work has been done in unify
+                // we don't need to recursively find tvar here
+                // all the work has been done in unify
                 let p = this.NormalizeTy union[tvar]
                 union[tvar] <- p
                 p
@@ -186,7 +183,7 @@ type internal Environment(error: ResizeArray<Error>) =
 
         ty.Walk onvar
 
-    member this.UnifyNormal c deref =
+    member this.Unify c deref =
         let span = c.Span
         let expect = this.NormalizeTy c.Expect
         let actual = this.NormalizeTy c.Actual
@@ -227,20 +224,20 @@ type internal Environment(error: ResizeArray<Error>) =
                 error.Add(TypeMismatch(expect, actual, span))
             else
                 for (p1, p2) in (Array.zip f1.Param f2.Param) do
-                    this.UnifyNormal
+                    this.Unify
                         { Expect = p1
                           Actual = p2
                           Span = span }
                         deref
 
-                this.UnifyNormal
+                this.Unify
                     { Expect = f1.Ret
                       Actual = f2.Ret
                       Span = span }
                     false
 
         | TRef r1, TRef r2 ->
-            this.UnifyNormal
+            this.Unify
                 { Expect = r1
                   Actual = r2
                   Span = span }
@@ -248,7 +245,7 @@ type internal Environment(error: ResizeArray<Error>) =
 
         | TRef r, t
         | t, TRef r when deref ->
-            this.UnifyNormal
+            this.Unify
                 { Expect = r.StripRef
                   Actual = t
                   Span = span }
@@ -257,7 +254,7 @@ type internal Environment(error: ResizeArray<Error>) =
         | TStruct(id1, v1), TStruct(id2, v2)
         | TEnum(id1, v1), TEnum(id2, v2) when id1 = id2 ->
             for (v1, v2) in Array.zip v1 v2 do
-                this.UnifyNormal
+                this.Unify
                     { Expect = v1
                       Actual = v2
                       Span = span }
@@ -268,7 +265,7 @@ type internal Environment(error: ResizeArray<Error>) =
                 error.Add(TupleLengthMismatch(span, t1.Length, t2.Length))
             else
                 for (t1, t2) in Array.zip t1 t2 do
-                    this.UnifyNormal
+                    this.Unify
                         { Expect = t1
                           Actual = t2
                           Span = span }
@@ -276,14 +273,7 @@ type internal Environment(error: ResizeArray<Error>) =
 
         | _, _ -> error.Add(TypeMismatch(expect, actual, span))
 
-    /// unify last scope then exit
-    member this.FinishScope() =
-        for c in scope.Peek().Constr do
-            match c with
-            | CNormal c -> this.UnifyNormal c false
-            | CDeref c -> this.UnifyNormal c true
-
-        scope.Pop() |> ignore
+    member this.FinishScope() = scope.Pop() |> ignore
 
     member this.Generalize tvar fnTy =
         let inScope (v: Var) = v.Level > scope.Count

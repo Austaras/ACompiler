@@ -15,11 +15,9 @@ let runCheck input =
         | Ok m -> m
         | Error(e, _) -> failwithf "parse error %A" e
 
-    let sema, error = check (Dictionary()) m
-
-    Assert.Empty error
-
-    Map.values sema.Capture.ToMap |> Seq.map (Array.map _.Sym) |> Array.ofSeq
+    match check (Dictionary()) m with
+    | Ok sema -> Map.values sema.Capture.ToMap |> Seq.map (Array.map _.Sym) |> Array.ofSeq
+    | Error e -> failwithf "type error %A" e
 
 [<Fact>]
 let Add () =

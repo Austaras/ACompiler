@@ -1,0 +1,5 @@
+Unary@0..3
+    op: *
+    value: Field@1..3
+        receiver: a@1..1
+        field: b@3..3

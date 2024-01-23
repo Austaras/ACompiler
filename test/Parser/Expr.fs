@@ -81,6 +81,7 @@ let Field (name: string) (input: string) =
 1")>]
 
 [<InlineData("LogicalAnd", "&&a")>]
+[<InlineData("Field", "*a.b")>]
 let Unary (name: string) (input: string) =
     let res = parseTest input
     snap.ShouldMatch res $"Unary/{name}"
