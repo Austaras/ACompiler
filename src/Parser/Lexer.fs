@@ -37,7 +37,7 @@ let internal classify input =
     | "false" -> Lit(AST.Bool false)
     | "NaN" -> Lit(AST.Float nan)
     | "Infinity" -> Lit(AST.Float infinity)
-    | "_" -> Underline
+    | "_" -> UnderLine
     | str -> Identifier str
 
 let internal unescapeStr = System.Text.RegularExpressions.Regex.Unescape

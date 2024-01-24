@@ -208,6 +208,17 @@ fn id<T>(x: T) -> T {
 
     Assert.Equal("<T>|T| -> T", hoistedTyped["id"])
 
+    let recTyped =
+        runInfer
+            "
+fn id<T>(x: T) -> T {
+    let _ = id(1)
+    let _ = id(true)
+    x
+}"
+
+    Assert.Equal("<T>|T| -> T", recTyped["id"])
+
     let polyDouble = runInfer "fn double(f, x) { f(f(x)) }"
     Assert.Equal("<Tx>||Tx| -> Tx, Tx| -> Tx", polyDouble["double"])
 

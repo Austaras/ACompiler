@@ -23,11 +23,6 @@ let internal primitive =
        TChar
        TString |]
 
-type internal Constraint =
-    { Expect: Type
-      Actual: Type
-      Span: Span }
-
 type internal FnScope = { Ret: Type }
 type internal ClosureScope = { Closure: Closure; Ret: Type }
 
@@ -63,8 +58,10 @@ type internal Scope =
 type internal Environment(error: ResizeArray<Error>) =
     let scope = Stack([| Scope.Prelude |])
 
-    // union find set
-    let union = Dictionary<Var, Type>()
+    /// union find set
+    let ufs = Dictionary<int, Type>()
+
+    let pred = MultiMap<int, Type>()
 
     let mutable tVarId = 0
 
@@ -171,30 +168,29 @@ type internal Environment(error: ResizeArray<Error>) =
         this.Pick pickId
 
     member this.NormalizeTy ty =
-        let onvar tvar =
-            if union.ContainsKey tvar then
+        let onvar (tvar: Var) =
+            if ufs.ContainsKey tvar.Id then
                 // we don't need to recursively find tvar here
                 // all the work has been done in unify
-                let p = this.NormalizeTy union[tvar]
-                union[tvar] <- p
+                let p = this.NormalizeTy ufs[tvar.Id]
+                ufs[tvar.Id] <- p
                 p
             else
                 TVar tvar
 
         ty.Walk onvar
 
-    member this.Unify c deref =
-        let span = c.Span
-        let expect = this.NormalizeTy c.Expect
-        let actual = this.NormalizeTy c.Actual
+    member this.Unify expect actual span =
+        let expect = this.NormalizeTy expect
+        let actual = this.NormalizeTy actual
 
         let rec find k =
-            let p = union[k]
+            let p = ufs[k]
 
             match p with
             | TVar v ->
-                let p = if union.ContainsKey v then find v else TVar v
-                union[k] <- p
+                let p = if ufs.ContainsKey v.Id then find v.Id else TVar v
+                ufs[k] <- p
                 p
             | p -> p
 
@@ -204,72 +200,43 @@ type internal Environment(error: ResizeArray<Error>) =
         | _, TNever -> ()
         | TVar v1 as t1, (TVar v2 as t2) ->
             if v1.Level > v2.Level then
-                union.Add(v1, t2)
+                ufs.Add(v1.Id, t2)
             else if v1.Level = v2.Level then
                 if v1.Id > v2.Id then
-                    union.Add(v1, t2)
+                    ufs.Add(v1.Id, t2)
                 else
-                    union.Add(v2, t1)
+                    ufs.Add(v2.Id, t1)
             else
-                union.Add(v2, t1)
+                ufs.Add(v2.Id, t1)
 
         | TVar v, ty
         | ty, TVar v ->
-            match ty.FindTVar |> Seq.tryFind ((=) v) with
+            match ty.FindTVar() |> Seq.tryFind ((=) v) with
             | Some _ -> error.Add(FailToUnify(expect, actual, span))
-            | None -> union.Add(v, ty)
+            | None -> ufs.Add(v.Id, ty)
 
         | TFn f1, TFn f2 ->
             if f1.Param.Length <> f2.Param.Length then
                 error.Add(TypeMismatch(expect, actual, span))
             else
                 for (p1, p2) in (Array.zip f1.Param f2.Param) do
-                    this.Unify
-                        { Expect = p1
-                          Actual = p2
-                          Span = span }
-                        deref
+                    this.Unify p1 p2 span
 
-                this.Unify
-                    { Expect = f1.Ret
-                      Actual = f2.Ret
-                      Span = span }
-                    false
+                this.Unify f1.Ret f2.Ret span
 
-        | TRef r1, TRef r2 ->
-            this.Unify
-                { Expect = r1
-                  Actual = r2
-                  Span = span }
-                false
-
-        | TRef r, t
-        | t, TRef r when deref ->
-            this.Unify
-                { Expect = r.StripRef
-                  Actual = t
-                  Span = span }
-                false
+        | TRef r1, TRef r2 -> this.Unify r1 r2 span
 
         | TStruct(id1, v1), TStruct(id2, v2)
         | TEnum(id1, v1), TEnum(id2, v2) when id1 = id2 ->
             for (v1, v2) in Array.zip v1 v2 do
-                this.Unify
-                    { Expect = v1
-                      Actual = v2
-                      Span = span }
-                    false
+                this.Unify v1 v2 span
 
         | TTuple t1, TTuple t2 ->
             if t1.Length <> t2.Length then
                 error.Add(TupleLengthMismatch(span, t1.Length, t2.Length))
             else
                 for (t1, t2) in Array.zip t1 t2 do
-                    this.Unify
-                        { Expect = t1
-                          Actual = t2
-                          Span = span }
-                        false
+                    this.Unify t1 t2 span
 
         | _, _ -> error.Add(TypeMismatch(expect, actual, span))
 
@@ -279,13 +246,13 @@ type internal Environment(error: ResizeArray<Error>) =
         let inScope (v: Var) = v.Level > scope.Count
 
         let param = Array.map this.NormalizeTy fnTy.Param
-        let fromRet = fnTy.Ret.FindTVar |> Set.ofSeq
+        let fromRet = fnTy.Ret.FindTVar() |> Set.ofSeq
         let ret = this.NormalizeTy fnTy.Ret
 
-        let newTVar = param |> Seq.map _.FindTVar |> Seq.concat
+        let newTVar = param |> Seq.map _.FindTVar() |> Seq.concat
 
         let tvar =
-            Seq.append newTVar (ret.FindTVar)
+            Seq.append newTVar (ret.FindTVar())
             |> Seq.filter inScope
             |> Seq.filter (fun v -> not (Set.contains v fromRet))
             |> Seq.append tvar
@@ -301,7 +268,6 @@ type internal Environment(error: ResizeArray<Error>) =
             match Map.tryFind t map with
             | None -> TVar t
             | Some t -> TVar t
-
 
         { Ret = fn.Ret.Walk getMap
           Param = fn.Param |> Array.map _.Walk(getMap) }

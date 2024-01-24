@@ -66,7 +66,7 @@ type TokenData =
     | Identifier of string
     | Reserved of Reserved
     | Comment of CommentKind * string
-    | Underline
+    | UnderLine
 
 type Token = { Data: TokenData; Span: Span }
 

@@ -238,7 +238,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
 
             RangePat { From = None; To = to_; Span = span }
 
-        | Underline -> CatchAllPat span
+        | UnderLine -> CatchAllPat span
         | Open Paren ->
             let ele, last = this.CommaSeq this.Pat (Close Paren)
 
@@ -453,7 +453,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
 
             LitType { Value = l; Span = span }
         | Not -> NeverType span
-        | Underline -> InferedType span
+        | UnderLine -> InferedType span
         | Operator(Arith Sub) ->
             if not ctx.InTypeInst then
                 error.Add(UnexpectedConstType token)

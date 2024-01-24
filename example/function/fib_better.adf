@@ -14,7 +14,7 @@ fn fib_imp(n) {
     let mut acc1 = 0
     let mut acc2 = 1
 
-    for i in 0..n {
+    for _ in 0..n {
         let temp = acc1 + acc2
         acc1 = acc2
         acc2 = temp

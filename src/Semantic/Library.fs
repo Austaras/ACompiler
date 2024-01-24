@@ -66,7 +66,7 @@ and Type =
     | TVar of Var
     | TNever
 
-    member this.FindTVar =
+    member this.FindTVar() =
         seq {
             match this with
             | TInt _
@@ -78,18 +78,18 @@ and Type =
             | TStruct(_, v)
             | TEnum(_, v) ->
                 for v in v do
-                    yield! v.FindTVar
+                    yield! v.FindTVar()
             | TTuple t ->
                 for t in t do
-                    yield! t.FindTVar
-            | TArray(t, _) -> yield! t.FindTVar
+                    yield! t.FindTVar()
+            | TArray(t, _) -> yield! t.FindTVar()
             | TFn f ->
                 for p in f.Param do
-                    yield! p.FindTVar
+                    yield! p.FindTVar()
 
-                yield! f.Ret.FindTVar
-            | TRef r -> yield! r.FindTVar
-            | TSlice s -> yield! s.FindTVar
+                yield! f.Ret.FindTVar()
+            | TRef r -> yield! r.FindTVar()
+            | TSlice s -> yield! s.FindTVar()
             | TNever -> ()
         }
 
@@ -158,7 +158,7 @@ and Type =
 
         this.Walk getMap
 
-    member this.StripRef =
+    member this.StripRef() =
         let rec stripRef ty =
             match ty with
             | TRef t -> stripRef t
