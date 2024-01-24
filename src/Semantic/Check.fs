@@ -424,8 +424,27 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
         | TupleAccess(_) -> failwith "Not Implemented"
         | Index(_) -> failwith "Not Implemented"
-        | Array(_) -> failwith "Not Implemented"
-        | ArrayRepeat(_) -> failwith "Not Implemented"
+        | Array a ->
+            if a.Ele.Length = 0 then
+                let ele = env.NewTVar None a.Span
+                TArray(TVar ele, 0UL)
+            else
+                let first = this.Expr a.Ele[0]
+
+                for ele in a.Ele[1..] do
+                    let ty = this.Expr ele
+                    env.Unify first ty ele.Span
+
+                TArray(first, uint64 a.Ele.Length)
+
+        | ArrayRepeat a ->
+            // TODO: clone trait
+            let ty = this.Expr a.Ele
+
+            match a.Len with
+            | LitExpr { Value = Int len } -> TArray(ty, len)
+            | _ -> failwith "Not Implemented"
+
         | StructLit(_) -> failwith "Not Implemented"
         | Tuple s -> s.Ele |> Array.map this.Expr |> TTuple
         | Closure c ->

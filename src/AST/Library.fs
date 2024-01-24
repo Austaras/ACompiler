@@ -267,15 +267,7 @@ type Param =
       Ty: Option<Type>
       Span: Span }
 
-type Call =
-    { Callee: Expr
-      Arg: Expr[]
-      Span: Span }
-
-    member this.isMethodCall =
-        match this.Callee with
-        | Field _ -> true
-        | _ -> false
+type Call<'a> = { Callee: 'a; Arg: 'a[]; Span: Span }
 
 and LetCond = { Pat: Pat; Value: Expr; Span: Span }
 
@@ -397,7 +389,7 @@ and Expr =
     | LitExpr of Literal
     | If of If
     | Block of Block
-    | Call of Call
+    | Call of Call<Expr>
     | As of As
     | Unary of Unary
     | Assign of Assign
@@ -569,7 +561,7 @@ and TraitValue =
       DefaultValue: Option<Expr>
       Span: Span }
 
-and TraitItem =
+and TraitDecl =
     | TraitMethod of TraitMethod
     | TraitType of TraitType
     | TraitValue of TraitValue
@@ -579,6 +571,11 @@ and TraitItem =
         | TraitMethod t -> t.Span
         | TraitType t -> t.Span
         | TraitValue t -> t.Span
+
+and TraitItem =
+    { Attr: Attr[]
+      Decl: TraitDecl
+      Span: Span }
 
 and Trait =
     { Name: Id
@@ -600,6 +597,7 @@ and ImplDecl =
 
 and ImplItem =
     { Vis: Visibility
+      Attr: Attr[]
       Item: ImplDecl
       Span: Span }
 
@@ -609,6 +607,11 @@ and Impl =
       Ty: Type
       Item: ImplItem[]
       Span: Span }
+
+and Attr =
+    | IdAttr of Id
+    | LitAttr of Literal
+    | CallAttr of Call<Attr>
 
 and Decl =
     | Let of Let
@@ -644,6 +647,7 @@ and Stmt =
 
 type ModuleItem =
     { Vis: Visibility
+      Attr: Attr[]
       Decl: Decl
       Span: Span }
 

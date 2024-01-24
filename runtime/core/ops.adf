@@ -96,3 +96,8 @@ pub trait Neg {
 pub trait Not {
     fn not(self) -> Self
 }
+
+impl Add for int {
+    #[compiler_builtin]
+    fn add(self, rhs: Self) -> Self { }
+}

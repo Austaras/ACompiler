@@ -708,7 +708,7 @@ type Dump(tw: TextWriter) =
 
                 level <- level + 1
 
-                match i with
+                match i.Decl with
                 | TraitMethod m ->
                     tw.WriteLine("trait method" + s)
 

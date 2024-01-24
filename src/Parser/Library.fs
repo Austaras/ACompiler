@@ -1368,69 +1368,76 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
             let super = this.TypeBound()
 
             let item () =
-                match lexer.Peek() with
-                | Some { Data = Reserved TYPE; Span = span } ->
-                    lexer.Consume()
-                    let name = lexer.ReadId "Trait Type Name"
+                let attr = this.Attr()
 
-                    let bound = this.TypeBound()
+                let decl =
+                    match lexer.Peek() with
+                    | Some { Data = Reserved TYPE; Span = span } ->
+                        lexer.Consume()
+                        let name = lexer.ReadId "Trait Type Name"
 
-                    let defaultTy =
-                        match lexer.PeekInline() with
-                        | Some { Data = Eq } ->
-                            lexer.Consume()
-                            this.Type() |> Some
-                        | _ -> None
+                        let bound = this.TypeBound()
 
-                    let last =
-                        match defaultTy with
-                        | Some d -> d.Span
-                        | None ->
-                            if bound.Length > 0 then
-                                (Array.last bound).Span
-                            else
-                                name.Span
+                        let defaultTy =
+                            match lexer.PeekInline() with
+                            | Some { Data = Eq } ->
+                                lexer.Consume()
+                                this.Type() |> Some
+                            | _ -> None
 
-                    TraitType
-                        { Name = name
-                          Bound = bound
-                          DefaultTy = defaultTy
-                          Span = span.WithLast last }
+                        let last =
+                            match defaultTy with
+                            | Some d -> d.Span
+                            | None ->
+                                if bound.Length > 0 then
+                                    (Array.last bound).Span
+                                else
+                                    name.Span
 
-                | Some { Data = Reserved FUNCTION
-                         Span = span } ->
-                    lexer.Consume()
-                    let name = lexer.ReadId "Trait Method Name"
+                        TraitType
+                            { Name = name
+                              Bound = bound
+                              DefaultTy = defaultTy
+                              Span = span.WithLast last }
 
-                    let _ = lexer.Expect (Open Paren) "Trait Method Parameter"
+                    | Some { Data = Reserved FUNCTION
+                             Span = span } ->
+                        lexer.Consume()
+                        let name = lexer.ReadId "Trait Method Name"
 
-                    let param, last = this.CommaSeq (fun () -> this.Param false) (Close Paren)
+                        let _ = lexer.Expect (Open Paren) "Trait Method Parameter"
 
-                    let ret = this.RetTy()
+                        let param, last = this.CommaSeq (fun () -> this.Param false) (Close Paren)
 
-                    let impl =
-                        match lexer.PeekInline() with
-                        | Some { Data = Open Curly; Span = span } ->
-                            lexer.Consume()
+                        let ret = this.RetTy()
 
-                            this.Block span |> Some
-                        | _ -> None
+                        let impl =
+                            match lexer.PeekInline() with
+                            | Some { Data = Open Curly; Span = span } ->
+                                lexer.Consume()
 
-                    let last =
-                        impl
-                        |> Option.map _.Span
-                        |> Option.orElse (ret |> Option.map _.Span)
-                        |> Option.defaultValue last
+                                this.Block span |> Some
+                            | _ -> None
 
-                    TraitMethod
-                        { Name = name
-                          Param = param
-                          Ret = ret
-                          Default = impl
-                          Span = span.WithLast last }
+                        let last =
+                            impl
+                            |> Option.map _.Span
+                            |> Option.orElse (ret |> Option.map _.Span)
+                            |> Option.defaultValue last
 
-                | Some token -> raise (ParserExp(UnexpectedToken(token, "Trait Item")))
-                | None -> raise (ParserExp(IncompleteAtEnd "Trait Item"))
+                        TraitMethod
+                            { Name = name
+                              Param = param
+                              Ret = ret
+                              Default = impl
+                              Span = span.WithLast last }
+
+                    | Some token -> raise (ParserExp(UnexpectedToken(token, "Trait Item")))
+                    | None -> raise (ParserExp(IncompleteAtEnd "Trait Item"))
+
+                { Attr = attr
+                  Decl = decl
+                  Span = decl.Span }
 
             let old = ctx
             ctx <- { ctx with InDecl = true }
@@ -1481,6 +1488,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                 | _ -> first, None
 
             let item () =
+                let attr = this.Attr()
                 let vis, first = this.Vis()
 
                 let item =
@@ -1529,6 +1537,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                 let first = Option.defaultValue item.Span first
 
                 { Vis = vis
+                  Attr = attr
                   Item = item
                   Span = first.WithLast item.Span }
 
@@ -1582,7 +1591,43 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
         | Some token -> raise (ParserExp(UnexpectedToken(token, "Statment")))
         | None -> raise (ParserExp(IncompleteAtEnd "Statment"))
 
+    member this.Attr() =
+        let rec attr () =
+            let { Data = data; Span = span } as token = lexer.Read "Attribute"
+
+            let res =
+                match data with
+                | Identifier sym -> IdAttr { Sym = sym; Span = span }
+                | Lit l -> LitAttr { Value = l; Span = span }
+                | _ -> raise (ParserExp(UnexpectedToken(token, "Attribute")))
+
+            match lexer.PeekInline() with
+            | Some { Data = Open Paren } ->
+                lexer.Consume()
+                let arg, last = this.CommaSeq attr (Close Paren)
+
+                CallAttr
+                    { Callee = res
+                      Arg = arg
+                      Span = span.WithLast last }
+            | _ -> res
+
+        let rec repeat acc =
+            match lexer.Peek() with
+            | Some({ Data = Hash }) ->
+                lexer.Consume()
+                let _ = lexer.Expect (Open Bracket) "Attribute"
+                let attr = attr ()
+                let _ = lexer.Expect (Close Bracket) "Attribute"
+                let acc = Array.append acc [| attr |]
+                repeat acc
+            | _ -> [||]
+
+        repeat [||]
+
     member this.ModuleItem() =
+        let attr = this.Attr()
+
         let vis, span = this.Vis()
 
         let item = this.Stmt()
@@ -1603,7 +1648,10 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                       Value = e
                       Span = Span.dummy }
 
-        { Vis = vis; Decl = item; Span = span }
+        { Vis = vis
+          Attr = attr
+          Decl = item
+          Span = span }
 
     member this.ParseModule() =
         let item, _ = this.ManyItem this.ModuleItem None
@@ -1629,5 +1677,4 @@ let parse (input: string) =
             Ok m
     with ParserExp e ->
         error.Add e
-
         Error(error.ToArray(), None)

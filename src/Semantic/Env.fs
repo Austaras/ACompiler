@@ -170,8 +170,6 @@ type internal Environment(error: ResizeArray<Error>) =
     member this.NormalizeTy ty =
         let onvar (tvar: Var) =
             if ufs.ContainsKey tvar.Id then
-                // we don't need to recursively find tvar here
-                // all the work has been done in unify
                 let p = this.NormalizeTy ufs[tvar.Id]
                 ufs[tvar.Id] <- p
                 p
@@ -183,16 +181,6 @@ type internal Environment(error: ResizeArray<Error>) =
     member this.Unify expect actual span =
         let expect = this.NormalizeTy expect
         let actual = this.NormalizeTy actual
-
-        let rec find k =
-            let p = ufs[k]
-
-            match p with
-            | TVar v ->
-                let p = if ufs.ContainsKey v.Id then find v.Id else TVar v
-                ufs[k] <- p
-                p
-            | p -> p
 
         match expect, actual with
         | p1, p2 when p1 = p2 -> ()

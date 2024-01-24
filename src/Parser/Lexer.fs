@@ -154,9 +154,12 @@ type internal Lexer(input: string, error: ResizeArray<Error>) =
         | ']' -> this.Single(Close Bracket)
         | '{' -> this.Single(Open Curly)
         | '}' -> this.Single(Close Curly)
+
         | '~' -> this.Single Tilde
         | ',' -> this.Single Comma
         | '?' -> this.Single Question
+        | '#' -> this.Single Hash
+
         | ':' ->
             let token, j =
                 if pos + 1 < len && input[pos + 1] = ':' then

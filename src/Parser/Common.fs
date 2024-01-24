@@ -67,6 +67,7 @@ type TokenData =
     | Reserved of Reserved
     | Comment of CommentKind * string
     | UnderLine
+    | Hash
 
 type Token = { Data: TokenData; Span: Span }
 

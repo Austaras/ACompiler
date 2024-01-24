@@ -4,7 +4,6 @@ open System.Collections.Generic
 
 open Xunit
 
-open AST
 open Parser.Parser
 open Semantic.Semantic
 open Semantic.Check
