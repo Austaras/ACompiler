@@ -246,9 +246,7 @@ fn bar(x) {
     let explicit =
         runInfer
             "
-pub fn swap<T1, T2>(t: (T1, T2)) -> (T2, T1) {
-    let (fst, snd) = t
-
+pub fn swap<T1, T2>((fst, snd): (T1, T2)) -> (T2, T1) {
     (snd, fst)
 }"
 
@@ -275,7 +273,7 @@ fn outer(x) {
     fn inner(y) {
         outer(y) == y
     }
-    
+
     x
 }"
 

@@ -64,6 +64,7 @@ and Type =
     | TRef of Type
     | TSlice of Type
     | TVar of Var
+    | TBound of Var
     | TNever
 
     member this.FindTVar() =
@@ -75,6 +76,7 @@ and Type =
             | TChar
             | TString -> ()
             | TVar v -> yield v
+            | TBound t -> ()
             | TStruct(_, v)
             | TEnum(_, v) ->
                 for v in v do
@@ -125,6 +127,7 @@ and Type =
         | TRef r -> $"&{r.Print()}"
         | TSlice s -> $"[{s.Print()}]"
         | TVar v -> v.Print()
+        | TBound t -> string t
         | TNever -> "!"
 
     member this.Walk onVar =
@@ -146,6 +149,7 @@ and Type =
         | TRef r -> TRef(r.Walk onVar)
         | TSlice s -> TSlice(s.Walk onVar)
         | TVar v -> onVar v
+        | TBound t -> TBound t
         | TNever -> TNever
 
     member this.Instantiate tvar inst =

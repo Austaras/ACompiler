@@ -61,7 +61,8 @@ and Type =
             let enum = semantic.Enum[e]
             failwith "Not Implemented"
         | Semantic.TNever
-        | Semantic.TVar _ -> failwith "unreachable"
+        | Semantic.TVar _
+        | Semantic.TBound _ -> failwith "unreachable"
 
     member internal this.SizeAndAlign(layout: Layout) =
         match this with
