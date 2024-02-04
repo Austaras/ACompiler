@@ -1,24 +1,29 @@
-pub trait Index<Idx> {
-    type Output
-
-    fn index(&self, index: Idx) -> Self::Output
-}
-
-pub trait IndexAssign<Idx>: Index<Idx> {
-    fn index_assign(&self, index: Idx, value: Self::Output)
-}
-
 pub trait PartialEq {
     // Required method
-    fn eq(&self, other: &Self) -> bool
+    fn eq(&self, other: Self) -> bool
 
     // Provided method
-    fn ne(&self, other: &Self) -> bool { 
+    fn ne(&self, other: Self) -> bool { 
         !self.eq(other)
     }
 }
 
 pub trait Eq: PartialEq { }
+
+impl PartialEq for bool {
+    #[compiler_builtin]
+    fn eq(self, rhs: Self) -> bool { }
+}
+
+impl PartialEq for int {
+    #[compiler_builtin]
+    fn eq(self, rhs: Self) -> bool { }
+}
+
+impl PartialEq for uint {
+    #[compiler_builtin]
+    fn eq(self, rhs: Self) -> bool { }
+}
 
 pub enum Ordering {
     Less = -1,
@@ -55,49 +60,4 @@ pub trait PartialOrd: PartialEq {
             _ => false
         }
     }
-}
-
-pub trait Add {
-    fn add(self, rhs: Self) -> Self
-}
-
-pub trait Sub {
-    fn sub(self, rhs: Self) -> Self
-}
-
-pub trait Mul {
-    fn mul(self, rhs: Self) -> Self
-}
-
-pub trait Div {
-    fn div(self, rhs: Self) -> Self
-}
-
-pub trait Rem {
-    fn rem(self, rhs: Self) -> Self
-}
-
-pub trait And {
-    fn and(self, other: Self) -> Self
-}
-
-pub trait Or {
-    fn or(self, other: Self) -> Self
-}
-
-pub trait Xor {
-    fn xor(self, other: Self) -> Self
-}
-
-pub trait Neg {
-    fn neg(self) -> Self
-}
-
-pub trait Not {
-    fn not(self) -> Self
-}
-
-impl Add for int {
-    #[compiler_builtin]
-    fn add(self, rhs: Self) -> Self { }
 }

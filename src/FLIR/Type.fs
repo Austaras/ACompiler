@@ -46,19 +46,19 @@ and Type =
         | Semantic.TString -> TMany [| TRef; size |]
         | Semantic.TTuple t -> t |> Array.map (Type.FromSema semantic layout) |> TMany
         | Semantic.TArray(t, n) -> TSame(Type.FromSema semantic layout t, n)
-        | Semantic.TStruct(s, p) ->
-            let strukt = semantic.Struct[s]
+        | Semantic.TStruct a ->
+            let strukt = semantic.Struct[a.Name]
 
             let trans (ty: Semantic.Type) =
-                ty.Instantiate strukt.TVar p |> Type.FromSema semantic layout
+                ty.Instantiate strukt.TVar a.Generic |> Type.FromSema semantic layout
 
             strukt.Field.Values
             |> Seq.map trans
             |> Array.ofSeq
             |> TMany
             |> _.OptLayout(layout)
-        | Semantic.TEnum(e, p) ->
-            let enum = semantic.Enum[e]
+        | Semantic.TEnum e ->
+            let enum = semantic.Enum[e.Name]
             failwith "Not Implemented"
         | Semantic.TNever
         | Semantic.TVar _

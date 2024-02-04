@@ -1,0 +1,49 @@
+pub trait Add {
+    fn add(self, rhs: Self) -> Self
+}
+
+pub trait Sub {
+    fn sub(self, rhs: Self) -> Self
+}
+
+pub trait Mul {
+    fn mul(self, rhs: Self) -> Self
+}
+
+pub trait Div {
+    fn div(self, rhs: Self) -> Self
+}
+
+pub trait Rem {
+    fn rem(self, rhs: Self) -> Self
+}
+
+pub trait And {
+    fn and(self, other: Self) -> Self
+}
+
+pub trait Or {
+    fn or(self, other: Self) -> Self
+}
+
+pub trait Xor {
+    fn xor(self, other: Self) -> Self
+}
+
+pub trait Neg {
+    fn neg(self) -> Self
+}
+
+pub trait Not {
+    fn not(self) -> Self
+}
+
+impl Add for int {
+    #[compiler_builtin]
+    fn add(self, rhs: Self) -> Self { }
+}
+
+impl Add for uint {
+    #[compiler_builtin]
+    fn add(self, rhs: Self) -> Self { }
+}

@@ -55,6 +55,24 @@ type internal Scope =
 
         scope
 
+type internal Assumption(error: ResizeArray<Error>) =
+    let data = Dictionary<Trait, ResizeArray<Type>>()
+
+    member this.Instance trait_ ty =
+        if data.ContainsKey trait_ then
+            let value = data[trait_]
+
+            for t in value do
+                if t = ty then
+                    error.Add(OverlapIml(trait_, t, ty))
+
+            value.Add ty
+
+        else
+            let value = ResizeArray()
+            value.Add ty
+            data[trait_] <- value
+
 type internal Environment(error: ResizeArray<Error>) =
     let scope = Stack([| Scope.Prelude |])
 
@@ -176,7 +194,7 @@ type internal Environment(error: ResizeArray<Error>) =
             else
                 TVar tvar
 
-        ty.Walk onvar
+        ty.Walk onvar TBound
 
     member this.Unify expect actual span =
         let expect = this.NormalizeTy expect
@@ -214,9 +232,9 @@ type internal Environment(error: ResizeArray<Error>) =
 
         | TRef r1, TRef r2 -> this.Unify r1 r2 span
 
-        | TStruct(id1, v1), TStruct(id2, v2)
-        | TEnum(id1, v1), TEnum(id2, v2) when id1 = id2 ->
-            for (v1, v2) in Array.zip v1 v2 do
+        | TStruct a1, TStruct a2
+        | TEnum a1, TEnum a2 when a1.Name = a2.Name ->
+            for (v1, v2) in Array.zip a1.Generic a2.Generic do
                 this.Unify v1 v2 span
 
         | TTuple t1, TTuple t2 ->
@@ -244,18 +262,12 @@ type internal Environment(error: ResizeArray<Error>) =
             |> Seq.filter inScope
             |> Seq.filter (fun v -> not (Set.contains v fromRet))
             |> Seq.append tvar
-            |> Seq.distinct
-            |> Array.ofSeq
+            |> Set.ofSeq
 
-        tvar, { Param = param; Ret = ret }
+        let toBound t =
+            if Set.contains t tvar then TBound t else TVar t
 
-    member this.Instantiate span tvar (fn: Function) =
-        let map = tvar |> Array.map (fun v -> v, this.NewTVar None span) |> Map.ofArray
+        let param = Array.map (fun (ty: Type) -> ty.Walk toBound TBound) param
+        let ret = ret.Walk toBound TBound
 
-        let getMap t =
-            match Map.tryFind t map with
-            | None -> TVar t
-            | Some t -> TVar t
-
-        { Ret = fn.Ret.Walk getMap
-          Param = fn.Param |> Array.map _.Walk(getMap) }
+        tvar.ToArray(), { Param = param; Ret = ret }

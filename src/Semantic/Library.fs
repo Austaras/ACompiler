@@ -48,6 +48,8 @@ and Var =
         | Some s -> if System.Char.IsUpper s[0] then s else "T" + s
         | None -> $"T{this.Id}"
 
+and ADT = { Name: Id; Generic: Type[] }
+
 and Type =
     /// bool signs if it's signed
     | TInt of bool * Integer
@@ -56,8 +58,8 @@ and Type =
     | TChar
     | TString
     // named type can refer each other
-    | TStruct of Id * Type[]
-    | TEnum of Id * Type[]
+    | TStruct of ADT
+    | TEnum of ADT
     | TTuple of Type[]
     | TArray of Type * uint64
     | TFn of Function
@@ -77,9 +79,9 @@ and Type =
             | TString -> ()
             | TVar v -> yield v
             | TBound t -> ()
-            | TStruct(_, v)
-            | TEnum(_, v) ->
-                for v in v do
+            | TStruct a
+            | TEnum a ->
+                for v in a.Generic do
                     yield! v.FindTVar()
             | TTuple t ->
                 for t in t do
@@ -110,14 +112,14 @@ and Type =
         | TFloat F64 -> "f64"
         | TChar -> "char"
         | TString -> "string"
-        | TStruct(t, v)
-        | TEnum(t, v) ->
-            if v.Length = 0 then
-                t.Sym
+        | TStruct a
+        | TEnum a ->
+            if a.Generic.Length = 0 then
+                a.Name.Sym
             else
-                let tvar = v |> Array.map _.Print()
+                let tvar = a.Generic |> Array.map _.Print()
                 let tvar = String.concat ", " tvar
-                $"{t.Sym}<{tvar}>"
+                $"{a.Name.Sym}<{tvar}>"
         | TArray(t, c) -> $"[{t.Print}; {c}]"
         | TTuple t ->
             let element = t |> Array.map _.Print() |> String.concat ", "
@@ -126,31 +128,40 @@ and Type =
         | TFn f -> f.Print()
         | TRef r -> $"&{r.Print()}"
         | TSlice s -> $"[{s.Print()}]"
-        | TVar v -> v.Print()
-        | TBound t -> string t
+        | TVar v
+        | TBound v -> v.Print()
         | TNever -> "!"
 
-    member this.Walk onVar =
-        match this with
-        | TInt _
-        | TFloat _
-        | TBool
-        | TChar
-        | TString -> this
-        | TStruct(s, v) -> TStruct(s, v |> Array.map _.Walk(onVar))
-        | TEnum(e, v) -> TEnum(e, v |> Array.map _.Walk(onVar))
-        | TTuple t -> t |> Array.map _.Walk(onVar) |> TTuple
-        | TArray(t, c) -> TArray(t.Walk onVar, c)
-        | TFn f ->
-            let param = f.Param |> Array.map _.Walk(onVar)
-            let ret = f.Ret.Walk onVar
+    member this.Walk (onVar: Var -> Type) (onBound: Var -> Type) =
+        let rec walk ty =
+            match ty with
+            | TInt _
+            | TFloat _
+            | TBool
+            | TChar
+            | TString -> ty
+            | TStruct a ->
+                TStruct
+                    { a with
+                        Generic = a.Generic |> Array.map walk }
+            | TEnum a ->
+                TEnum
+                    { a with
+                        Generic = a.Generic |> Array.map walk }
+            | TTuple t -> t |> Array.map walk |> TTuple
+            | TArray(t, c) -> TArray(walk t, c)
+            | TFn f ->
+                let param = f.Param |> Array.map walk
+                let ret = walk f.Ret
 
-            TFn { f with Param = param; Ret = ret }
-        | TRef r -> TRef(r.Walk onVar)
-        | TSlice s -> TSlice(s.Walk onVar)
-        | TVar v -> onVar v
-        | TBound t -> TBound t
-        | TNever -> TNever
+                TFn { f with Param = param; Ret = ret }
+            | TRef r -> TRef(walk r)
+            | TSlice s -> TSlice(walk s)
+            | TVar v -> onVar v
+            | TBound t -> onBound t
+            | TNever -> TNever
+
+        walk this
 
     member this.Instantiate tvar inst =
         let map = Array.zip tvar inst |> Map.ofArray
@@ -160,7 +171,7 @@ and Type =
             | None -> TVar t
             | Some t -> t
 
-        this.Walk getMap
+        this.Walk TVar getMap
 
     member this.StripRef() =
         let rec stripRef ty =
@@ -172,30 +183,29 @@ and Type =
 
 let UnitType = TTuple [||]
 
+type Trait = { Name: Id }
+
+type Scheme =
+    { Var: Var[]
+      Ty: Type }
+
+    member this.Print() =
+        let ty = this.Ty.Print()
+
+        if this.Var.Length = 0 then
+            ty
+        else
+            let tvar = this.Var |> Array.map _.Print() |> String.concat ", "
+            $"<{tvar}>{ty}"
+
 type ModuleType =
     { Ty: Map<string, Type>
       Var: Map<string, Type>
       Module: Map<string, ModuleType> }
 
-type Binding =
-    | BTy of Type
-    | BFn of Var[] * Function
-
-    member this.Print() =
-        match this with
-        | BTy t -> t.Print()
-        | BFn(tvar, fn) ->
-            let fstr = fn.Print()
-
-            if tvar.Length = 0 then
-                fstr
-            else
-                let tvar = tvar |> Array.map _.Print() |> String.concat ", "
-                $"<{tvar}>{fstr}"
-
 type SemanticInfo =
-    { Binding: Dictionary<Id, Binding>
-      Expr: Dictionary<Expr, Binding>
+    { Binding: Dictionary<Id, Scheme>
+      Expr: Dictionary<Expr, Scheme>
       Struct: Dictionary<Id, Struct>
       Enum: Dictionary<Id, Enum>
       Capture: MultiMap<Closure, Id>
@@ -222,3 +232,4 @@ type Error =
     | RefutablePat of Span
     | LoopInType of Id[]
     | CaptureDynamic of Id
+    | OverlapIml of Trait * Type * Type

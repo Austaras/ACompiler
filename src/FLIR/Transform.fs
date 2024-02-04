@@ -82,17 +82,17 @@ let rec habitable (sema: Semantic.SemanticInfo) (ty: Semantic.Type) =
     | Semantic.TFloat _
     | Semantic.TChar -> 10000
     | Semantic.TBool -> 2
-    | Semantic.TStruct(s, arg) ->
-        let stru = sema.Struct[s]
-        let inst (t: Semantic.Type) = t.Instantiate stru.TVar arg
+    | Semantic.TStruct a ->
+        let stru = sema.Struct[a.Name]
+        let inst (t: Semantic.Type) = t.Instantiate stru.TVar a.Generic
 
         stru.Field.Values |> Seq.map inst |> field
 
-    | Semantic.TEnum(e, arg) ->
-        let enum = sema.Enum[e]
+    | Semantic.TEnum a ->
+        let enum = sema.Enum[a.Name]
 
         let variant (ty: Semantic.Type[]) =
-            let mapTy (ty: Semantic.Type) = ty.Instantiate enum.TVar arg
+            let mapTy (ty: Semantic.Type) = ty.Instantiate enum.TVar a.Generic
 
             ty |> Array.map mapTy |> field
 
@@ -301,12 +301,13 @@ let transform (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
         env.EnterBlock
 
         let fnTy =
-            match sema.Binding[f.Name] with
-            | Semantic.BFn(tvar, f) ->
-                if tvar.Length > 0 then
-                    failwith "Not Implemented"
+            let scm = sema.Binding[f.Name]
 
-                f
+            if scm.Var.Length > 0 then
+                failwith "Not Implemented"
+
+            match scm.Ty with
+            | Semantic.TFn f -> f
             | _ -> failwith "Unreachable"
 
         let ret =
