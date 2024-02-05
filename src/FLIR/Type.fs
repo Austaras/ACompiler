@@ -50,7 +50,7 @@ and Type =
             let strukt = semantic.Struct[a.Name]
 
             let trans (ty: Semantic.Type) =
-                ty.Instantiate strukt.TVar a.Generic |> Type.FromSema semantic layout
+                ty.Instantiate strukt.Generic a.Generic |> Type.FromSema semantic layout
 
             strukt.Field.Values
             |> Seq.map trans
@@ -62,7 +62,7 @@ and Type =
             failwith "Not Implemented"
         | Semantic.TNever
         | Semantic.TVar _
-        | Semantic.TBound _ -> failwith "unreachable"
+        | Semantic.TGen _ -> failwith "unreachable"
 
     member internal this.SizeAndAlign(layout: Layout) =
         match this with

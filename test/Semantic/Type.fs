@@ -264,7 +264,7 @@ fn later(x) {
 }"
 
     Assert.Equal("<Tx>|Tx| -> Tx", otherScope["former"])
-    Assert.Equal("<Tx>|Tx| -> Tx", otherScope["later"])
+    Assert.Equal("|Tx| -> Tx", otherScope["later"])
 
     let nested =
         runInfer

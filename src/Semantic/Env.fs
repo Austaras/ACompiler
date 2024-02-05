@@ -3,7 +3,6 @@ module Semantic.Env
 open System.Collections.Generic
 open System.Linq
 
-open Common.Span
 open Util.MultiMap
 open AST.AST
 open Semantic
@@ -81,18 +80,26 @@ type internal Environment(error: ResizeArray<Error>) =
 
     let pred = MultiMap<int, Type>()
 
-    let mutable tVarId = 0
+    let mutable varId = 0
+    let mutable boundId = 0
 
     member _.NewTVar sym span =
         let tvar =
             { Level = scope.Count
-              Id = tVarId
+              Id = varId
               Sym = sym
               Span = span }
 
-        tVarId <- tVarId + 1
+        varId <- varId + 1
 
         tvar
+
+    member _.NewGeneric sym =
+        let bound = { Id = boundId; Sym = sym }
+
+        boundId <- boundId + 1
+
+        bound
 
     member _.EnterScope data =
         let s = Scope.Create data
@@ -194,7 +201,7 @@ type internal Environment(error: ResizeArray<Error>) =
             else
                 TVar tvar
 
-        ty.Walk onvar TBound
+        ty.Walk onvar TGen
 
     member this.Unify expect actual span =
         let expect = this.NormalizeTy expect
@@ -248,26 +255,49 @@ type internal Environment(error: ResizeArray<Error>) =
 
     member this.FinishScope() = scope.Pop() |> ignore
 
-    member this.Generalize tvar fnTy =
+    member this.Generalize generic fnTy =
         let inScope (v: Var) = v.Level > scope.Count
 
         let param = Array.map this.NormalizeTy fnTy.Param
-        let fromRet = fnTy.Ret.FindTVar() |> Set.ofSeq
         let ret = this.NormalizeTy fnTy.Ret
 
         let newTVar = param |> Seq.map _.FindTVar() |> Seq.concat
 
-        let tvar =
-            Seq.append newTVar (ret.FindTVar())
+        let retTVar =
+            match ret with
+            | TFn f -> f.Param |> Array.map _.FindTVar() |> Seq.concat
+            | _ -> Seq.empty
+
+        let makeGen (var: Var) =
+            let gen = this.NewGeneric var.Sym
+            ufs.Add(var.Id, TGen gen)
+            var, gen
+
+        let map =
+            Seq.append newTVar retTVar
             |> Seq.filter inScope
-            |> Seq.filter (fun v -> not (Set.contains v fromRet))
-            |> Seq.append tvar
-            |> Set.ofSeq
+            |> Seq.distinct
+            |> Seq.map makeGen
+            |> Map.ofSeq
 
         let toBound t =
-            if Set.contains t tvar then TBound t else TVar t
+            match Map.tryFind t map with
+            | Some t -> TGen t
+            | None -> TVar t
 
-        let param = Array.map (fun (ty: Type) -> ty.Walk toBound TBound) param
-        let ret = ret.Walk toBound TBound
+        let param = Array.map (fun (ty: Type) -> ty.Walk toBound TGen) param
+        let ret = ret.Walk toBound TGen
 
-        tvar.ToArray(), { Param = param; Ret = ret }
+        map.Values.ToArray() |> Array.append generic, { Param = param; Ret = ret }
+
+    member this.ToNever(fnTy: Function) =
+        let toNever t =
+            let t = this.NormalizeTy(TVar t)
+
+            match t with
+            | TVar t -> if t.Level > scope.Count then TNever else TVar t
+            | _ -> t
+
+        let ret = fnTy.Ret.Walk toNever TGen
+
+        { fnTy with Ret = ret }

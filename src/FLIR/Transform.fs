@@ -84,7 +84,7 @@ let rec habitable (sema: Semantic.SemanticInfo) (ty: Semantic.Type) =
     | Semantic.TBool -> 2
     | Semantic.TStruct a ->
         let stru = sema.Struct[a.Name]
-        let inst (t: Semantic.Type) = t.Instantiate stru.TVar a.Generic
+        let inst (t: Semantic.Type) = t.Instantiate stru.Generic a.Generic
 
         stru.Field.Values |> Seq.map inst |> field
 
@@ -92,7 +92,7 @@ let rec habitable (sema: Semantic.SemanticInfo) (ty: Semantic.Type) =
         let enum = sema.Enum[a.Name]
 
         let variant (ty: Semantic.Type[]) =
-            let mapTy (ty: Semantic.Type) = ty.Instantiate enum.TVar a.Generic
+            let mapTy (ty: Semantic.Type) = ty.Instantiate enum.Generic a.Generic
 
             ty |> Array.map mapTy |> field
 
@@ -303,7 +303,7 @@ let transform (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
         let fnTy =
             let scm = sema.Binding[f.Name]
 
-            if scm.Var.Length > 0 then
+            if scm.Generic.Length > 0 then
                 failwith "Not Implemented"
 
             match scm.Ty with

@@ -30,17 +30,26 @@ type Function =
 and Struct =
     { Name: Id
       Field: Map<string, Type>
-      TVar: Var[] }
+      Generic: Generic[] }
 
 and Enum =
     { Name: Id
       Variant: Map<string, Type[]>
-      TVar: Var[] }
+      Generic: Generic[] }
 
 and Var =
     { Level: int
       Id: int
       Span: Span
+      Sym: Option<string> }
+
+    member this.Print() =
+        match this.Sym with
+        | Some s -> if System.Char.IsUpper s[0] then s else "T" + s
+        | None -> $"T{this.Id}"
+
+and Generic =
+    { Id: int
       Sym: Option<string> }
 
     member this.Print() =
@@ -66,7 +75,7 @@ and Type =
     | TRef of Type
     | TSlice of Type
     | TVar of Var
-    | TBound of Var
+    | TGen of Generic
     | TNever
 
     member this.FindTVar() =
@@ -78,7 +87,7 @@ and Type =
             | TChar
             | TString -> ()
             | TVar v -> yield v
-            | TBound t -> ()
+            | TGen _ -> ()
             | TStruct a
             | TEnum a ->
                 for v in a.Generic do
@@ -128,11 +137,11 @@ and Type =
         | TFn f -> f.Print()
         | TRef r -> $"&{r.Print()}"
         | TSlice s -> $"[{s.Print()}]"
-        | TVar v
-        | TBound v -> v.Print()
+        | TVar _ -> "TVAR"
+        | TGen b -> b.Print()
         | TNever -> "!"
 
-    member this.Walk (onVar: Var -> Type) (onBound: Var -> Type) =
+    member this.Walk (onVar: Var -> Type) (onBound: Generic -> Type) =
         let rec walk ty =
             match ty with
             | TInt _
@@ -158,17 +167,17 @@ and Type =
             | TRef r -> TRef(walk r)
             | TSlice s -> TSlice(walk s)
             | TVar v -> onVar v
-            | TBound t -> onBound t
+            | TGen t -> onBound t
             | TNever -> TNever
 
         walk this
 
-    member this.Instantiate tvar inst =
-        let map = Array.zip tvar inst |> Map.ofArray
+    member this.Instantiate bound inst =
+        let map = Array.zip bound inst |> Map.ofArray
 
         let getMap t =
             match Map.tryFind t map with
-            | None -> TVar t
+            | None -> TGen t
             | Some t -> t
 
         this.Walk TVar getMap
@@ -186,16 +195,16 @@ let UnitType = TTuple [||]
 type Trait = { Name: Id }
 
 type Scheme =
-    { Var: Var[]
+    { Generic: Generic[]
       Ty: Type }
 
     member this.Print() =
         let ty = this.Ty.Print()
 
-        if this.Var.Length = 0 then
+        if this.Generic.Length = 0 then
             ty
         else
-            let tvar = this.Var |> Array.map _.Print() |> String.concat ", "
+            let tvar = this.Generic |> Array.map _.Print() |> String.concat ", "
             $"<{tvar}>{ty}"
 
 type ModuleType =
