@@ -20,17 +20,6 @@ type internal PatMode =
     | LetPat of LetPat
 
 type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
-    let sema =
-        { Binding = Dictionary(HashIdentity.Reference)
-          Expr = Dictionary(HashIdentity.Reference)
-          Struct = Dictionary(HashIdentity.Reference)
-          Enum = Dictionary(HashIdentity.Reference)
-          Capture = MultiMap(HashIdentity.Reference)
-          Module =
-            { Ty = Map.empty
-              Var = Map.empty
-              Module = Map.empty } }
-
     let error = ResizeArray<Error>()
 
     let env = Environment(error)
@@ -164,54 +153,40 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
             | ArrayPat(_) -> failwith "Not Implemented"
             | PathPat(_) -> failwith "Not Implemented"
             | EnumPat e ->
-                if e.Variant.Prefix <> None || e.Variant.Seg.Length <> 2 then
+                if e.Variant.Prefix <> None || e.Variant.Seg.Length > 1 then
                     failwith "Not Implemented"
 
                 if not isCond then
                     error.Add(RefutablePat e.Span)
 
-                let enumId = e.Variant.Seg[0]
-                let variant = e.Variant.Seg[1]
+                let variantId = e.Variant.Seg[0]
 
                 let enumTy =
-                    match env.GetTy enumId with
-                    | Some ty -> ty
+                    match env.GetVarTy variantId with
+                    | Some ty ->
+                        match ty with
+                        | TFn({ Ret = TEnum _ } as variant) -> Some variant
+                        | ty ->
+                            error.Add(ExpectEnum(variantId, ty))
+                            None
                     | None ->
-                        error.Add(Undefined enumId)
-                        TNever
+                        error.Add(Undefined variantId)
+                        None
 
                 let payloadTy =
                     match enumTy with
-                    | TEnum a ->
-                        let enumData = sema.Enum[a.Name]
-                        let inst = Array.map (fun _ -> TVar(env.NewTVar None e.Span)) a.Generic
+                    | Some fn ->
+                        if fn.Param.Length <> e.Payload.Length then
+                            error.Add(LengthMismatch(e.Span, fn.Param.Length, e.Payload.Length))
 
-                        if enumData.Variant.ContainsKey variant.Sym then
-                            env.Unify (TEnum { Name = a.Name; Generic = inst }) ty e.Span
+                        env.Unify fn.Ret ty e.Span
 
-                            let payload = enumData.Variant[variant.Sym]
+                        Array.mapi (fun idx _ -> if idx < fn.Param.Length then fn.Param[idx] else TNever) e.Payload
 
-                            if payload.Length <> e.Payload.Length then
-                                error.Add(PayloadMismatch(e.Span, enumData))
-
-                            let getTy idx _ =
-                                if idx < payload.Length then
-                                    payload[idx].Instantiate enumData.Generic inst
-                                else
-                                    TNever
-
-                            Array.mapi getTy e.Payload
-                        else
-                            error.Add(UndefinedVariant(enumId, variant))
-
-                            Array.map (fun _ -> TNever) e.Payload
-
-                    | ty ->
-                        error.Add(ExpectEnum(enumId, ty))
-
-                        Array.map (fun _ -> TNever) e.Payload
+                    | None -> Array.map (fun _ -> TNever) e.Payload
 
                 Array.fold2 proc sym payloadTy e.Payload
+
             | StructPat(_) -> failwith "Not Implemented"
             | SelfPat(_) -> failwith "Not Implemented"
             | RefSelfPat(_) -> failwith "Not Implemented"
@@ -224,29 +199,16 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                   Mut = mut
                   Static = static_ }
 
-            env.RegisterVar mayShadow info
-
-            sema.Binding[id] <- { Generic = [||]; Ty = ty }
+            env.RegisterVar mayShadow info { Generic = [||]; Ty = ty }
 
     member this.Expr e =
         match e with
         | Id id ->
-            match env.GetVarInfoWithCapture id with
+            match env.GetVarTyWithCapture id with
             | None ->
                 error.Add(Undefined id)
                 TNever
-            | Some(def, captured) ->
-                for c in captured do
-                    sema.Capture.Add c def
-
-                let scm = sema.Binding[def]
-
-                if scm.Generic.Length = 0 then
-                    scm.Ty
-                else
-                    let inst = Array.map (fun _ -> TVar(env.NewTVar None id.Span)) scm.Generic
-                    let ty = scm.Ty.Instantiate scm.Generic inst
-                    ty
+            | Some ty -> ty
 
         | Binary b ->
             let l = this.Expr b.Left
@@ -399,37 +361,14 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
             UnitType
         | Field f ->
-            let receiver = this.Expr f.Receiver
+            let receiver = (this.Expr f.Receiver).StripRef()
             let key = f.Field.Sym
 
-            match receiver.StripRef() with
-            | TStruct s ->
-                let stru = sema.Struct[s.Name]
-
-                match Map.tryFind key stru.Field with
-                | Some f -> f.Instantiate stru.Generic s.Generic
-                | None ->
-                    error.Add(UndefinedField(f.Span, key))
-
-                    TNever
-            | _ ->
-                let findStruct scope =
-                    match scope.Field.Get key with
-                    | None -> None
-                    | Some id -> Some sema.Struct[id]
-
-                let stru = env.Pick findStruct
-
-                match stru with
-                | Some s ->
-                    let inst = Array.map (fun _ -> TVar(env.NewTVar None f.Span)) s.Generic
-
-                    env.Unify (TStruct { Name = s.Name; Generic = inst }) receiver f.Span
-
-                    s.Field[key].Instantiate s.Generic inst
-                | None ->
-                    error.Add(UndefinedField(f.Span, key))
-                    TNever
+            match env.HasField receiver key f.Span with
+            | Some f -> f
+            | None ->
+                error.Add(UndefinedField(f.Span, key))
+                TNever
 
         | TupleAccess(_) -> failwith "Not Implemented"
         | Index(_) -> failwith "Not Implemented"
@@ -496,46 +435,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                 { Param = Array.map resolve paramTy
                   Ret = resolve retTy }
 
-        | Path p ->
-            if p.Prefix <> None || p.Seg.Length <> 2 then
-                failwith "Not Implemented"
-
-            let enumId, _ = p.Seg[0]
-            let variant, _ = p.Seg[1]
-
-            let enumTy =
-                match env.GetTy enumId with
-                | Some ty -> ty
-                | None ->
-                    error.Add(Undefined enumId)
-                    TNever
-
-            match enumTy with
-            | TEnum { Name = enum } ->
-                let enumData = sema.Enum[enum]
-                let inst = Array.map (fun _ -> TVar(env.NewTVar None e.Span)) enumData.Generic
-
-                if enumData.Variant.ContainsKey variant.Sym then
-                    let payload = enumData.Variant[variant.Sym]
-
-                    if payload.Length = 0 then
-                        TEnum { Name = enum; Generic = inst }
-                    else
-                        let payload =
-                            Array.map (fun (t: Type) -> t.Instantiate enumData.Generic inst) payload
-
-                        TFn
-                            { Param = payload
-                              Ret = TEnum { Name = enum; Generic = inst } }
-                else
-                    error.Add(UndefinedVariant(enumId, variant))
-                    TNever
-
-            | ty ->
-                error.Add(ExpectEnum(enumId, ty))
-
-                TNever
-
+        | Path _ -> failwith "Not Implemented"
         | Break _ -> TNever
         | Continue _ -> TNever
         | Return r ->
@@ -619,7 +519,6 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
             | StructDecl s ->
                 let tvar = Array.map dummyTVar s.TyParam
                 env.RegisterTy s.Name (TStruct { Name = s.Name; Generic = tvar })
-                env.RegisterField s
 
             | EnumDecl e ->
                 let tvar = Array.map dummyTVar e.TyParam
@@ -661,11 +560,11 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                       Field = field
                       Generic = tvar }
 
-                sema.Struct[s.Name] <- stru
+                env.RegisterStruct s stru
 
             | EnumDecl e ->
                 env.EnterScope TypeScope
-                let tvar = this.TyParam e.TyParam
+                let gen = this.TyParam e.TyParam
 
                 let processVariant m (variant: EnumVariantDef) =
                     let name = variant.Name.Sym
@@ -679,14 +578,14 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
                 let variant = Array.fold processVariant Map.empty e.Variant
 
+                env.ExitScope()
+
                 let enum =
                     { Name = e.Name
                       Variant = variant
-                      Generic = tvar }
+                      Generic = gen }
 
-                env.ExitScope()
-
-                sema.Enum[e.Name] <- enum
+                env.RegisterEnum e enum
 
             | TypeDecl _ -> failwith "Not Implemented"
             | Use _ -> failwith "Not Implemented"
@@ -726,13 +625,11 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                       Mut = false
                       Static = true }
 
-                env.RegisterVar false info
-
                 let fnTy = { Param = param; Ret = ret }
 
                 fnMap.Add(f.Name, (generic, fnTy))
 
-                sema.Binding[f.Name] <- { Generic = generic; Ty = TFn fnTy }
+                env.RegisterVar false info { Generic = generic; Ty = TFn fnTy }
 
             | Let l ->
                 let ty =
@@ -764,8 +661,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
                 env.FinishScope()
 
-                let tvar, fnTy = env.Generalize gen fnTy
-                sema.Binding[f.Name] <- { Generic = tvar; Ty = TFn fnTy }
+                env.Generalize f.Name gen fnTy
 
             | Let l ->
                 let value = this.Expr l.Value
@@ -774,16 +670,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
             | _ -> ()
 
         for name in fnMap.Keys do
-            let fnTy = sema.Binding[name]
-
-            let ty =
-                match fnTy.Ty with
-                | TFn f -> f
-                | _ -> failwith "Unreachable"
-
-            let ty = env.ToNever ty
-
-            sema.Binding[name] <- { fnTy with Ty = TFn ty }
+            env.ToNever name
 
     member this.Decl d =
         match d with
@@ -837,6 +724,8 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
         this.HoistDecl decl true
 
         env.FinishScope()
+
+        let sema = env.GetSema
 
         for id in sema.Binding.Keys do
             let scm = sema.Binding[id]

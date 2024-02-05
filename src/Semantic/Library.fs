@@ -231,8 +231,7 @@ type Error =
     | PrivatecInPublic of Id * Id
     | ExpectEnum of Id * Type
     | OrPatDifferent of Span * string[] * string[]
-    | PayloadMismatch of Span * Enum
-    | TupleLengthMismatch of Span * int * int
+    | LengthMismatch of Span * int * int
     | TypeMismatch of Type * Type * Span
     | GenericMismatch of Type * Type[] * Span
     | FailToUnify of Type * Type * Span

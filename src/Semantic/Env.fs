@@ -80,6 +80,17 @@ type internal Environment(error: ResizeArray<Error>) =
 
     let pred = MultiMap<int, Type>()
 
+    let sema =
+        { Binding = Dictionary(HashIdentity.Reference)
+          Expr = Dictionary(HashIdentity.Reference)
+          Struct = Dictionary(HashIdentity.Reference)
+          Enum = Dictionary(HashIdentity.Reference)
+          Capture = MultiMap(HashIdentity.Reference)
+          Module =
+            { Ty = Map.empty
+              Var = Map.empty
+              Module = Map.empty } }
+
     let mutable varId = 0
     let mutable boundId = 0
 
@@ -136,7 +147,7 @@ type internal Environment(error: ResizeArray<Error>) =
 
         this.Pick pickId
 
-    member _.RegisterVar (mayShadow: bool) (info: VarInfo) =
+    member _.RegisterVar (mayShadow: bool) (info: VarInfo) (scm: Scheme) =
         let curr = scope.Peek()
 
         if not mayShadow && curr.Var.ContainsKey info.Def.Sym then
@@ -144,11 +155,63 @@ type internal Environment(error: ResizeArray<Error>) =
 
         curr.Var[info.Def.Sym] <- info
 
-    member _.RegisterField(decl: StructDecl) =
+        sema.Binding[info.Def] <- scm
+
+    member _.RegisterStruct (decl: StructDecl) (ty: Struct) =
         for field in decl.Field do
             scope.Peek().Field.Add field.Name.Sym decl.Name
 
-    member _.GetVarInfoWithCapture(id: Id) =
+        sema.Struct[decl.Name] <- ty
+
+    member this.RegisterEnum (decl: EnumDecl) (ty: Enum) =
+        let gen = Array.map TGen ty.Generic
+
+        for v in decl.Variant do
+            let payload = ty.Variant[v.Name.Sym]
+
+            let variant = TEnum { Name = decl.Name; Generic = gen }
+
+            let variant =
+                if payload.Length = 0 then
+                    variant
+                else
+                    TFn { Param = payload; Ret = variant }
+
+            this.RegisterVar
+                true
+                { Mut = false
+                  Static = true
+                  Def = v.Name }
+                { Generic = ty.Generic; Ty = variant }
+
+        sema.Enum[decl.Name] <- ty
+
+    member this.GetVarInfo(id: Id) =
+        let pickId scope =
+            if scope.Var.ContainsKey id.Sym then
+                let id = scope.Var[id.Sym]
+                Some id
+            else
+                None
+
+        this.Pick pickId
+
+    member this.GetVarTy(id: Id) =
+        let pickId scope =
+            if scope.Var.ContainsKey id.Sym then
+                let id = scope.Var[id.Sym]
+                Some id
+            else
+                None
+
+        match this.Pick pickId with
+        | None -> None
+        | Some { Def = def } ->
+            let scm = sema.Binding[def]
+
+            this.Instantiate scm id.Span |> Some
+
+    member this.GetVarTyWithCapture(id: Id) =
         let rec resolveVar captured canCapture (i: int) =
             let curr = scope.ElementAt i
 
@@ -165,7 +228,7 @@ type internal Environment(error: ResizeArray<Error>) =
                         [||]
 
                 Some(info.Def, captured)
-            else if i = scope.Count then
+            else if i + 1 = scope.Count then
                 None
             else
                 let captured =
@@ -180,17 +243,38 @@ type internal Environment(error: ResizeArray<Error>) =
 
                 resolveVar captured canCapture (i + 1)
 
-        resolveVar [||] true 0
+        match resolveVar [||] true 0 with
+        | None -> None
+        | Some(def, captured) ->
+            for c in captured do
+                sema.Capture.Add c def
 
-    member this.GetVarInfo(id: Id) =
-        let pickId scope =
-            if scope.Var.ContainsKey id.Sym then
-                let id = scope.Var[id.Sym]
-                Some id
-            else
-                None
+            let scm = sema.Binding[def]
 
-        this.Pick pickId
+            this.Instantiate scm id.Span |> Some
+
+    member this.HasField ty field span =
+        match ty with
+        | TStruct s ->
+            let stru = sema.Struct[s.Name]
+
+            match Map.tryFind field stru.Field with
+            | Some f -> f.Instantiate stru.Generic s.Generic |> Some
+            | None -> None
+        | _ ->
+            let findStruct scope =
+                match scope.Field.Get field with
+                | None -> None
+                | Some id -> Some sema.Struct[id]
+
+            let stru = this.Pick findStruct
+
+            match stru with
+            | Some s ->
+                let inst = Array.map (fun _ -> TVar(this.NewTVar None span)) s.Generic
+                this.Unify (TStruct { Name = s.Name; Generic = inst }) ty span
+                s.Field[field].Instantiate s.Generic inst |> Some
+            | None -> None
 
     member this.NormalizeTy ty =
         let onvar (tvar: Var) =
@@ -246,7 +330,7 @@ type internal Environment(error: ResizeArray<Error>) =
 
         | TTuple t1, TTuple t2 ->
             if t1.Length <> t2.Length then
-                error.Add(TupleLengthMismatch(span, t1.Length, t2.Length))
+                error.Add(LengthMismatch(span, t1.Length, t2.Length))
             else
                 for (t1, t2) in Array.zip t1 t2 do
                     this.Unify t1 t2 span
@@ -255,7 +339,7 @@ type internal Environment(error: ResizeArray<Error>) =
 
     member this.FinishScope() = scope.Pop() |> ignore
 
-    member this.Generalize generic fnTy =
+    member this.Generalize name generic fnTy =
         let inScope (v: Var) = v.Level > scope.Count
 
         let param = Array.map this.NormalizeTy fnTy.Param
@@ -288,9 +372,19 @@ type internal Environment(error: ResizeArray<Error>) =
         let param = Array.map (fun (ty: Type) -> ty.Walk toBound TGen) param
         let ret = ret.Walk toBound TGen
 
-        map.Values.ToArray() |> Array.append generic, { Param = param; Ret = ret }
+        let generic = map.Values.ToArray() |> Array.append generic
+        let ty = { Param = param; Ret = ret }
 
-    member this.ToNever(fnTy: Function) =
+        sema.Binding[name] <- { Generic = generic; Ty = TFn ty }
+
+    member this.Instantiate scm span =
+        if scm.Generic.Length = 0 then
+            scm.Ty
+        else
+            let inst = Array.map (fun _ -> TVar(this.NewTVar None span)) scm.Generic
+            scm.Ty.Instantiate scm.Generic inst
+
+    member this.ToNever(name: Id) =
         let toNever t =
             let t = this.NormalizeTy(TVar t)
 
@@ -298,6 +392,17 @@ type internal Environment(error: ResizeArray<Error>) =
             | TVar t -> if t.Level > scope.Count then TNever else TVar t
             | _ -> t
 
-        let ret = fnTy.Ret.Walk toNever TGen
+        let scm = sema.Binding[name]
 
-        { fnTy with Ret = ret }
+        let ty =
+            match scm.Ty with
+            | TFn f -> f
+            | _ -> failwith "Unreachable"
+
+        let ret = ty.Ret.Walk toNever TGen
+
+        let ty = { ty with Ret = ret }
+
+        sema.Binding[name] <- { scm with Ty = TFn ty }
+
+    member _.GetSema = sema
