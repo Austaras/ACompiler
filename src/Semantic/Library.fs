@@ -37,16 +37,7 @@ and Enum =
       Variant: Map<string, Type[]>
       Generic: Generic[] }
 
-and Var =
-    { Level: int
-      Id: int
-      Span: Span
-      Sym: Option<string> }
-
-    member this.Print() =
-        match this.Sym with
-        | Some s -> if System.Char.IsUpper s[0] then s else "T" + s
-        | None -> $"T{this.Id}"
+and Var = { Level: int; Id: int; Span: Span }
 
 and Generic =
     { Id: int
@@ -240,4 +231,4 @@ type Error =
     | RefutablePat of Span
     | LoopInType of Id[]
     | CaptureDynamic of Id
-    | OverlapIml of Trait * Type * Type
+    | OverlapIml of Trait * Scheme * Scheme

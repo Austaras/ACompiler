@@ -3,19 +3,19 @@ pub trait Default {
 }
 
 impl Default for bool {
-    fn default() {
+    fn default() -> bool {
         false
     }
 }
 
 impl Default for int {
-    fn default() {
+    fn default() -> bool {
         0
     }
 }
 
 impl Default for uint {
-    fn default() {
+    fn default() -> bool {
         0
     }
 }

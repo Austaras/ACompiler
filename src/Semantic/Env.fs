@@ -55,30 +55,29 @@ type internal Scope =
         scope
 
 type internal Assumption(error: ResizeArray<Error>) =
-    let data = Dictionary<Trait, ResizeArray<Type>>()
+    let data = Dictionary<Trait, ResizeArray<Scheme>>()
 
-    member this.Instance trait_ ty =
+    member this.Impl trait_ scm =
         if data.ContainsKey trait_ then
             let value = data[trait_]
 
-            for t in value do
-                if t = ty then
-                    error.Add(OverlapIml(trait_, t, ty))
+            for s in value do
+                if s = scm then
+                    error.Add(OverlapIml(trait_, s, scm))
 
-            value.Add ty
+            value.Add scm
 
         else
             let value = ResizeArray()
-            value.Add ty
+            value.Add scm
             data[trait_] <- value
 
 type internal Environment(error: ResizeArray<Error>) =
     let scope = Stack([| Scope.Prelude |])
 
-    /// union find set
-    let ufs = Dictionary<int, Type>()
+    let unionFind = Dictionary<int, Type>()
 
-    let pred = MultiMap<int, Type>()
+    let assumption = Dictionary<Trait, ResizeArray<Scheme>>()
 
     let sema =
         { Binding = Dictionary(HashIdentity.Reference)
@@ -94,11 +93,10 @@ type internal Environment(error: ResizeArray<Error>) =
     let mutable varId = 0
     let mutable boundId = 0
 
-    member _.NewTVar sym span =
+    member _.NewTVar span =
         let tvar =
             { Level = scope.Count
               Id = varId
-              Sym = sym
               Span = span }
 
         varId <- varId + 1
@@ -271,16 +269,16 @@ type internal Environment(error: ResizeArray<Error>) =
 
             match stru with
             | Some s ->
-                let inst = Array.map (fun _ -> TVar(this.NewTVar None span)) s.Generic
+                let inst = Array.map (fun _ -> TVar(this.NewTVar span)) s.Generic
                 this.Unify (TStruct { Name = s.Name; Generic = inst }) ty span
                 s.Field[field].Instantiate s.Generic inst |> Some
             | None -> None
 
     member this.NormalizeTy ty =
         let onvar (tvar: Var) =
-            if ufs.ContainsKey tvar.Id then
-                let p = this.NormalizeTy ufs[tvar.Id]
-                ufs[tvar.Id] <- p
+            if unionFind.ContainsKey tvar.Id then
+                let p = this.NormalizeTy unionFind[tvar.Id]
+                unionFind[tvar.Id] <- p
                 p
             else
                 TVar tvar
@@ -297,20 +295,20 @@ type internal Environment(error: ResizeArray<Error>) =
         | _, TNever -> ()
         | TVar v1 as t1, (TVar v2 as t2) ->
             if v1.Level > v2.Level then
-                ufs.Add(v1.Id, t2)
+                unionFind.Add(v1.Id, t2)
             else if v1.Level = v2.Level then
                 if v1.Id > v2.Id then
-                    ufs.Add(v1.Id, t2)
+                    unionFind.Add(v1.Id, t2)
                 else
-                    ufs.Add(v2.Id, t1)
+                    unionFind.Add(v2.Id, t1)
             else
-                ufs.Add(v2.Id, t1)
+                unionFind.Add(v2.Id, t1)
 
         | TVar v, ty
         | ty, TVar v ->
             match ty.FindTVar() |> Seq.tryFind ((=) v) with
             | Some _ -> error.Add(FailToUnify(expect, actual, span))
-            | None -> ufs.Add(v.Id, ty)
+            | None -> unionFind.Add(v.Id, ty)
 
         | TFn f1, TFn f2 ->
             if f1.Param.Length <> f2.Param.Length then
@@ -353,8 +351,8 @@ type internal Environment(error: ResizeArray<Error>) =
             | _ -> Seq.empty
 
         let makeGen (var: Var) =
-            let gen = this.NewGeneric var.Sym
-            ufs.Add(var.Id, TGen gen)
+            let gen = this.NewGeneric None
+            unionFind.Add(var.Id, TGen gen)
             var, gen
 
         let map =
@@ -381,7 +379,7 @@ type internal Environment(error: ResizeArray<Error>) =
         if scm.Generic.Length = 0 then
             scm.Ty
         else
-            let inst = Array.map (fun _ -> TVar(this.NewTVar None span)) scm.Generic
+            let inst = Array.map (fun _ -> TVar(this.NewTVar span)) scm.Generic
             scm.Ty.Instantiate scm.Generic inst
 
     member this.ToNever(name: Id) =

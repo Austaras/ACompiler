@@ -6,7 +6,11 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Type.fs" />
+    <Compile Include="Type/Common.fs" />
+    <Compile Include="Type/Closure.fs" />
+    <Compile Include="Type/ADT.fs" />
+    <Compile Include="Type/Poly.fs" />
+    <Compile Include="Type/Match.fs" />
     <Compile Include="Capture.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

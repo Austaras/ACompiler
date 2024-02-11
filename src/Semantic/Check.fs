@@ -55,7 +55,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
         | TupleType t -> TTuple(Array.map this.Type t.Ele)
         | RefType r -> TRef(this.Type r.Ty)
         | InferedType span ->
-            let newTVar = env.NewTVar None span
+            let newTVar = env.NewTVar span
 
             TVar newTVar
         | ArrayType a ->
@@ -110,8 +110,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
             | CatchAllPat _ -> sym
             | TuplePat t ->
                 let addBinding (pat: Pat) =
-                    let sym = pat.Name
-                    let newVar = env.NewTVar sym pat.Span |> TVar
+                    let newVar = env.NewTVar pat.Span |> TVar
 
                     newVar
 
@@ -297,7 +296,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                 let callee = failwith "TODO: method"
 
                 let arg = Array.map this.Expr c.Arg
-                let ret = TVar(env.NewTVar None c.Span)
+                let ret = TVar(env.NewTVar c.Span)
 
                 env.Unify (TFn { Param = arg; Ret = ret }) callee c.Span
 
@@ -306,7 +305,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                 let callee = this.Expr c.Callee
 
                 let arg = Array.map this.Expr c.Arg
-                let ret = TVar(env.NewTVar None c.Span)
+                let ret = TVar(env.NewTVar c.Span)
 
                 env.Unify (TFn { Param = arg; Ret = ret }) callee c.Span
 
@@ -326,12 +325,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                 TInt(true, ISize)
             | Ref -> TRef value
             | Deref ->
-                let sym =
-                    match u.Value with
-                    | Id i -> Some i.Sym
-                    | _ -> None
-
-                let ptr = TVar(env.NewTVar sym u.Value.Span)
+                let ptr = TVar(env.NewTVar u.Value.Span)
 
                 env.Unify (TRef ptr) value u.Span
 
@@ -374,7 +368,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
         | Index(_) -> failwith "Not Implemented"
         | Array a ->
             if a.Ele.Length = 0 then
-                let ele = env.NewTVar None a.Span
+                let ele = env.NewTVar a.Span
                 TArray(TVar ele, 0UL)
             else
                 let first = this.Expr a.Ele[0]
@@ -402,8 +396,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                 match p.Ty with
                 | Some ty -> this.Type ty
                 | None ->
-                    let sym = p.Pat.Name
-                    let newTVar = env.NewTVar sym p.Span
+                    let newTVar = env.NewTVar p.Span
 
                     TVar newTVar
 
@@ -412,7 +405,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
             let retTy =
                 match c.Ret with
                 | Some ty -> this.Type ty
-                | None -> TVar(env.NewTVar None c.Span)
+                | None -> TVar(env.NewTVar c.Span)
 
             env.ExitScope()
 
@@ -506,11 +499,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
         // Process Type Decl Hoisted Name
         for d in decl do
             let dummyTVar _ =
-                TVar
-                    { Level = 0
-                      Id = 0
-                      Sym = None
-                      Span = Span.dummy }
+                TVar { Level = 0; Id = 0; Span = Span.dummy }
 
             match d with
             | Let _
@@ -606,9 +595,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                     match p.Ty with
                     | Some ty -> this.Type ty
                     | None ->
-                        let sym = p.Pat.Name
-                        let newTVar = env.NewTVar sym p.Span
-
+                        let newTVar = env.NewTVar p.Span
                         TVar newTVar
 
                 let param = Array.map paramTy f.Param
@@ -616,7 +603,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                 let ret =
                     match f.Ret with
                     | Some ty -> this.Type ty
-                    | None -> TVar(env.NewTVar None f.Span)
+                    | None -> TVar(env.NewTVar f.Span)
 
                 env.ExitScope()
 
@@ -637,7 +624,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                     | Some ty -> this.Type ty
                     | None ->
                         let sym = l.Pat.Name
-                        let newTVar = env.NewTVar sym l.Span
+                        let newTVar = env.NewTVar l.Span
 
                         TVar newTVar
 
