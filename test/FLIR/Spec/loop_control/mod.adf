@@ -1,0 +1,18 @@
+fn sum10(n) {
+    let mut i = 0
+    let mut sum = 0
+
+    while i < n {
+        i += 1
+        if i == 3 {
+            continue
+        }
+
+        if i == 8 {
+            break
+        }
+        sum += i
+    }
+
+    sum
+}

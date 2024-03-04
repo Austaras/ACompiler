@@ -7,109 +7,31 @@ open Common.Target
 open Common.Span
 open AST
 open Semantic
-open FLIR.Type
-open FLIR.Op
-open FLIR.FLIR
+open Type
+open FLIR
+open Env
 
-type internal Env(offset: int) =
-    let var = ResizeArray()
+let fromArith arith =
+    match arith with
+    | AST.Add -> Add
+    | AST.Sub -> Sub
+    | AST.Mul -> Mul
+    | AST.Div -> Div
+    | AST.Rem -> Rem
+    | AST.BitAnd -> And
+    | AST.BitOr -> Or
+    | AST.BitXor -> Xor
+    | AST.Shl -> Shl
+    | AST.Shr -> failwith "Not Implemented"
 
-    let scope: ResizeArray<Dictionary<string, int>> = ResizeArray()
-
-    let block = ResizeArray()
-    let instr = ResizeArray()
-
-    member _.GetBinding sym =
-        let rec get i =
-            let s = scope[i]
-
-            if s.ContainsKey sym then s[sym]
-            else if i >= 0 then get (i - 1)
-            else failwith "Unreachable"
-
-        get (scope.Count - 1)
-
-    member _.Var = var
-    member _.Block = block
-
-    member _.EnterBlock = scope.Add(Dictionary())
-    member _.ExitBlock = scope.RemoveAt(scope.Count - 1)
-
-    member _.AddVar ty name =
-        let id = var.Count
-        var.Add { Name = name; Type = ty }
-
-        match name with
-        | Some name -> scope.Last()[name] <- id
-        | None -> ()
-
-        id
-
-    member _.ModifyVarTy id ty = var[id] <- { var[id] with Type = ty }
-
-    member _.AddInstr i = instr.Add i
-
-    member _.Instr = instr
-
-    member _.FinalizeBlock trans span =
-        block.Add
-            { Phi = [||]
-              Instr = instr.ToArray()
-              Trans = trans
-              Span = span }
-
-        instr.Clear()
-
-    member _.NextId = offset + block.Count + 1
-
-    member _.Inherit parentScope parentVar =
-        scope.AddRange(parentScope)
-        var.AddRange(parentVar)
-
-    member _.NewChild(offset) =
-        let child = Env(offset)
-
-        child.Inherit scope var
-
-        child
-
-let rec habitable (sema: Semantic.SemanticInfo) (ty: Semantic.Type) =
-    let field (ty: seq<Semantic.Type>) =
-        ty |> Seq.map (habitable sema) |> Seq.fold (*) 1
-
-    match ty with
-    | Semantic.TInt _
-    | Semantic.TFloat _
-    | Semantic.TChar -> 10000
-    | Semantic.TBool -> 2
-    | Semantic.TStruct a ->
-        let stru = sema.Struct[a.Name]
-        let inst (t: Semantic.Type) = t.Instantiate stru.Generic a.Generic
-
-        stru.Field.Values |> Seq.map inst |> field
-
-    | Semantic.TEnum a ->
-        let enum = sema.Enum[a.Name]
-
-        let variant (ty: Semantic.Type[]) =
-            let mapTy (ty: Semantic.Type) = ty.Instantiate enum.Generic a.Generic
-
-            ty |> Array.map mapTy |> field
-
-        enum.Variant.Values |> Seq.map variant |> Seq.sum
-
-    | Semantic.TTuple t -> field t
-    | Semantic.TFn _ -> 10000
-    | Semantic.TRef t -> habitable sema t
-    | Semantic.TNever -> 0
-    | Semantic.TVar _ -> failwith "Type Variable should be substituted in previous pass"
-
-let transform (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
+type internal Transform(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
     let layout = arch.Layout
-    let habitable = habitable sema
+    let habitable = Type.Habitable sema
     let toIrType = Type.FromSema sema layout
 
-    let processPat (env: Env) (p: AST.Pat) (v: Value) =
+    let env = Env()
+
+    member _.Pat (p: AST.Pat) (v: Value) =
         match p with
         | AST.IdPat i ->
             let target = env.AddVar (TInt I64) (Some i.Sym)
@@ -120,18 +42,12 @@ let transform (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
                       Value = v
                       Span = i.Span }
             )
+        | _ -> failwith "Not Implmented"
 
-    let rec processExpr (env: Env) (e: AST.Expr) (target: Option<int>) =
-        let makeTarget ty =
-            match target with
-            | Some i ->
-                env.ModifyVarTy i ty
-                i
-            | None -> env.AddVar ty None
-
+    member this.Expr (e: AST.Expr) (target: Option<int>) =
         match e with
         | AST.Id i ->
-            let v = env.GetBinding i.Sym |> Binding
+            let v = env.GetBinding i.Sym
 
             match target with
             | Some t -> env.AddInstr(Assign { Target = t; Value = v; Span = i.Span })
@@ -147,23 +63,26 @@ let transform (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
 
             v
         | AST.Binary bin ->
-            let l = processExpr env bin.Left None
-            let r = processExpr env bin.Right None
+            let l = this.Expr bin.Left None
+            let r = this.Expr bin.Right None
 
             // TODO: trait
             let op, ty =
                 match bin.Op with
-                | AST.Arith AST.Add -> Add, TInt I64
-                | AST.Arith AST.Sub -> Sub, TInt I64
-                | AST.Arith AST.Mul -> Mul, TInt I64
+                | AST.Arith op -> fromArith op, TInt I64
                 | AST.Cmp AST.Gt -> Gt true, TInt I1
                 | AST.Cmp AST.GtEq -> GtEq true, TInt I1
                 | AST.Cmp AST.Lt -> Lt true, TInt I1
                 | AST.Cmp AST.LtEq -> LtEq true, TInt I1
                 | AST.Cmp AST.EqEq -> Eq, TInt I1
                 | AST.Cmp AST.NotEq -> NotEq, TInt I1
+                | AST.Logic _
+                | AST.Pipe -> failwith "Not Implemented"
 
-            let target = makeTarget ty
+            let target =
+                match target with
+                | Some t -> t
+                | None -> env.AddVar ty None
 
             env.AddInstr(
                 Binary
@@ -177,19 +96,15 @@ let transform (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
             Binding target
         | AST.Assign a ->
             let t =
-                match processExpr env a.Place None with
+                match this.Expr a.Place None with
                 | Binding i -> i
                 | Const _ -> failwith "Unreachable"
 
             match a.Op with
             | Some op ->
-                let value = processExpr env a.Value None
+                let value = this.Expr a.Value None
 
-                let op =
-                    match op with
-                    | AST.Add -> Add
-                    | AST.Sub -> Sub
-                    | AST.Mul -> Mul
+                let op = fromArith op
 
                 env.AddInstr(
                     Binary
@@ -201,80 +116,95 @@ let transform (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
                 )
 
                 Binding t
-            | None -> processExpr env a.Value (Some t)
+            | None -> this.Expr a.Value (Some t)
 
         | AST.If i ->
+            let cond =
+                match i.Cond with
+                | AST.BoolCond b -> this.Expr b None
+                | AST.LetCond _ -> failwith "Not Implemented"
+
             if i.ElseIf.Length > 0 then
                 failwith "Not Implemented"
 
-            let test =
-                match i.Cond with
-                | AST.BoolCond b -> processExpr env b None
-                | AST.LetCond _ -> failwith "Not Implemented"
+            let condId = env.CurrBlockId
 
-            let else_, elseSpan =
-                match i.Else with
-                | None -> failwith "Not Implemented"
-                | Some else_ ->
-                    let child = env.NewChild env.NextId
-                    let _ = processBlock child else_ target
-                    child, else_.Span
+            env.FinalizeBlock(Unreachable Span.dummy)
 
-            let then_ =
-                let child = env.NewChild(else_.NextId)
-                let _ = processBlock child i.Then target
-                child
+            match i.Else with
+            | Some e ->
+                let _ = this.Block e target Normal
+                let elseId = env.CurrBlockId
+                env.FinalizeBlock(Unreachable Span.dummy)
 
-            let br =
-                Branch
-                    { Value = test
-                      Other = else_.NextId
-                      Zero = env.NextId }
+                let _ = this.Block i.Then target Normal
+                let next = env.CurrBlockId + 1
 
-            env.FinalizeBlock br i.Cond.Span
+                env.FinalizeBlock(Jump { Target = next; Span = i.Then.Span })
+                env.ModifyTrans elseId (Jump { Target = next; Span = e.Span })
 
-            let nextId = then_.NextId
-            else_.FinalizeBlock (Jump nextId) elseSpan
-            then_.FinalizeBlock (Jump nextId) i.Then.Span
+                env.ModifyTrans
+                    condId
+                    (Branch
+                        { Value = cond
+                          Zero = condId + 1
+                          Other = elseId + 1
+                          Span = i.Cond.Span })
 
-            env.Block.AddRange else_.Block
-            env.Block.AddRange then_.Block
+                cond
+            | None ->
+                let _ = this.Block i.Then target Normal
+                env.ToNext i.Then.Span
 
-            test
+                env.ModifyTrans
+                    condId
+                    (Branch
+                        { Value = cond
+                          Zero = env.CurrBlockId
+                          Other = condId + 1
+                          Span = i.Cond.Span })
+
+                cond
 
         | AST.While w ->
-            let test =
-                if env.Instr.Count > 0 then
-                    env.FinalizeBlock (Jump env.NextId) Span.dummy
+            env.ToNext Span.dummy
 
+            let startId = env.CurrBlockId
+
+            let cond =
                 match w.Cond with
-                | AST.BoolCond b -> processExpr env b None
+                | AST.BoolCond b -> this.Expr b None
                 | AST.LetCond _ -> failwith "Not Implemented"
 
-            let body =
-                let body = env.NewChild env.NextId
-                let _ = processBlock body w.Body None
+            let condId = env.CurrBlockId
+            env.FinalizeBlock(Unreachable Span.dummy)
 
-                body
+            let _ = this.Block w.Body target (Loop startId)
+            env.FinalizeBlock(Jump { Target = startId; Span = w.Body.Span })
 
-            let br =
-                Branch
-                    { Value = test
-                      Zero = body.NextId
-                      Other = env.NextId }
+            env.ModifyTrans
+                condId
+                (Branch
+                    { Value = cond
+                      Zero = env.CurrBlockId
+                      Other = condId + 1
+                      Span = w.Cond.Span })
 
-            body.FinalizeBlock (Jump(env.NextId - 1)) w.Body.Span
+            cond
 
-            env.FinalizeBlock br Span.dummy
+        | AST.Continue c ->
+            env.Continue c
+            Const 0UL
 
-            env.Block.AddRange body.Block
-
-            test
+        | AST.Break b ->
+            env.Break b
+            Const 0UL
 
         | _ -> failwith "Not Implemented"
 
-    and processBlock (env: Env) (b: AST.Block) (target: Option<int>) =
-        env.EnterBlock
+    member this.Block (b: AST.Block) (target: Option<int>) (info: ScopeInfo) =
+        env.EnterScope info
+
         let mutable res = None
 
         for (idx, stmt) in Array.indexed b.Stmt do
@@ -282,23 +212,21 @@ let transform (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
             | AST.ExprStmt e ->
                 let target = if idx = b.Stmt.Length - 1 then target else None
 
-                let value = processExpr env e target
+                let value = this.Expr e target
                 res <- Some value
             | AST.DeclStmt(AST.Let l) ->
                 let name = env.AddVar (TInt I64) l.Pat.Name
-                let _ = processExpr env l.Value (Some name)
+                let _ = this.Expr l.Value (Some name)
 
                 res <- None
             | _ -> ()
 
-        env.ExitBlock
+        env.ExitScope()
 
         res
 
-    let processFn (f: AST.Fn) =
-        let env = Env(0)
-        // for param
-        env.EnterBlock
+    member this.Fn(f: AST.Fn) =
+        env.EnterScope Normal
 
         let fnTy =
             let scm = sema.Binding[f.Name]
@@ -322,7 +250,7 @@ let transform (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
             let param = ResizeArray()
 
             for (ty, p) in Array.zip fnTy.Param f.Param do
-                if habitable ty > 0 then
+                if habitable ty > 1 then
                     let ty = toIrType ty
                     let name = p.Pat.Name
                     let id = env.AddVar ty name
@@ -331,27 +259,30 @@ let transform (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
 
             param.ToArray()
 
-        let _ = processBlock env f.Body ret
-        env.FinalizeBlock (Ret ret) f.Span
+        let _ = this.Block f.Body ret Normal
+        env.FinalizeBlock(Ret { Value = ret; Span = f.Body.Span })
 
-        { Block = env.Block.ToArray()
-          Var = env.Var.ToArray()
-          Param = param
-          Ret = ret
-          Span = f.Span }
+        env.ExitScope()
 
-    let func = ResizeArray()
+        env.FinalizeFn param ret f.Span
 
-    for item in m.Item do
-        match item.Decl with
-        | AST.Use _ -> ()
-        | AST.Let l -> ()
-        | AST.Const c -> ()
-        | AST.FnDecl f -> func.Add(processFn f)
-        | AST.StructDecl _
-        | AST.EnumDecl _
-        | AST.TypeDecl _ -> ()
-        | AST.Impl impl -> ()
-        | AST.Trait t -> ()
+    member this.Module() =
+        let func = ResizeArray()
 
-    { Func = func.ToArray(); Static = [||] }
+        for item in m.Item do
+            match item.Decl with
+            | AST.Use _ -> ()
+            | AST.Let l -> ()
+            | AST.Const c -> ()
+            | AST.FnDecl f -> func.Add(this.Fn f)
+            | AST.StructDecl _
+            | AST.EnumDecl _
+            | AST.TypeDecl _ -> ()
+            | AST.Impl impl -> ()
+            | AST.Trait t -> ()
+
+        { Func = func.ToArray(); Static = [||] }
+
+let transform (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
+    let t = Transform(arch, m, sema)
+    t.Module()

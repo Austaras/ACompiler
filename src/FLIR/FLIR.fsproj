@@ -4,9 +4,9 @@
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Op.fs" />
     <Compile Include="Type.fs" />
     <Compile Include="Library.fs" />
+    <Compile Include="Env.fs" />
     <Compile Include="Transform.fs" />
   </ItemGroup>
   <ItemGroup>

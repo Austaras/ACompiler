@@ -132,7 +132,7 @@ and Type =
         | TGen b -> b.Print()
         | TNever -> "!"
 
-    member this.Walk (onVar: Var -> Type) (onBound: Generic -> Type) =
+    member this.Walk (onVar: Var -> Type) (onGen: Generic -> Type) =
         let rec walk ty =
             match ty with
             | TInt _
@@ -158,7 +158,7 @@ and Type =
             | TRef r -> TRef(walk r)
             | TSlice s -> TSlice(walk s)
             | TVar v -> onVar v
-            | TGen t -> onBound t
+            | TGen t -> onGen t
             | TNever -> TNever
 
         walk this
@@ -232,3 +232,5 @@ type Error =
     | LoopInType of Id[]
     | CaptureDynamic of Id
     | OverlapIml of Trait * Scheme * Scheme
+    | UnresolvedType of Span
+    | UnboundGeneric of Generic

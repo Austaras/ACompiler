@@ -23,6 +23,37 @@ and Type =
     | TSame of Type * uint64
     | TMany of Type[]
 
+    static member Habitable (sema: Semantic.SemanticInfo) (ty: Semantic.Type) =
+        let field (ty: seq<Semantic.Type>) =
+            ty |> Seq.map (Type.Habitable sema) |> Seq.fold (*) 1
+
+        match ty with
+        | Semantic.TInt _
+        | Semantic.TFloat _
+        | Semantic.TChar -> 10000
+        | Semantic.TBool -> 2
+        | Semantic.TStruct a ->
+            let stru = sema.Struct[a.Name]
+            let inst (t: Semantic.Type) = t.Instantiate stru.Generic a.Generic
+
+            stru.Field.Values |> Seq.map inst |> field
+
+        | Semantic.TEnum a ->
+            let enum = sema.Enum[a.Name]
+
+            let variant (ty: Semantic.Type[]) =
+                let mapTy (ty: Semantic.Type) = ty.Instantiate enum.Generic a.Generic
+
+                ty |> Array.map mapTy |> field
+
+            enum.Variant.Values |> Seq.map variant |> Seq.sum
+
+        | Semantic.TTuple t -> field t
+        | Semantic.TFn _ -> 10000
+        | Semantic.TRef t -> Type.Habitable sema t
+        | Semantic.TNever -> 0
+        | Semantic.TVar _ -> failwith "Type Variable should be substituted in previous pass"
+
     static member FromSema (semantic: Semantic.SemanticInfo) (layout: Layout) (ty: Semantic.Type) =
         let size =
             match layout.PtrSize with

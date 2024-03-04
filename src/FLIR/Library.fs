@@ -3,7 +3,6 @@ module FLIR.FLIR
 open System
 
 open Common.Span
-open FLIR.Op
 open FLIR.Type
 
 type MonoMode =
@@ -15,6 +14,53 @@ type Location =
     | Unambiguous
     | Automatic
     | Irregular
+
+type BinOp =
+    | Add
+    | Sub
+    | Mul
+    | Div
+    | Rem
+    | Xor
+    | And
+    | Or
+    | Shl
+    /// signed or not
+    | Shr of bool
+    | Eq
+    | NotEq
+    /// signed or not
+    | Lt of bool
+    /// signed or not
+    | LtEq of bool
+    /// signed or not
+    | GtEq of bool
+    /// signed or not
+    | Gt of bool
+
+    member this.ToString =
+        match this with
+        | Add -> "+"
+        | Sub -> "-"
+        | Mul -> "*"
+        | Div -> "/"
+        | Rem -> "%"
+        | Xor -> "^"
+        | And -> "&"
+        | Or -> "|"
+        | Shl -> "<<"
+        | Shr false -> ">>"
+        | Shr true -> ">>>"
+        | Eq -> "=="
+        | NotEq -> "!="
+        | Lt _ -> "<"
+        | LtEq _ -> "<="
+        | GtEq _ -> ">="
+        | Gt _ -> ">"
+
+type UnaryOp =
+    | Neg
+    | Ext of bool
 
 type Var = { Name: Option<string>; Type: Type }
 
@@ -34,17 +80,19 @@ type Binary =
       Target: int
       Span: Span }
 
-type Negative =
+type Unary =
     { Target: int
+      Op: UnaryOp
       Value: Value
       Span: Span }
 
+/// Instrument
 type Instr =
     | Load
     | Store
     | Assign of Assign
     | Binary of Binary
-    | Negative of Negative
+    | Negative of Unary
     | Call
     | Alloc
 
@@ -58,18 +106,27 @@ type Instr =
         | Call -> failwith "Not Implemented"
         | Alloc -> failwith "Not Implemented"
 
-type Branch = { Value: Value; Zero: int; Other: int }
+type Jump = { Target: int; Span: Span }
+
+type Branch =
+    { Value: Value
+      Zero: int
+      Other: int
+      Span: Span }
+
+type Ret = { Value: Option<int>; Span: Span }
 
 type Transfer =
-    | Jump of int
+    | Jump of Jump
     | Branch of Branch
-    | Ret of Option<int>
+    | Ret of Ret
+    | Unreachable of Span
 
+/// Basic block
 type Block =
     { Phi: unit[]
       Instr: Instr[]
-      Trans: Transfer
-      Span: Span }
+      Trans: Transfer }
 
 type Func =
     { Block: Block[]
@@ -142,18 +199,19 @@ type Func =
                 String.replicate 8 " "
                 + match block.Trans with
                   | Jump i ->
-                      let l = labelToString i
+                      let l = labelToString i.Target
                       $"jmp {l}"
                   | Branch b ->
                       let v = valueToString b.Value
                       let t = labelToString b.Other
                       let f = labelToString b.Zero
                       $"br {v} ? {t} : {f}"
-                  | Ret v ->
+                  | Ret r ->
                       "ret"
-                      + match v with
+                      + match r.Value with
                         | Some i -> $" {varToString i}"
                         | None -> ""
+                  | Unreachable _ -> "Unreachable"
 
             tw.WriteLine trans |> ignore
 

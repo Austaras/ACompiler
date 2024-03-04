@@ -121,7 +121,7 @@ type internal Environment(error: ResizeArray<Error>) =
 
     member _.Pick picker =
         let rec loop (i: int) =
-            match picker (scope.ElementAt(i)) with
+            match picker (scope.ElementAt i) with
             | None -> if i + 1 = scope.Count then None else loop (i + 1)
             | res -> res
 
@@ -285,7 +285,7 @@ type internal Environment(error: ResizeArray<Error>) =
 
         ty.Walk onvar TGen
 
-    member this.Unify expect actual span =
+    member this.UnifyInner expect actual span =
         let expect = this.NormalizeTy expect
         let actual = this.NormalizeTy actual
 
@@ -334,6 +334,8 @@ type internal Environment(error: ResizeArray<Error>) =
                     this.Unify t1 t2 span
 
         | _, _ -> error.Add(TypeMismatch(expect, actual, span))
+
+    member this.Unify expect actual span = this.UnifyInner expect actual span
 
     member this.FinishScope() = scope.Pop() |> ignore
 

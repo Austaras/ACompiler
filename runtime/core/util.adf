@@ -7,3 +7,11 @@ pub fn ignore<T>(value: T) { }
 pub fn swap<T1, T2>((fst, snd): (T1, T2)) -> (T2, T1) {
     (snd, fst)
 }
+
+pub fn curry2<T, U, V>(f: |(T, U)| -> V) -> |T, U| -> V {
+    |a, b| f((a, b))
+}
+
+pub fn uncurry2<T, U, V>(f: |T, U| -> V) -> |(T, U)| -> V {
+    |(a, b)| f(a, b)
+}
