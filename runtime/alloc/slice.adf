@@ -1,8 +1,3 @@
 impl T for [T] {
     
 }
-
-struct Iter<T> {
-    curr: uint,
-    span: Slice<T>
-}

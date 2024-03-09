@@ -5,23 +5,11 @@ pub struct RawVec<T> {
 }
 
 impl<T> RawVec<T> {
+    #[compiler_builtin]
     pub fn malloc(size: uint) -> Self {
-        Self {
-            ptr: alloc::<T>(size),
-            len: 0,
-            cap
-        }
     }
 
+    #[compiler_builtin]
     pub fn realloc(&self, size: uint) {
-        let new_ptr = realloc::<T>(self.ptr, size)
-
-        self.ptr = new_ptr
-
-        self.cap = cap
-
-        if self.len > cap {
-            self.len = cap
-        }
     }
 }

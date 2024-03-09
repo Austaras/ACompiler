@@ -22,8 +22,9 @@ Test out various compiler technology with a toy compiler for a toy language **in
    - HM type inference with trait and operator overloading
    - c style function declaration that are hoisted and cannot capture environment
    - internal mutable
-   - impl block, but user need to import that module to work
+   - impl block and trait, but user need to import them
    - string is UTF8 and char is UTF32
+   - rust doesn't assume anything, ADF assumes memory allocation tracked by GC
 3. Pratically functional
    - provide immutable std lib and tail call optimization
    - but also mutable std lib and control keyword
