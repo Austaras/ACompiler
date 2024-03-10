@@ -30,7 +30,8 @@ and Type =
         match ty with
         | Semantic.TInt _
         | Semantic.TFloat _
-        | Semantic.TChar -> 10000
+        | Semantic.TChar
+        | Semantic.TString -> 10000
         | Semantic.TBool -> 2
         | Semantic.TStruct a ->
             let stru = sema.Struct[a.Name]
@@ -50,9 +51,12 @@ and Type =
 
         | Semantic.TTuple t -> field t
         | Semantic.TFn _ -> 10000
-        | Semantic.TRef t -> Type.Habitable sema t
+        | Semantic.TRef t
+        | Semantic.TArray(t, _)
+        | Semantic.TSlice t -> Type.Habitable sema t
         | Semantic.TNever -> 0
-        | Semantic.TVar _ -> failwith "Type Variable should be substituted in previous pass"
+        | Semantic.TVar _
+        | Semantic.TGen _ -> failwith "Type Variable should be substituted in previous pass"
 
     static member FromSema (semantic: Semantic.SemanticInfo) (layout: Layout) (ty: Semantic.Type) =
         let size =

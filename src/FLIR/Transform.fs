@@ -62,21 +62,59 @@ type internal Transform(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) 
             | None -> ()
 
             v
-        | AST.Binary bin ->
-            let l = this.Expr bin.Left None
+        | AST.Binary({ Op = AST.Logic op } as bin) ->
+            let target =
+                match target with
+                | Some t -> t
+                | None -> env.AddVar (TInt I1) None
+
+            let l = this.Expr bin.Left (Some target)
+
+            let op, reverse =
+                match op with
+                | AST.And -> And, true
+                | AST.Or -> Or, false
+
+            let lBlock = env.CurrBlockId
+
+            env.FinalizeBlock(Unreachable Span.dummy)
+
             let r = this.Expr bin.Right None
 
+            env.AddInstr(
+                Binary
+                    { Left = Binding target
+                      Right = r
+                      Op = op
+                      Target = target
+                      Span = bin.Span }
+            )
+
+            env.ToNext bin.Right.Span
+
+            env.ModifyTrans
+                lBlock
+                (Branch
+                    { Value = l
+                      Zero = if reverse then env.CurrBlockId else lBlock + 1
+                      Other = if reverse then lBlock + 1 else env.CurrBlockId
+                      Span = bin.Span })
+
+            Binding target
+        | AST.Binary bin ->
+            let l = this.Expr bin.Left None
+
             // TODO: trait
-            let op, ty =
+            let op, ty, r =
                 match bin.Op with
-                | AST.Arith op -> fromArith op, TInt I64
-                | AST.Cmp AST.Gt -> Gt true, TInt I1
-                | AST.Cmp AST.GtEq -> GtEq true, TInt I1
-                | AST.Cmp AST.Lt -> Lt true, TInt I1
-                | AST.Cmp AST.LtEq -> LtEq true, TInt I1
-                | AST.Cmp AST.EqEq -> Eq, TInt I1
-                | AST.Cmp AST.NotEq -> NotEq, TInt I1
-                | AST.Logic _
+                | AST.Arith op -> fromArith op, TInt I64, this.Expr bin.Right None
+                | AST.Cmp AST.Gt -> Gt true, TInt I1, this.Expr bin.Right None
+                | AST.Cmp AST.GtEq -> GtEq true, TInt I1, this.Expr bin.Right None
+                | AST.Cmp AST.Lt -> Lt true, TInt I1, this.Expr bin.Right None
+                | AST.Cmp AST.LtEq -> LtEq true, TInt I1, this.Expr bin.Right None
+                | AST.Cmp AST.EqEq -> Eq, TInt I1, this.Expr bin.Right None
+                | AST.Cmp AST.NotEq -> NotEq, TInt I1, this.Expr bin.Right None
+                | AST.Logic _ -> failwith "Unreachable"
                 | AST.Pipe -> failwith "Not Implemented"
 
             let target =
