@@ -111,7 +111,13 @@ type Jump = { Target: int; Span: Span }
 type Branch =
     { Value: Value
       Zero: int
-      Other: int
+      One: int
+      Span: Span }
+
+type Switch =
+    { Value: Value
+      Dest: (int * Value)[]
+      Default: int
       Span: Span }
 
 type Ret = { Value: Option<int>; Span: Span }
@@ -119,7 +125,8 @@ type Ret = { Value: Option<int>; Span: Span }
 type Transfer =
     | Jump of Jump
     | Branch of Branch
-    | Ret of Ret
+    | Switch of Switch
+    | Return of Ret
     | Unreachable of Span
 
 /// Basic block
@@ -203,14 +210,15 @@ type Func =
                       $"jmp {l}"
                   | Branch b ->
                       let v = valueToString b.Value
-                      let t = labelToString b.Other
+                      let t = labelToString b.One
                       let f = labelToString b.Zero
                       $"br {v} ? {t} : {f}"
-                  | Ret r ->
+                  | Return r ->
                       "ret"
                       + match r.Value with
                         | Some i -> $" {varToString i}"
                         | None -> ""
+                  | Switch s -> failwith "Not Implemented"
                   | Unreachable _ -> "Unreachable"
 
             tw.WriteLine trans |> ignore

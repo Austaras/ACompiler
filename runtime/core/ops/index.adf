@@ -1,9 +1,5 @@
-pub trait Index<Idx> {
+pub trait Index {
     type Output
 
-    fn index(&self, index: Idx) -> Self::Output
-}
-
-pub trait IndexAssign<Idx>: Index<Idx> {
-    fn index_assign(&self, index: Idx, value: Self::Output)
+    fn index(&self, index: usize) -> &Self::Output
 }

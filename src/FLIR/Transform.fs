@@ -97,23 +97,24 @@ type internal Transform(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) 
                 (Branch
                     { Value = l
                       Zero = if reverse then env.CurrBlockId else lBlock + 1
-                      Other = if reverse then lBlock + 1 else env.CurrBlockId
+                      One = if reverse then lBlock + 1 else env.CurrBlockId
                       Span = bin.Span })
 
             Binding target
         | AST.Binary bin ->
             let l = this.Expr bin.Left None
+            let r = this.Expr bin.Right None
 
             // TODO: trait
-            let op, ty, r =
+            let op, ty =
                 match bin.Op with
-                | AST.Arith op -> fromArith op, TInt I64, this.Expr bin.Right None
-                | AST.Cmp AST.Gt -> Gt true, TInt I1, this.Expr bin.Right None
-                | AST.Cmp AST.GtEq -> GtEq true, TInt I1, this.Expr bin.Right None
-                | AST.Cmp AST.Lt -> Lt true, TInt I1, this.Expr bin.Right None
-                | AST.Cmp AST.LtEq -> LtEq true, TInt I1, this.Expr bin.Right None
-                | AST.Cmp AST.EqEq -> Eq, TInt I1, this.Expr bin.Right None
-                | AST.Cmp AST.NotEq -> NotEq, TInt I1, this.Expr bin.Right None
+                | AST.Arith op -> fromArith op, TInt I64
+                | AST.Cmp AST.Gt -> Gt true, TInt I1
+                | AST.Cmp AST.GtEq -> GtEq true, TInt I1
+                | AST.Cmp AST.Lt -> Lt true, TInt I1
+                | AST.Cmp AST.LtEq -> LtEq true, TInt I1
+                | AST.Cmp AST.EqEq -> Eq, TInt I1
+                | AST.Cmp AST.NotEq -> NotEq, TInt I1
                 | AST.Logic _ -> failwith "Unreachable"
                 | AST.Pipe -> failwith "Not Implemented"
 
@@ -186,7 +187,7 @@ type internal Transform(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) 
                     (Branch
                         { Value = cond
                           Zero = condId + 1
-                          Other = elseId + 1
+                          One = elseId + 1
                           Span = i.Cond.Span })
 
                 cond
@@ -199,7 +200,7 @@ type internal Transform(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) 
                     (Branch
                         { Value = cond
                           Zero = env.CurrBlockId
-                          Other = condId + 1
+                          One = condId + 1
                           Span = i.Cond.Span })
 
                 cond
@@ -225,7 +226,7 @@ type internal Transform(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) 
                 (Branch
                     { Value = cond
                       Zero = env.CurrBlockId
-                      Other = condId + 1
+                      One = condId + 1
                       Span = w.Cond.Span })
 
             cond
@@ -298,7 +299,7 @@ type internal Transform(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) 
             param.ToArray()
 
         let _ = this.Block f.Body ret Normal
-        env.FinalizeBlock(Ret { Value = ret; Span = f.Body.Span })
+        env.FinalizeBlock(Return { Value = ret; Span = f.Body.Span })
 
         env.ExitScope()
 

@@ -54,30 +54,110 @@ type internal Scope =
 
         scope
 
-type internal Assumption(error: ResizeArray<Error>) =
-    let data = Dictionary<Trait, ResizeArray<Scheme>>()
+type internal TypeEnvironment() =
+    let unionFind = Dictionary<int, Type>()
+    let traitImpl = Dictionary<Trait, ResizeArray<Scheme>>()
 
     member this.Impl trait_ scm =
-        if data.ContainsKey trait_ then
-            let value = data[trait_]
+        if traitImpl.ContainsKey trait_ then
+            let value = traitImpl[trait_]
 
             for s in value do
                 if s = scm then
-                    error.Add(OverlapIml(trait_, s, scm))
+                    OverlapIml(trait_, s, scm) |> ignore
 
             value.Add scm
 
         else
             let value = ResizeArray()
             value.Add scm
-            data[trait_] <- value
+            traitImpl[trait_] <- value
+
+    member this.NormalizeTy(ty: Type) =
+        let onvar (tvar: Var) =
+            if unionFind.ContainsKey tvar.Id then
+                let p = this.NormalizeTy unionFind[tvar.Id]
+                unionFind[tvar.Id] <- p
+                p
+            else
+                TVar tvar
+
+        ty.Walk onvar TGen
+
+    member this.Unify expect actual span =
+        let union = Dictionary<int, Type>()
+        let error = ResizeArray()
+
+        let normalize ty =
+            let ty = this.NormalizeTy ty
+
+            let rec calc ty =
+                match ty with
+                | TVar t -> if union.ContainsKey t.Id then calc union[t.Id] else ty
+                | _ -> ty
+
+            calc ty
+
+        let rec unify expect actual =
+            let expect = normalize expect
+            let actual = normalize actual
+
+            match expect, actual with
+            | p1, p2 when p1 = p2 -> ()
+            | TNever, _
+            | _, TNever -> ()
+            | TVar v1 as t1, (TVar v2 as t2) ->
+                if v1.Level > v2.Level then
+                    union.Add(v1.Id, t2)
+                else if v1.Level = v2.Level then
+                    if v1.Id > v2.Id then
+                        union.Add(v1.Id, t2)
+                    else
+                        union.Add(v2.Id, t1)
+                else
+                    union.Add(v2.Id, t1)
+
+            | TVar v, ty
+            | ty, TVar v ->
+                match ty.FindTVar() |> Seq.tryFind ((=) v) with
+                | Some _ -> error.Add(FailToUnify(expect, actual, span))
+                | None -> union.Add(v.Id, ty)
+
+            | TFn f1, TFn f2 ->
+                if f1.Param.Length <> f2.Param.Length then
+                    error.Add(TypeMismatch(expect, actual, span))
+                else
+                    for (p1, p2) in (Array.zip f1.Param f2.Param) do
+                        unify p1 p2
+
+                    unify f1.Ret f2.Ret
+
+            | TRef r1, TRef r2 -> unify r1 r2
+
+            | TStruct a1, TStruct a2
+            | TEnum a1, TEnum a2 when a1.Name = a2.Name ->
+                for (v1, v2) in Array.zip a1.Generic a2.Generic do
+                    unify v1 v2
+
+            | TTuple t1, TTuple t2 ->
+                if t1.Length <> t2.Length then
+                    error.Add(LengthMismatch(span, t1.Length, t2.Length))
+                else
+                    for (t1, t2) in Array.zip t1 t2 do
+                        unify t1 t2
+
+            | _, _ -> error.Add(TypeMismatch(expect, actual, span))
+
+        unify expect actual
+
+        if error.Count > 0 then Error(error.ToArray()) else Ok union
+
+    member _.AddUnion var ty = unionFind.Add(var, ty)
 
 type internal Environment(error: ResizeArray<Error>) =
     let scope = Stack([| Scope.Prelude |])
 
-    let unionFind = Dictionary<int, Type>()
-
-    let assumption = Dictionary<Trait, ResizeArray<Scheme>>()
+    let tyEnv = TypeEnvironment()
 
     let sema =
         { Binding = Dictionary(HashIdentity.Reference)
@@ -274,76 +354,26 @@ type internal Environment(error: ResizeArray<Error>) =
                 s.Field[field].Instantiate s.Generic inst |> Some
             | None -> None
 
-    member this.NormalizeTy ty =
-        let onvar (tvar: Var) =
-            if unionFind.ContainsKey tvar.Id then
-                let p = this.NormalizeTy unionFind[tvar.Id]
-                unionFind[tvar.Id] <- p
-                p
-            else
-                TVar tvar
+    member _.NormalizeTy ty = tyEnv.NormalizeTy ty
 
-        ty.Walk onvar TGen
+    member _.Unify expect actual span =
+        let res = tyEnv.Unify expect actual span
 
-    member this.UnifyInner expect actual span =
-        let expect = this.NormalizeTy expect
-        let actual = this.NormalizeTy actual
+        match res with
+        | Ok union ->
+            for KeyValue(var, ty) in union do
+                tyEnv.AddUnion var ty
+        | Error unionError ->
+            for e in unionError do
+                error.Add e
 
-        match expect, actual with
-        | p1, p2 when p1 = p2 -> ()
-        | TNever, _
-        | _, TNever -> ()
-        | TVar v1 as t1, (TVar v2 as t2) ->
-            if v1.Level > v2.Level then
-                unionFind.Add(v1.Id, t2)
-            else if v1.Level = v2.Level then
-                if v1.Id > v2.Id then
-                    unionFind.Add(v1.Id, t2)
-                else
-                    unionFind.Add(v2.Id, t1)
-            else
-                unionFind.Add(v2.Id, t1)
-
-        | TVar v, ty
-        | ty, TVar v ->
-            match ty.FindTVar() |> Seq.tryFind ((=) v) with
-            | Some _ -> error.Add(FailToUnify(expect, actual, span))
-            | None -> unionFind.Add(v.Id, ty)
-
-        | TFn f1, TFn f2 ->
-            if f1.Param.Length <> f2.Param.Length then
-                error.Add(TypeMismatch(expect, actual, span))
-            else
-                for (p1, p2) in (Array.zip f1.Param f2.Param) do
-                    this.Unify p1 p2 span
-
-                this.Unify f1.Ret f2.Ret span
-
-        | TRef r1, TRef r2 -> this.Unify r1 r2 span
-
-        | TStruct a1, TStruct a2
-        | TEnum a1, TEnum a2 when a1.Name = a2.Name ->
-            for (v1, v2) in Array.zip a1.Generic a2.Generic do
-                this.Unify v1 v2 span
-
-        | TTuple t1, TTuple t2 ->
-            if t1.Length <> t2.Length then
-                error.Add(LengthMismatch(span, t1.Length, t2.Length))
-            else
-                for (t1, t2) in Array.zip t1 t2 do
-                    this.Unify t1 t2 span
-
-        | _, _ -> error.Add(TypeMismatch(expect, actual, span))
-
-    member this.Unify expect actual span = this.UnifyInner expect actual span
-
-    member this.FinishScope() = scope.Pop() |> ignore
+    member _.FinishScope() = scope.Pop() |> ignore
 
     member this.Generalize name generic fnTy =
         let inScope (v: Var) = v.Level > scope.Count
 
-        let param = Array.map this.NormalizeTy fnTy.Param
-        let ret = this.NormalizeTy fnTy.Ret
+        let param = Array.map tyEnv.NormalizeTy fnTy.Param
+        let ret = tyEnv.NormalizeTy fnTy.Ret
 
         let newTVar = param |> Seq.map _.FindTVar() |> Seq.concat
 
@@ -354,7 +384,7 @@ type internal Environment(error: ResizeArray<Error>) =
 
         let makeGen (var: Var) =
             let gen = this.NewGeneric None
-            unionFind.Add(var.Id, TGen gen)
+            tyEnv.AddUnion var.Id (TGen gen)
             var, gen
 
         let map =
@@ -384,9 +414,9 @@ type internal Environment(error: ResizeArray<Error>) =
             let inst = Array.map (fun _ -> TVar(this.NewTVar span)) scm.Generic
             scm.Ty.Instantiate scm.Generic inst
 
-    member this.ToNever(name: Id) =
+    member _.ToNever(name: Id) =
         let toNever t =
-            let t = this.NormalizeTy(TVar t)
+            let t = tyEnv.NormalizeTy(TVar t)
 
             match t with
             | TVar t -> if t.Level > scope.Count then TNever else TVar t
