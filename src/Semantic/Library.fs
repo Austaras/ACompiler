@@ -111,7 +111,7 @@ and Type =
         | TFloat F32 -> "f32"
         | TFloat F64 -> "f64"
         | TChar -> "char"
-        | TString -> "string"
+        | TString -> "str"
         | TStruct a
         | TEnum a ->
             if a.Generic.Length = 0 then
@@ -120,7 +120,7 @@ and Type =
                 let tvar = a.Generic |> Array.map _.Print()
                 let tvar = String.concat ", " tvar
                 $"{a.Name.Sym}<{tvar}>"
-        | TArray(t, c) -> $"[{t.Print}; {c}]"
+        | TArray(t, c) -> $"[{t.Print()}; {c}]"
         | TTuple t ->
             let element = t |> Array.map _.Print() |> String.concat ", "
 
@@ -183,14 +183,16 @@ and Type =
 
 let UnitType = TTuple [||]
 
-type Trait = { Name: Id }
+type Trait =
+    { Name: Id
+      Method: Map<string, Function> }
 
 type Scheme =
     { Generic: Generic[]
-      Ty: Type }
+      Type: Type }
 
     member this.Print() =
-        let ty = this.Ty.Print()
+        let ty = this.Type.Print()
 
         if this.Generic.Length = 0 then
             ty
@@ -209,13 +211,15 @@ type SemanticInfo =
       Struct: Dictionary<Id, Struct>
       Enum: Dictionary<Id, Enum>
       Capture: MultiMap<Closure, Id>
+      Trait: Dictionary<Id, Trait>
       Module: ModuleType }
 
 type Error =
     | Undefined of Id
     | UndefinedField of Span * string
+    | UndefinedMethod of Span * string
     | UndefinedVariant of Id * Id
-    | DuplicateDefinition of Id
+    | DuplicateDefinition of Id * Id
     | DuplicateField of Id
     | DuplicateVariant of Id
     | LoopInDefintion of Id * Id

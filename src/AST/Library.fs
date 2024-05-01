@@ -561,7 +561,7 @@ and TraitValue =
       DefaultValue: Option<Expr>
       Span: Span }
 
-and TraitDecl =
+and TraitMember =
     | TraitMethod of TraitMethod
     | TraitType of TraitType
     | TraitValue of TraitValue
@@ -574,7 +574,7 @@ and TraitDecl =
 
 and TraitItem =
     { Attr: Attr[]
-      Decl: TraitDecl
+      Member: TraitMember
       Span: Span }
 
 and Trait =

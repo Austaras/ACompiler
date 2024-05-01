@@ -1,4 +1,4 @@
-module FLIR.Tests.Transform
+module FLIR.Tests.Lower
 
 open System.IO
 open System.Collections.Generic
@@ -8,7 +8,7 @@ open Xunit
 open Snapshot
 open Parser.Parser
 open Semantic.Check
-open FLIR.Transform
+open FLIR.Lower
 
 let snap = Snapshot("flir")
 
@@ -27,7 +27,7 @@ let runTansform input =
         | Error(e, _) -> failwithf "parse error %A" e
 
     match check (Dictionary()) m with
-    | Ok sema -> (transform arch m sema).Print
+    | Ok sema -> (lower arch m sema).Print
     | Error e -> failwithf "type error %A" e
 
 let spec = getAllFile "/Spec"

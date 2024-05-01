@@ -1,4 +1,4 @@
-fn arith(x, y) {
+fn arith(x: int, y: int) {
     let z = 2 * x
     (y + 3 + z) * z
 }

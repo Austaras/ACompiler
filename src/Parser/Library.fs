@@ -955,7 +955,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
 
             this.ExprPostfix tryReturn
 
-        | Some { Data = Reserved AS; Span = span } ->
+        | Some { Data = Reserved AS } ->
             lexer.Consume()
 
             let ty = this.Type()
@@ -1436,7 +1436,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                     | None -> raise (ParserExp(IncompleteAtEnd "Trait Item"))
 
                 { Attr = attr
-                  Decl = decl
+                  Member = decl
                   Span = decl.Span }
 
             let old = ctx

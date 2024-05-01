@@ -8,7 +8,7 @@ Test out various compiler technology with a toy compiler for a toy language **in
 - _Engineering a Compiler_
 - _Programming Language Concepts_
 
-#### Thesis
+#### Paper
 
 - _Typing Haskell in Haskell_
 

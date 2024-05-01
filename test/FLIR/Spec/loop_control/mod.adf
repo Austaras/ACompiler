@@ -1,4 +1,4 @@
-fn sum10(n) {
+fn sum10(n: int) {
     let mut i = 0
     let mut sum = 0
 

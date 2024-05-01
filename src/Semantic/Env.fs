@@ -3,6 +3,7 @@ module Semantic.Env
 open System.Collections.Generic
 open System.Linq
 
+open Common.Span
 open Util.MultiMap
 open AST.AST
 open Semantic
@@ -22,7 +23,11 @@ let internal primitive =
        TChar
        TString |]
 
-type internal FnScope = { Ret: Type }
+type internal FnScope =
+    { Ty: Function
+      Gen: Generic[]
+      Name: Id }
+
 type internal ClosureScope = { Closure: Closure; Ret: Type }
 
 type internal ScopeData =
@@ -32,46 +37,43 @@ type internal ScopeData =
     | TypeScope
     | TopLevelScope
 
+type internal TyInfo = { Def: Id; Ty: Type }
+
 type internal VarInfo = { Def: Id; Mut: bool; Static: bool }
 
 type internal Scope =
-    { Ty: Dictionary<string, Type>
+    { Ty: Dictionary<string, TyInfo>
       Var: Dictionary<string, VarInfo>
+      Trait: Dictionary<string, Trait>
       Field: MultiMap<string, Id>
+      Method: MultiMap<string, Id>
       Data: ScopeData }
 
     static member Create data =
         { Ty = Dictionary()
           Var = Dictionary()
+          Trait = Dictionary()
           Field = MultiMap()
+          Method = MultiMap()
           Data = data }
 
     static member Prelude =
         let scope = Scope.Create TopLevelScope
 
         for p in primitive do
-            scope.Ty[p.Print()] <- p
+            let name = p.Print()
+
+            let info =
+                { Ty = p
+                  Def = { Sym = name; Span = Span.dummy } }
+
+            scope.Ty[p.Print()] <- info
 
         scope
 
 type internal TypeEnvironment() =
     let unionFind = Dictionary<int, Type>()
     let traitImpl = Dictionary<Trait, ResizeArray<Scheme>>()
-
-    member this.Impl trait_ scm =
-        if traitImpl.ContainsKey trait_ then
-            let value = traitImpl[trait_]
-
-            for s in value do
-                if s = scm then
-                    OverlapIml(trait_, s, scm) |> ignore
-
-            value.Add scm
-
-        else
-            let value = ResizeArray()
-            value.Add scm
-            traitImpl[trait_] <- value
 
     member this.NormalizeTy(ty: Type) =
         let onvar (tvar: Var) =
@@ -154,6 +156,21 @@ type internal TypeEnvironment() =
 
     member _.AddUnion var ty = unionFind.Add(var, ty)
 
+    member _.ImplTrait trait_ scm =
+        if traitImpl.ContainsKey trait_ then
+            let value = traitImpl[trait_]
+
+            for s in value do
+                if s = scm then
+                    OverlapIml(trait_, s, scm) |> ignore
+
+            value.Add scm
+
+        else
+            let value = ResizeArray()
+            value.Add scm
+            traitImpl[trait_] <- value
+
 type internal Environment(error: ResizeArray<Error>) =
     let scope = Stack([| Scope.Prelude |])
 
@@ -165,13 +182,14 @@ type internal Environment(error: ResizeArray<Error>) =
           Struct = Dictionary(HashIdentity.Reference)
           Enum = Dictionary(HashIdentity.Reference)
           Capture = MultiMap(HashIdentity.Reference)
+          Trait = Dictionary(HashIdentity.Reference)
           Module =
             { Ty = Map.empty
               Var = Map.empty
               Module = Map.empty } }
 
     let mutable varId = 0
-    let mutable boundId = 0
+    let mutable genId = 0
 
     member _.NewTVar span =
         let tvar =
@@ -184,9 +202,9 @@ type internal Environment(error: ResizeArray<Error>) =
         tvar
 
     member _.NewGeneric sym =
-        let bound = { Id = boundId; Sym = sym }
+        let bound = { Id = genId; Sym = sym }
 
-        boundId <- boundId + 1
+        genId <- genId + 1
 
         bound
 
@@ -194,8 +212,6 @@ type internal Environment(error: ResizeArray<Error>) =
         let s = Scope.Create data
 
         scope.Push s
-
-    member _.Current = scope.Peek()
 
     member _.ExitScope() = scope.Pop() |> ignore
 
@@ -211,9 +227,9 @@ type internal Environment(error: ResizeArray<Error>) =
         let curr = scope.Peek()
 
         if curr.Ty.ContainsKey id.Sym then
-            error.Add(DuplicateDefinition id)
+            error.Add(DuplicateDefinition(id, curr.Ty[id.Sym].Def))
 
-        curr.Ty[id.Sym] <- ty
+        curr.Ty[id.Sym] <- { Ty = ty; Def = id }
 
     member this.GetTy(id: Id) =
         let pickId scope =
@@ -229,7 +245,7 @@ type internal Environment(error: ResizeArray<Error>) =
         let curr = scope.Peek()
 
         if not mayShadow && curr.Var.ContainsKey info.Def.Sym then
-            error.Add(DuplicateDefinition info.Def)
+            error.Add(DuplicateDefinition(info.Def, curr.Var[info.Def.Sym].Def))
 
         curr.Var[info.Def.Sym] <- info
 
@@ -260,9 +276,23 @@ type internal Environment(error: ResizeArray<Error>) =
                 { Mut = false
                   Static = true
                   Def = v.Name }
-                { Generic = ty.Generic; Ty = variant }
+                { Generic = ty.Generic; Type = variant }
 
         sema.Enum[decl.Name] <- ty
+
+    member _.RegisterTrait(trait_: Trait) =
+        let curr = scope.Peek()
+        let name = trait_.Name.Sym
+
+        if curr.Trait.ContainsKey name then
+            error.Add(DuplicateDefinition(trait_.Name, curr.Trait[name].Name))
+
+        curr.Trait[name] <- trait_
+
+        for KeyValue(name, _) in trait_.Method do
+            curr.Method.Add name trait_.Name
+
+        sema.Trait.Add(trait_.Name, trait_)
 
     member this.GetVarInfo(id: Id) =
         let pickId scope =
@@ -331,28 +361,62 @@ type internal Environment(error: ResizeArray<Error>) =
 
             this.Instantiate scm id.Span |> Some
 
-    member this.HasField ty field span =
-        match ty with
-        | TStruct s ->
-            let stru = sema.Struct[s.Name]
+    member this.FindField ty field span =
+        let res =
+            match ty with
+            | TStruct s ->
+                let stru = sema.Struct[s.Name]
 
-            match Map.tryFind field stru.Field with
-            | Some f -> f.Instantiate stru.Generic s.Generic |> Some
-            | None -> None
-        | _ ->
-            let findStruct scope =
-                match scope.Field.Get field with
+                match Map.tryFind field stru.Field with
+                | Some f -> f.Instantiate stru.Generic s.Generic |> Some
                 | None -> None
-                | Some id -> Some sema.Struct[id]
+            | TVar _ ->
+                let findStruct scope =
+                    match scope.Field.Get field with
+                    | None -> None
+                    | Some id -> Some sema.Struct[id]
 
-            let stru = this.Pick findStruct
+                let stru = this.Pick findStruct
 
-            match stru with
-            | Some s ->
-                let inst = Array.map (fun _ -> TVar(this.NewTVar span)) s.Generic
-                this.Unify (TStruct { Name = s.Name; Generic = inst }) ty span
-                s.Field[field].Instantiate s.Generic inst |> Some
+                match stru with
+                | Some s ->
+                    let inst = Array.map (fun _ -> TVar(this.NewTVar span)) s.Generic
+                    this.Unify (TStruct { Name = s.Name; Generic = inst }) ty span
+                    s.Field[field].Instantiate s.Generic inst |> Some
+                | None -> None
+            | _ -> None
+
+        match res with
+        | Some r -> r
+        | None ->
+            error.Add(UndefinedField(span, field))
+            TNever
+
+    member this.GetTrait name =
+        let findTrait scope =
+            if scope.Trait.ContainsKey name then
+                Some scope.Trait[name]
+            else
+                None
+
+        this.Pick findTrait
+
+    member this.ImplTrait (id: Id) ty =
+        match this.GetTrait id.Sym with
+        | None -> error.Add(Undefined id)
+        | Some t -> tyEnv.ImplTrait t ty
+
+    member this.HasMethod ty field span =
+        let findTrait scope =
+            match scope.Method.Get field with
             | None -> None
+            | Some id -> Some sema.Trait[id]
+
+        let trait_ = this.Pick findTrait
+
+        match trait_ with
+        | None -> None
+        | Some t -> Some t.Method[field]
 
     member _.NormalizeTy ty = tyEnv.NormalizeTy ty
 
@@ -367,9 +431,16 @@ type internal Environment(error: ResizeArray<Error>) =
             for e in unionError do
                 error.Add e
 
-    member _.FinishScope() = scope.Pop() |> ignore
+    member this.FinishScope() =
+        let last = scope.Pop()
 
-    member this.Generalize name generic fnTy =
+        match last.Data with
+        | FnScope { Ty = ty; Gen = gen; Name = name } ->
+            let ty = this.Generalize gen ty
+            sema.Binding[name] <- ty
+        | _ -> ()
+
+    member this.Generalize generic fnTy =
         let inScope (v: Var) = v.Level > scope.Count
 
         let param = Array.map tyEnv.NormalizeTy fnTy.Param
@@ -405,14 +476,14 @@ type internal Environment(error: ResizeArray<Error>) =
         let generic = map.Values.ToArray() |> Array.append generic
         let ty = { Param = param; Ret = ret }
 
-        sema.Binding[name] <- { Generic = generic; Ty = TFn ty }
+        { Generic = generic; Type = TFn ty }
 
     member this.Instantiate scm span =
         if scm.Generic.Length = 0 then
-            scm.Ty
+            scm.Type
         else
             let inst = Array.map (fun _ -> TVar(this.NewTVar span)) scm.Generic
-            scm.Ty.Instantiate scm.Generic inst
+            scm.Type.Instantiate scm.Generic inst
 
     member _.ToNever(name: Id) =
         let toNever t =
@@ -425,7 +496,7 @@ type internal Environment(error: ResizeArray<Error>) =
         let scm = sema.Binding[name]
 
         let ty =
-            match scm.Ty with
+            match scm.Type with
             | TFn f -> f
             | _ -> failwith "Unreachable"
 
@@ -433,6 +504,6 @@ type internal Environment(error: ResizeArray<Error>) =
 
         let ty = { ty with Ret = ret }
 
-        sema.Binding[name] <- { scm with Ty = TFn ty }
+        sema.Binding[name] <- { scm with Type = TFn ty }
 
     member _.GetSema = sema

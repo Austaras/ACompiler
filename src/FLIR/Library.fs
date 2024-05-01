@@ -49,18 +49,30 @@ type BinOp =
         | And -> "&"
         | Or -> "|"
         | Shl -> "<<"
-        | Shr false -> ">>"
-        | Shr true -> ">>>"
+        | Shr true -> ">>"
+        | Shr false -> ">>>"
         | Eq -> "=="
         | NotEq -> "!="
-        | Lt _ -> "<"
-        | LtEq _ -> "<="
-        | GtEq _ -> ">="
-        | Gt _ -> ">"
+        | Lt true -> "<"
+        | Lt false -> "u<"
+        | LtEq true -> "<="
+        | LtEq false -> "u<="
+        | GtEq true -> ">="
+        | GtEq false -> "u>="
+        | Gt true -> ">"
+        | Gt false -> "u>"
 
 type UnaryOp =
     | Neg
+    | Not
     | Ext of bool
+
+    member this.ToString =
+        match this with
+        | Neg -> "-"
+        | Not -> "!"
+        | Ext true -> "sext"
+        | Ext false -> "zext"
 
 type Var = { Name: Option<string>; Type: Type }
 
@@ -92,7 +104,7 @@ type Instr =
     | Store
     | Assign of Assign
     | Binary of Binary
-    | Negative of Unary
+    | Unary of Unary
     | Call
     | Alloc
 
@@ -100,7 +112,7 @@ type Instr =
         match this with
         | Binary b -> b.Target
         | Assign a -> a.Target
-        | Negative n -> n.Target
+        | Unary n -> n.Target
         | Load -> failwith "Not Implemented"
         | Store -> failwith "Not Implemented"
         | Call -> failwith "Not Implemented"
@@ -192,7 +204,7 @@ type Func =
                       | Assign a ->
                           let v = valueToString a.Value
                           $"= {v}"
-                      | Negative n ->
+                      | Unary n ->
                           let v = valueToString n.Value
                           $"= ! {v}"
                       | Load -> failwith "Not Implemented"

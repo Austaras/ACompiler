@@ -4,7 +4,7 @@ open System.Collections.Generic
 
 // TODO: module system
 // TODO: type alias
-// TODO: trait, operator overloading
+// TODO: operator overloading
 
 open Common.Span
 open Util.MultiMap
@@ -27,7 +27,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
     member this.Type ty =
         let resolve id =
             match env.GetTy id with
-            | Some ty -> ty
+            | Some ty -> ty.Ty
             | None ->
                 error.Add(Undefined id)
                 TNever
@@ -84,7 +84,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
         let addSym sym (i: Id) (ty: Type) =
             if Map.containsKey i.Sym sym then
-                error.Add(DuplicateDefinition i)
+                error.Add(DuplicateDefinition(i, (fst sym[i.Sym])))
 
             Map.add i.Sym (i, ty) sym
 
@@ -198,7 +198,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                   Mut = mut
                   Static = static_ }
 
-            env.RegisterVar mayShadow info { Generic = [||]; Ty = ty }
+            env.RegisterVar mayShadow info { Generic = [||]; Type = ty }
 
     member this.Expr e =
         match e with
@@ -293,14 +293,19 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
             match c.Callee with
             | Field f ->
                 let receiver = this.Expr f.Receiver
-                let callee = failwith "TODO: method"
+                let callee = env.HasMethod receiver f.Field.Sym f.Span
 
-                let arg = Array.map this.Expr c.Arg
-                let ret = TVar(env.NewTVar c.Span)
+                match callee with
+                | None ->
+                    error.Add(UndefinedMethod(f.Receiver.Span, f.Field.Sym))
+                    TNever
+                | Some callee ->
+                    let arg = Array.map this.Expr c.Arg
+                    let ret = TVar(env.NewTVar c.Span)
 
-                env.Unify (TFn { Param = arg; Ret = ret }) callee c.Span
+                    env.Unify (TFn { Param = arg; Ret = ret }) (TFn callee) c.Span
 
-                ret
+                    ret
             | _ ->
                 let callee = this.Expr c.Callee
 
@@ -358,11 +363,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
             let receiver = (this.Expr f.Receiver).StripRef()
             let key = f.Field.Sym
 
-            match env.HasField receiver key f.Span with
-            | Some f -> f
-            | None ->
-                error.Add(UndefinedField(f.Span, key))
-                TNever
+            env.FindField receiver key f.Span
 
         | TupleAccess(_) -> failwith "Not Implemented"
         | Index(_) -> failwith "Not Implemented"
@@ -434,14 +435,11 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
         | Return r ->
             let pickRet scope =
                 match scope.Data with
-                | FnScope { Ret = r }
+                | FnScope { Ty = { Ret = r } }
                 | ClosureScope { Ret = r } -> Some r
                 | _ -> None
 
-            let retTy =
-                match env.Pick pickRet with
-                | Some r -> r
-                | None -> failwith "Unreachable"
+            let retTy = pickRet |> env.Pick |> Option.get
 
             let ty =
                 match r.Value with
@@ -515,8 +513,9 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
             | TypeDecl _ -> failwith "Not Implemented"
             | Use _ -> failwith "Not Implemented"
-            | Trait _ -> failwith "Not Implemented"
-            | Impl _ -> failwith "Not Implemented"
+            // TODO: we need to register here for dyn trait
+            | Trait t -> ()
+            | Impl _ -> ()
 
         let staticItem = ResizeArray()
 
@@ -578,8 +577,53 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
             | TypeDecl _ -> failwith "Not Implemented"
             | Use _ -> failwith "Not Implemented"
-            | Trait _ -> failwith "Not Implemented"
-            | Impl _ -> failwith "Not Implemented"
+            | Trait t ->
+                env.EnterScope TypeScope
+
+                if t.TyParam.Length > 0 || t.Super.Length > 0 then
+                    failwith "Not Implemented"
+
+                let processParam (p: Param) = p.Ty |> Option.get |> this.Type
+
+                let processMember (method: Map<string, Function>) (m: TraitMember) =
+                    match m with
+                    | TraitMethod m ->
+                        match m.Default with
+                        | Some _ -> failwith "Not Implemented"
+                        | None -> ()
+
+                        let param = Array.map processParam m.Param[1..]
+
+                        let ret =
+                            match m.Ret with
+                            | Some r -> this.Type r
+                            | None -> UnitType
+
+                        let f = { Param = param; Ret = ret }
+
+                        Map.add m.Name.Sym f method
+                    | _ -> failwith "Not Implemented"
+
+                let method = t.Item |> Array.map _.Member |> Array.fold processMember Map.empty
+
+                env.ExitScope()
+
+                env.RegisterTrait { Name = t.Name; Method = method }
+            | Impl i ->
+                let trait_ =
+                    match i.Trait with
+                    | None -> failwith "Not Implemented"
+                    | Some t ->
+                        if t.Prefix <> None || t.Seg.Length > 1 || (snd t.Seg[0]).Length > 0 then
+                            failwith "Not Implemented"
+
+                        fst t.Seg[0]
+
+                let gen = this.TyParam i.TyParam
+                let ty = this.Type i.Ty
+                let scm = { Generic = gen; Type = ty }
+
+                env.ImplTrait trait_ scm
 
         let fnMap = Dictionary()
         let valueMap = Dictionary()
@@ -588,7 +632,6 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
             match item with
             | FnDecl f ->
                 env.EnterScope TypeScope
-
                 let generic = this.TyParam f.TyParam
 
                 let paramTy (p: Param) =
@@ -616,7 +659,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
                 fnMap.Add(f.Name, (generic, fnTy))
 
-                env.RegisterVar false info { Generic = generic; Ty = TFn fnTy }
+                env.RegisterVar false info { Generic = generic; Type = TFn fnTy }
 
             | Let l ->
                 let ty =
@@ -637,7 +680,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
             | FnDecl f ->
                 let gen, fnTy = fnMap[f.Name]
 
-                env.EnterScope(FnScope { Ret = fnTy.Ret })
+                env.EnterScope(FnScope { Ty = fnTy; Gen = gen; Name = f.Name })
 
                 for (param, ty) in Array.zip f.Param fnTy.Param do
                     this.Pat ParamPat param.Pat ty
@@ -647,8 +690,6 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                 env.Unify fnTy.Ret ret f.Name.Span
 
                 env.FinishScope()
-
-                env.Generalize f.Name gen fnTy
 
             | Let l ->
                 let value = this.Expr l.Value
@@ -717,9 +758,9 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
         for id in sema.Binding.Keys do
             let scm = sema.Binding[id]
 
-            let ty = env.NormalizeTy scm.Ty
+            let ty = env.NormalizeTy scm.Type
 
-            sema.Binding[id] <- { scm with Ty = ty }
+            sema.Binding[id] <- { scm with Type = ty }
 
         if error.Count = 0 then Ok sema else Error(error.ToArray())
 

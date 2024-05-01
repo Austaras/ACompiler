@@ -11,6 +11,7 @@
     <Compile Include="Type/ADT.fs" />
     <Compile Include="Type/Poly.fs" />
     <Compile Include="Type/Match.fs" />
+    <Compile Include="Type/Trait.fs" />
     <Compile Include="Capture.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>

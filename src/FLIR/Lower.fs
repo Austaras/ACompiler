@@ -1,7 +1,4 @@
-module FLIR.Transform
-
-open System.Collections.Generic
-open System.Linq
+module FLIR.Lower
 
 open Common.Target
 open Common.Span
@@ -24,7 +21,7 @@ let fromArith arith =
     | AST.Shl -> Shl
     | AST.Shr -> failwith "Not Implemented"
 
-type internal Transform(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
+type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
     let layout = arch.Layout
     let habitable = Type.Habitable sema
     let toIrType = Type.FromSema sema layout
@@ -273,7 +270,7 @@ type internal Transform(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) 
             if scm.Generic.Length > 0 then
                 failwith "Not Implemented"
 
-            match scm.Ty with
+            match scm.Type with
             | Semantic.TFn f -> f
             | _ -> failwith "Unreachable"
 
@@ -322,6 +319,6 @@ type internal Transform(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) 
 
         { Func = func.ToArray(); Static = [||] }
 
-let transform (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
-    let t = Transform(arch, m, sema)
+let lower (arch: Arch) (m: AST.Module) (sema: Semantic.SemanticInfo) =
+    let t = Lower(arch, m, sema)
     t.Module()

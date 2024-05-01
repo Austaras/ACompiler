@@ -1,8 +1,9 @@
 module Common.Config
 
 type Optimization =
-    { TailCall: bool }
+    { TailCall: bool
+      LVN: bool }
 
-    static member Debug = { TailCall = false }
+    static member Debug = { TailCall = false; LVN = false }
 
-    static member Releas = { TailCall = true }
+    static member Releas = { TailCall = true; LVN = true }
