@@ -293,7 +293,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
             match c.Callee with
             | Field f ->
                 let receiver = this.Expr f.Receiver
-                let callee = env.HasMethod receiver f.Field.Sym f.Span
+                let callee = env.FindMethod receiver f.Field.Sym f.Span
 
                 match callee with
                 | None ->
@@ -423,11 +423,9 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
             env.FinishScope()
 
-            let resolve ty = env.NormalizeTy ty
-
             TFn
-                { Param = Array.map resolve paramTy
-                  Ret = resolve retTy }
+                { Param = Array.map env.NormalizeTy paramTy
+                  Ret = env.NormalizeTy retTy }
 
         | Path _ -> failwith "Not Implemented"
         | Break _ -> TNever
@@ -755,12 +753,12 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
         let sema = env.GetSema
 
-        for id in sema.Binding.Keys do
-            let scm = sema.Binding[id]
+        for id in sema.DeclTy.Keys do
+            let scm = sema.DeclTy[id]
 
             let ty = env.NormalizeTy scm.Type
 
-            sema.Binding[id] <- { scm with Type = ty }
+            sema.DeclTy[id] <- { scm with Type = ty }
 
         if error.Count = 0 then Ok sema else Error(error.ToArray())
 

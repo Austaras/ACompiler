@@ -74,7 +74,7 @@ type UnaryOp =
         | Ext true -> "sext"
         | Ext false -> "zext"
 
-type Var = { Name: Option<string>; Type: Type }
+type Var = { Name: string; Type: Type }
 
 type Value =
     | Const of uint64
@@ -160,9 +160,7 @@ type Func =
         let varToString id =
             let var = this.Var[id]
 
-            match var.Name with
-            | Some name -> name
-            | None -> "_" + string id
+            if var.Name.Length > 0 then var.Name else "_" + string id
 
         let paramToString id =
             let name = varToString id

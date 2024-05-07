@@ -4,20 +4,25 @@ open System.Collections.Generic
 open System.Linq
 
 open Common.Span
+open AST
 open FLIR
+open Type
 
 type ScopeInfo =
-    | Loop of int
+    | Loop
     | Normal
 
 type Scope =
-    { LoopStart: Option<int>
-      Break: ResizeArray<int * Span>
-      Binding: Dictionary<string, int> }
+    { CanBreak: bool
+      CanContinue: bool
+      Continue: ResizeArray<int * Span>
+      Break: ResizeArray<int * Span> }
 
 type Env() =
     let scope = Stack<Scope>()
     let var = ResizeArray<Var>()
+
+    let varMap = Dictionary<AST.Id, int>(HashIdentity.Reference)
 
     let block = ResizeArray<Block>()
     let phi = ResizeArray<unit>()
@@ -28,12 +33,15 @@ type Env() =
     member _.AddVar ty name =
         let id = var.Count
         var.Add { Name = name; Type = ty }
-
-        match name with
-        | Some name -> scope.Peek().Binding[ name ] <- id
-        | None -> ()
-
         id
+
+    member _.DeclareVar ty (def: AST.Id) =
+        let id = var.Count
+        var.Add { Name = def.Sym; Type = ty }
+        varMap.Add(def, id)
+        id
+
+    member _.GetVar def = varMap[def]
 
     member _.Pick picker =
         let rec loop (i: int) =
@@ -45,15 +53,6 @@ type Env() =
             | None -> loop (i + 1)
 
         loop 0
-
-    member this.GetBinding name =
-        let picker s =
-            if s.Binding.ContainsKey name then
-                Some s.Binding[name]
-            else
-                None
-
-        this.Pick picker |> Binding
 
     member _.CurrBlockId = block.Count
 
@@ -67,6 +66,45 @@ type Env() =
         instr.Clear()
 
         block.Add newBlock
+
+    member this.Reverse(value: Value) =
+        let target =
+            match value with
+            | Const _ -> this.AddVar (TInt I1) ""
+            | Binding b -> b
+
+        let addReverse () =
+            instr.Add(
+                Unary
+                    { Target = target
+                      Op = Not
+                      Value = Binding target
+                      Span = Span.dummy }
+            )
+
+        if instr.Count > 0 then
+            let last = instr.Last()
+
+            match last with
+            | Binary({ Op = Eq | NotEq | Lt _ | LtEq _ | GtEq _ | Gt _ as binOp } as bin) when last.Target = target ->
+                let newOp =
+                    match binOp with
+                    | Eq -> NotEq
+                    | NotEq -> Eq
+                    | Lt s -> GtEq s
+                    | LtEq s -> Gt s
+                    | Gt s -> LtEq s
+                    | GtEq s -> Lt s
+                    | _ -> failwith "Unreachable"
+
+                let bin = Binary { bin with Op = newOp }
+
+                instr[instr.Count - 1] <- bin
+            | _ -> addReverse ()
+        else
+            addReverse ()
+
+        Binding target
 
     member this.ToNext span =
         if instr.Count > 0 then
@@ -88,44 +126,34 @@ type Env() =
 
         block[id] <- { b with Trans = trans }
 
+    member _.EnterScope(info: ScopeInfo) =
+        scope.Push
+            { Continue = ResizeArray()
+              CanContinue = info = Loop
+              Break = ResizeArray()
+              CanBreak = info = Loop }
+
     member this.Continue span =
-        let picker s = s.LoopStart
-
-        let startId = this.Pick picker
-
-        this.FinalizeBlock(Jump { Target = startId; Span = span })
-
-    member this.Break span =
         let picker s =
-            match s.LoopStart with
-            | Some _ -> Some s.Break
-            | None -> None
+            if s.CanContinue then Some s.Continue else None
 
         let register = this.Pick picker
+
         register.Add(this.CurrBlockId, span)
 
         this.FinalizeBlock(Unreachable Span.dummy)
 
-    member _.EnterScope(info: ScopeInfo) =
-        scope.Push
-            { LoopStart =
-                match info with
-                | Loop i -> Some i
-                | Normal -> None
-              Break = ResizeArray()
-              Binding = Dictionary() }
+    member this.Break span =
+        let picker s =
+            if s.CanBreak then Some s.Break else None
 
-    member this.ExitScope() =
-        let last = scope.Pop()
+        let register = this.Pick picker
 
-        for id, span in last.Break do
-            this.ModifyTrans
-                id
-                (Jump
-                    { Target = this.CurrBlockId + 1
-                      Span = span })
+        register.Add(this.CurrBlockId, span)
 
-        ()
+        this.FinalizeBlock(Unreachable Span.dummy)
+
+    member _.ExitScope() = scope.Pop()
 
     member this.FinalizeFn param ret span =
         let f =

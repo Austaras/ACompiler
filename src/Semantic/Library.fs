@@ -206,8 +206,9 @@ type ModuleType =
       Module: Map<string, ModuleType> }
 
 type SemanticInfo =
-    { Binding: Dictionary<Id, Scheme>
-      Expr: Dictionary<Expr, Scheme>
+    { Binding: Dictionary<Id, Id>
+      DeclTy: Dictionary<Id, Scheme>
+      ExprTy: Dictionary<Expr, Scheme>
       Struct: Dictionary<Id, Struct>
       Enum: Dictionary<Id, Enum>
       Capture: MultiMap<Closure, Id>

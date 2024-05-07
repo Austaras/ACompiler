@@ -74,6 +74,7 @@ type internal Scope =
 type internal TypeEnvironment() =
     let unionFind = Dictionary<int, Type>()
     let traitImpl = Dictionary<Trait, ResizeArray<Scheme>>()
+    let predict = Dictionary<Type, HashSet<Trait>>()
 
     member this.NormalizeTy(ty: Type) =
         let onvar (tvar: Var) =
@@ -178,7 +179,8 @@ type internal Environment(error: ResizeArray<Error>) =
 
     let sema =
         { Binding = Dictionary(HashIdentity.Reference)
-          Expr = Dictionary(HashIdentity.Reference)
+          DeclTy = Dictionary(HashIdentity.Reference)
+          ExprTy = Dictionary(HashIdentity.Reference)
           Struct = Dictionary(HashIdentity.Reference)
           Enum = Dictionary(HashIdentity.Reference)
           Capture = MultiMap(HashIdentity.Reference)
@@ -249,7 +251,7 @@ type internal Environment(error: ResizeArray<Error>) =
 
         curr.Var[info.Def.Sym] <- info
 
-        sema.Binding[info.Def] <- scm
+        sema.DeclTy[info.Def] <- scm
 
     member _.RegisterStruct (decl: StructDecl) (ty: Struct) =
         for field in decl.Field do
@@ -315,7 +317,7 @@ type internal Environment(error: ResizeArray<Error>) =
         match this.Pick pickId with
         | None -> None
         | Some { Def = def } ->
-            let scm = sema.Binding[def]
+            let scm = sema.DeclTy[def]
 
             this.Instantiate scm id.Span |> Some
 
@@ -357,11 +359,15 @@ type internal Environment(error: ResizeArray<Error>) =
             for c in captured do
                 sema.Capture.Add c def
 
-            let scm = sema.Binding[def]
+            sema.Binding.Add(id, def)
+
+            let scm = sema.DeclTy[def]
 
             this.Instantiate scm id.Span |> Some
 
     member this.FindField ty field span =
+        let ty = tyEnv.NormalizeTy ty
+
         let res =
             match ty with
             | TStruct s ->
@@ -406,7 +412,9 @@ type internal Environment(error: ResizeArray<Error>) =
         | None -> error.Add(Undefined id)
         | Some t -> tyEnv.ImplTrait t ty
 
-    member this.HasMethod ty field span =
+    member this.FindMethod ty field span =
+        let ty = tyEnv.NormalizeTy ty
+
         let findTrait scope =
             match scope.Method.Get field with
             | None -> None
@@ -437,7 +445,7 @@ type internal Environment(error: ResizeArray<Error>) =
         match last.Data with
         | FnScope { Ty = ty; Gen = gen; Name = name } ->
             let ty = this.Generalize gen ty
-            sema.Binding[name] <- ty
+            sema.DeclTy[name] <- ty
         | _ -> ()
 
     member this.Generalize generic fnTy =
@@ -493,7 +501,7 @@ type internal Environment(error: ResizeArray<Error>) =
             | TVar t -> if t.Level > scope.Count then TNever else TVar t
             | _ -> t
 
-        let scm = sema.Binding[name]
+        let scm = sema.DeclTy[name]
 
         let ty =
             match scm.Type with
@@ -504,6 +512,6 @@ type internal Environment(error: ResizeArray<Error>) =
 
         let ty = { ty with Ret = ret }
 
-        sema.Binding[name] <- { scm with Type = TFn ty }
+        sema.DeclTy[name] <- { scm with Type = TFn ty }
 
     member _.GetSema = sema

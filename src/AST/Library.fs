@@ -259,8 +259,8 @@ and Pat =
 
     member this.Name =
         match this with
-        | IdPat i -> Some i.Sym
-        | _ -> None
+        | IdPat i -> i.Sym
+        | _ -> ""
 
 type Param =
     { Pat: Pat

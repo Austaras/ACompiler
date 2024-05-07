@@ -18,7 +18,7 @@ let runInfer input =
     match check (Dictionary()) m with
     | Ok sema ->
         let map (id: AST.Id, t: Scheme) = (id.Sym, t.Print())
-        sema.Binding |> Seq.map (|KeyValue|) |> Seq.map map |> Map.ofSeq
+        sema.DeclTy |> Seq.map (|KeyValue|) |> Seq.map map |> Map.ofSeq
     | Error e -> failwithf "type error %A" e
 
 let toBe (expect: Map<string, string>) (ty: Map<string, string>) =

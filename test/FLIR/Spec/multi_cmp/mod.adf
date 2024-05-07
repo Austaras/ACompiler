@@ -1,0 +1,7 @@
+fn cmp(x: int, y: int) {
+    if x < 100 || x > 200 && x != y {
+        0
+    } else {
+        x
+    }
+}
