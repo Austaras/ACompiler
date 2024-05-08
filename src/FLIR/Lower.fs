@@ -31,7 +31,7 @@ type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
     member _.Pat(p: AST.Pat) =
         match p with
         | AST.IdPat i ->
-            let ty = sema.DeclTy[i].Type |> Type.FromSema sema arch.Layout
+            let ty = toIrType sema.DeclTy[i].Type
             env.DeclareVar ty i
         | _ -> failwith "Not Implmented"
 
@@ -62,7 +62,7 @@ type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
             let target =
                 match target with
                 | Some t -> t
-                | None -> env.AddVar (TInt I1) ""
+                | None -> env.AddVar(TInt I1)
 
             let l = this.Expr bin.Left (Some target)
 
@@ -108,7 +108,7 @@ type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
             let target =
                 match target with
                 | Some t -> t
-                | None -> env.AddVar ty ""
+                | None -> env.AddVar ty
 
             env.AddInstr(
                 Binary
@@ -279,7 +279,7 @@ type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
         let ret =
             if habitable fnTy.Ret > 1 then
                 let ret = toIrType fnTy.Ret
-                let id = env.AddVar ret ""
+                let id = env.AddVar ret
                 Some id
             else
                 None

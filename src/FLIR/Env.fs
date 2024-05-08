@@ -30,9 +30,9 @@ type Env() =
 
     member _.AddInstr i = instr.Add i
 
-    member _.AddVar ty name =
+    member _.AddVar ty =
         let id = var.Count
-        var.Add { Name = name; Type = ty }
+        var.Add { Name = ""; Type = ty }
         id
 
     member _.DeclareVar ty (def: AST.Id) =
@@ -70,7 +70,7 @@ type Env() =
     member this.Reverse(value: Value) =
         let target =
             match value with
-            | Const _ -> this.AddVar (TInt I1) ""
+            | Const _ -> this.AddVar(TInt I1)
             | Binding b -> b
 
         let addReverse () =
@@ -155,7 +155,7 @@ type Env() =
 
     member _.ExitScope() = scope.Pop()
 
-    member this.FinalizeFn param ret span =
+    member _.FinalizeFn param ret span =
         let f =
             { Block = block.ToArray()
               Var = var.ToArray()

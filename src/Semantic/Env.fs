@@ -7,6 +7,7 @@ open Common.Span
 open Util.MultiMap
 open AST.AST
 open Semantic
+open Util
 
 let internal primitive =
     [| TInt(true, I8)
@@ -76,6 +77,28 @@ type internal TypeEnvironment() =
     let traitImpl = Dictionary<Trait, ResizeArray<Scheme>>()
     let predict = Dictionary<Type, HashSet<Trait>>()
 
+    let mutable varId = 0
+    let mutable genId = 0
+
+    let mutable level = 1
+
+    member _.EnterScope() = level <- level + 1
+    member _.ExitScope() = level <- level - 1
+
+    member _.NewTVar span =
+        let tvar =
+            { Level = level
+              Id = varId
+              Span = span }
+
+        varId <- varId + 1
+        tvar
+
+    member _.NewGeneric sym =
+        let bound = { Id = genId; Sym = sym }
+        genId <- genId + 1
+        bound
+
     member this.NormalizeTy(ty: Type) =
         let onvar (tvar: Var) =
             if unionFind.ContainsKey tvar.Id then
@@ -101,6 +124,16 @@ type internal TypeEnvironment() =
 
             calc ty
 
+        let addUnion (v: Var) t =
+            union.Add(v.Id, t)
+
+            if predict.ContainsKey(TVar v) then
+                let tr = predict[TVar v]
+
+                for tr in tr do
+                    if not (this.HasTrait tr t) then
+                        error.Add(TraitNotImpl(tr, t, span))
+
         let rec unify expect actual =
             let expect = normalize expect
             let actual = normalize actual
@@ -111,20 +144,17 @@ type internal TypeEnvironment() =
             | _, TNever -> ()
             | TVar v1 as t1, (TVar v2 as t2) ->
                 if v1.Level > v2.Level then
-                    union.Add(v1.Id, t2)
+                    addUnion v1 t2
                 else if v1.Level = v2.Level then
-                    if v1.Id > v2.Id then
-                        union.Add(v1.Id, t2)
-                    else
-                        union.Add(v2.Id, t1)
+                    if v1.Id > v2.Id then addUnion v1 t2 else addUnion v2 t1
                 else
-                    union.Add(v2.Id, t1)
+                    addUnion v2 t1
 
             | TVar v, ty
             | ty, TVar v ->
                 match ty.FindTVar() |> Seq.tryFind ((=) v) with
                 | Some _ -> error.Add(FailToUnify(expect, actual, span))
-                | None -> union.Add(v.Id, ty)
+                | None -> addUnion v ty
 
             | TFn f1, TFn f2 ->
                 if f1.Param.Length <> f2.Param.Length then
@@ -157,20 +187,109 @@ type internal TypeEnvironment() =
 
     member _.AddUnion var ty = unionFind.Add(var, ty)
 
-    member _.ImplTrait trait_ scm =
+    member this.Instantiate scm span =
+        if scm.Generic.Length = 0 then
+            scm.Type
+        else
+            let inst = Array.map (fun _ -> TVar(this.NewTVar span)) scm.Generic
+            scm.Type.Instantiate scm.Generic inst
+
+    member this.Generalize generic fnTy =
+        let inScope (v: Var) = v.Level > level
+
+        let param = Array.map this.NormalizeTy fnTy.Param
+        let ret = this.NormalizeTy fnTy.Ret
+
+        let newTVar = param |> Seq.map _.FindTVar() |> Seq.concat
+
+        let retTVar =
+            match ret with
+            | TFn f -> f.Param |> Array.map _.FindTVar() |> Seq.concat
+            | _ -> Seq.empty
+
+        let makeGen (var: Var) =
+            let gen = this.NewGeneric ""
+            this.AddUnion var.Id (TGen gen)
+            var, gen
+
+        let map =
+            Seq.append newTVar retTVar
+            |> Seq.filter inScope
+            |> Seq.distinct
+            |> Seq.map makeGen
+            |> Map.ofSeq
+
+        let toBound t =
+            match Map.tryFind t map with
+            | Some t -> TGen t
+            | None -> TVar t
+
+        let param = Array.map (fun (ty: Type) -> ty.Walk toBound TGen) param
+        let ret = ret.Walk toBound TGen
+
+        let generic = map.Values.ToArray() |> Array.append generic
+        let ty = { Param = param; Ret = ret }
+
+        { Generic = generic; Type = TFn ty }
+
+    member this.ImplTrait trait_ scm =
         if traitImpl.ContainsKey trait_ then
+            let ty = this.Instantiate scm Span.dummy
             let value = traitImpl[trait_]
 
-            for s in value do
-                if s = scm then
-                    OverlapIml(trait_, s, scm) |> ignore
+            let rec overlap prev =
+                let prevTy = this.Instantiate prev Span.dummy
 
-            value.Add scm
+                match this.Unify prevTy ty Span.dummy with
+                | Ok _ -> Some prev
+                | Error _ -> None
+
+            let res = Util.pick overlap value
+
+            match res with
+            | None ->
+                value.Add scm
+                Ok()
+            | Some prev -> Error prev
 
         else
             let value = ResizeArray()
             value.Add scm
             traitImpl[trait_] <- value
+            Ok()
+
+    member this.HasTrait trait_ ty =
+        let hasTy =
+            if predict.ContainsKey ty then
+                true
+            else
+                predict.Add(ty, HashSet())
+                false
+
+        if hasTy && predict[ty].Contains trait_ then
+            true
+        else if not (traitImpl.ContainsKey trait_) then
+            predict[ty].Add trait_ |> ignore
+            true
+        else if not (traitImpl.ContainsKey trait_) then
+            false
+        else
+            let value = traitImpl[trait_]
+
+            let rec overlap prev =
+                let prevTy = this.Instantiate prev Span.dummy
+
+                match this.Unify prevTy ty Span.dummy with
+                | Ok _ -> Some prev
+                | Error _ -> None
+
+            let res = Util.pick overlap value
+
+            match res with
+            | None -> false
+            | Some _ ->
+                predict[ty].Add trait_ |> ignore
+                true
 
 type internal Environment(error: ResizeArray<Error>) =
     let scope = Stack([| Scope.Prelude |])
@@ -193,29 +312,26 @@ type internal Environment(error: ResizeArray<Error>) =
     let mutable varId = 0
     let mutable genId = 0
 
-    member _.NewTVar span =
-        let tvar =
-            { Level = scope.Count
-              Id = varId
-              Span = span }
+    member _.NewTVar span = tyEnv.NewTVar span
 
-        varId <- varId + 1
-
-        tvar
-
-    member _.NewGeneric sym =
-        let bound = { Id = genId; Sym = sym }
-
-        genId <- genId + 1
-
-        bound
+    member _.NewGeneric sym = tyEnv.NewGeneric sym
 
     member _.EnterScope data =
         let s = Scope.Create data
 
         scope.Push s
 
-    member _.ExitScope() = scope.Pop() |> ignore
+        tyEnv.EnterScope()
+
+    member _.ExitScope() =
+        let last = scope.Pop()
+        tyEnv.ExitScope()
+
+        match last.Data with
+        | FnScope { Ty = ty; Gen = gen; Name = name } ->
+            let ty = tyEnv.Generalize gen ty
+            sema.DeclTy[name] <- ty
+        | _ -> ()
 
     member _.Pick picker =
         let rec loop (i: int) =
@@ -319,7 +435,7 @@ type internal Environment(error: ResizeArray<Error>) =
         | Some { Def = def } ->
             let scm = sema.DeclTy[def]
 
-            this.Instantiate scm id.Span |> Some
+            tyEnv.Instantiate scm id.Span |> Some
 
     member this.GetVarTyWithCapture(id: Id) =
         let rec resolveVar captured canCapture (i: int) =
@@ -363,7 +479,7 @@ type internal Environment(error: ResizeArray<Error>) =
 
             let scm = sema.DeclTy[def]
 
-            this.Instantiate scm id.Span |> Some
+            tyEnv.Instantiate scm id.Span |> Some
 
     member this.FindField ty field span =
         let ty = tyEnv.NormalizeTy ty
@@ -407,10 +523,13 @@ type internal Environment(error: ResizeArray<Error>) =
 
         this.Pick findTrait
 
-    member this.ImplTrait (id: Id) ty =
+    member this.ImplTrait (id: Id) scm span =
         match this.GetTrait id.Sym with
         | None -> error.Add(Undefined id)
-        | Some t -> tyEnv.ImplTrait t ty
+        | Some t ->
+            match tyEnv.ImplTrait t scm with
+            | Ok() -> ()
+            | Error prev -> error.Add(OverlapImpl(t, scm, prev, span))
 
     member this.FindMethod ty field span =
         let ty = tyEnv.NormalizeTy ty
@@ -418,7 +537,10 @@ type internal Environment(error: ResizeArray<Error>) =
         let findTrait scope =
             match scope.Method.Get field with
             | None -> None
-            | Some id -> Some sema.Trait[id]
+            | Some id ->
+                let tr = sema.Trait[id]
+
+                if tyEnv.HasTrait tr ty then Some tr else None
 
         let trait_ = this.Pick findTrait
 
@@ -438,60 +560,6 @@ type internal Environment(error: ResizeArray<Error>) =
         | Error unionError ->
             for e in unionError do
                 error.Add e
-
-    member this.FinishScope() =
-        let last = scope.Pop()
-
-        match last.Data with
-        | FnScope { Ty = ty; Gen = gen; Name = name } ->
-            let ty = this.Generalize gen ty
-            sema.DeclTy[name] <- ty
-        | _ -> ()
-
-    member this.Generalize generic fnTy =
-        let inScope (v: Var) = v.Level > scope.Count
-
-        let param = Array.map tyEnv.NormalizeTy fnTy.Param
-        let ret = tyEnv.NormalizeTy fnTy.Ret
-
-        let newTVar = param |> Seq.map _.FindTVar() |> Seq.concat
-
-        let retTVar =
-            match ret with
-            | TFn f -> f.Param |> Array.map _.FindTVar() |> Seq.concat
-            | _ -> Seq.empty
-
-        let makeGen (var: Var) =
-            let gen = this.NewGeneric None
-            tyEnv.AddUnion var.Id (TGen gen)
-            var, gen
-
-        let map =
-            Seq.append newTVar retTVar
-            |> Seq.filter inScope
-            |> Seq.distinct
-            |> Seq.map makeGen
-            |> Map.ofSeq
-
-        let toBound t =
-            match Map.tryFind t map with
-            | Some t -> TGen t
-            | None -> TVar t
-
-        let param = Array.map (fun (ty: Type) -> ty.Walk toBound TGen) param
-        let ret = ret.Walk toBound TGen
-
-        let generic = map.Values.ToArray() |> Array.append generic
-        let ty = { Param = param; Ret = ret }
-
-        { Generic = generic; Type = TFn ty }
-
-    member this.Instantiate scm span =
-        if scm.Generic.Length = 0 then
-            scm.Type
-        else
-            let inst = Array.map (fun _ -> TVar(this.NewTVar span)) scm.Generic
-            scm.Type.Instantiate scm.Generic inst
 
     member _.ToNever(name: Id) =
         let toNever t =

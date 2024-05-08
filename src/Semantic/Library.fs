@@ -41,12 +41,10 @@ and Var = { Level: int; Id: int; Span: Span }
 
 and Generic =
     { Id: int
-      Sym: Option<string> }
+      Sym: string }
 
     member this.Print() =
-        match this.Sym with
-        | Some s -> if System.Char.IsUpper s[0] then s else "T" + s
-        | None -> $"T{this.Id}"
+        if this.Sym.Length = 0 then $"T{this.Id}" else this.Sym
 
 and ADT = { Name: Id; Generic: Type[] }
 
@@ -181,6 +179,11 @@ and Type =
 
         stripRef this
 
+    member this.IsVar =
+        match this with
+        | TVar _ -> true
+        | _ -> false
+
 let UnitType = TTuple [||]
 
 type Trait =
@@ -236,6 +239,7 @@ type Error =
     | RefutablePat of Span
     | LoopInType of Id[]
     | CaptureDynamic of Id
-    | OverlapIml of Trait * Scheme * Scheme
+    | OverlapImpl of Trait * Scheme * Scheme * Span
     | UnresolvedType of Span
     | UnboundGeneric of Generic
+    | TraitNotImpl of Trait * Type * Span

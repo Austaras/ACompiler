@@ -272,7 +272,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
                 let brTy = this.Expr br.Expr
 
-                env.FinishScope()
+                env.ExitScope()
 
                 env.NormalizeTy brTy
 
@@ -421,7 +421,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
             env.Unify retTy ret c.Span
 
-            env.FinishScope()
+            env.ExitScope()
 
             TFn
                 { Param = Array.map env.NormalizeTy paramTy
@@ -477,13 +477,13 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
         let ty = Array.fold typeof UnitType b.Stmt
 
-        env.FinishScope()
+        env.ExitScope()
 
         env.NormalizeTy ty
 
     member _.TyParam(p: TyParam[]) =
         let proc (p: TyParam) =
-            let generic = env.NewGeneric(Some p.Id.Sym)
+            let generic = env.NewGeneric p.Id.Sym
             env.RegisterTy p.Id (TGen generic)
             generic
 
@@ -621,7 +621,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                 let ty = this.Type i.Ty
                 let scm = { Generic = gen; Type = ty }
 
-                env.ImplTrait trait_ scm
+                env.ImplTrait trait_ scm i.Span
 
         let fnMap = Dictionary()
         let valueMap = Dictionary()
@@ -687,7 +687,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
                 env.Unify fnTy.Ret ret f.Name.Span
 
-                env.FinishScope()
+                env.ExitScope()
 
             | Let l ->
                 let value = this.Expr l.Value
@@ -738,7 +738,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
             let ty = this.Block block
 
-            env.FinishScope()
+            env.ExitScope()
 
             env.NormalizeTy ty
 
@@ -749,7 +749,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
         this.HoistDecl decl true
 
-        env.FinishScope()
+        env.ExitScope()
 
         let sema = env.GetSema
 
