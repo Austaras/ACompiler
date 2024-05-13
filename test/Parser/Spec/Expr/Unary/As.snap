@@ -1,5 +1,5 @@
-Unary@0..7
-    op: -
-    value: As@1..7
+As@0..7
+    value: Unary@0..1
+        op: -
         value: a@1..1
-        type: u8@6..7
+    type: u8@6..7

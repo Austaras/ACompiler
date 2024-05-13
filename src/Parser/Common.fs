@@ -119,7 +119,8 @@ type internal Context =
       InTrait: bool
       InImpl: bool
       InDecl: bool
-      InTypeInst: bool }
+      InTypeInst: bool
+      InUnary: bool }
 
     static member Normal =
         { InLoop = false
@@ -129,7 +130,8 @@ type internal Context =
           InImpl = false
           InMethod = false
           InDecl = false
-          InTypeInst = false }
+          InTypeInst = false
+          InUnary = false }
 
     static member Fn =
         { InLoop = false
@@ -139,12 +141,18 @@ type internal Context =
           InImpl = false
           InMethod = false
           InDecl = false
-          InTypeInst = false }
+          InTypeInst = false
+          InUnary = false }
 
-    member this.EnterFn =
+    member this.EnterFn() =
         { this with
             InFn = true
             InLoop = false }
+
+    member this.FreeExpr() =
+        { this with
+            InCond = false
+            InUnary = false }
 
 let canStartPat i =
     match i with

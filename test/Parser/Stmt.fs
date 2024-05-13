@@ -6,13 +6,14 @@ open Xunit
 
 open Snapshot
 open AST.Dump
+open Parser.Common
 open Parser.Lexer
 open Parser.Parser
 
 let internal parseTest input (tw: TextWriter) =
     let error = ResizeArray()
     let lexer = Lexer(input, error)
-    let parser = Parser(lexer, error)
+    let parser = Parser(lexer, error, Context.Normal)
     let dump = Dump(tw)
 
     let s = parser.Stmt()

@@ -10,8 +10,28 @@ open Lexer
 
 open Parser.Common
 
-type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
-    let mutable ctx = Context.Normal
+type internal Parser(lexer: Lexer, error: ResizeArray<Error>, ctx: Context) =
+    let ctx = ctx
+
+    member _.WithCtx ctx = Parser(lexer, error, ctx)
+
+    member _.FreeExpr() =
+        Parser(
+            lexer,
+            error,
+            { ctx with
+                InCond = false
+                InUnary = false }
+        )
+
+    member _.InCond() =
+        Parser(
+            lexer,
+            error,
+            { ctx with
+                InCond = true
+                InUnary = false }
+        )
 
     member _.LtGt parser error =
         let res = ResizeArray()
@@ -343,15 +363,12 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
         let tryInst (span: Span) =
             lexer.Consume()
 
-            let old = ctx
-            ctx <- { ctx with InTypeInst = true }
+            let child = this.WithCtx { ctx with InTypeInst = true }
 
-            let g, last = this.LtGt this.Type "Generic Parameter"
+            let g, last = child.LtGt child.Type "Generic Parameter"
 
             if g.Length = 0 then
                 error.Add(EmptyTypeInst(span.WithLast last))
-
-            ctx <- old
 
             g, last
 
@@ -542,7 +559,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
               Ty = None
               Span = pat.Span }
 
-    member this.ExprPath (first: Either<Id, PathPrefix * Span>) canCurly =
+    member this.ExprPath(first: Either<Id, PathPrefix * Span>) =
         let path = this.Path first true
 
         let field () =
@@ -574,9 +591,9 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
             | _ -> raise (ParserExp(UnexpectedToken(token, "Struct Field")))
 
         match lexer.PeekInline() with
-        | Some { Data = Open Curly } when canCurly ->
+        | Some { Data = Open Curly } when not ctx.InCond ->
             lexer.Consume()
-            let field, last = this.StructLike field
+            let field, last = this.FreeExpr().StructLike field
 
             StructLit
                 { Struct = path
@@ -594,7 +611,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
 
                 Path path
 
-    member this.ExprRange (token: Token) canCurly (from: Option<Expr>) =
+    member this.ExprRange (token: Token) (from: Option<Expr>) =
         let exclusive =
             match token.Data with
             | DotDot -> false
@@ -606,8 +623,8 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
         let (to_: Expr option), last =
             match lexer.Peek() with
             | Some { Data = data } when canStartExpr data ->
-                let to_ = this.ExprPrefix canCurly
-                let to_ = this.ExprRepeat -1 canCurly to_
+                let to_ = this.ExprPrefix()
+                let to_ = this.ExprRepeat -1 to_
 
                 Some to_, to_.Span
             | _ -> None, token.Span
@@ -625,21 +642,23 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
 
             let pat = this.Pat()
             let _ = lexer.Expect Eq "Let Condition"
-            let value = this.ExprPrefix false
-            let value = this.ExprRepeat -100 false value
+            let child = this.InCond()
+            let value = child.ExprPrefix()
+            let value = child.ExprRepeat -100 value
 
             LetCond
                 { Pat = pat
                   Value = value
                   Span = span.WithLast value.Span }
         | Some { Data = data } when canStartExpr data ->
-            let value = this.ExprPrefix false
-            let value = this.ExprRepeat -100 false value
+            let child = this.InCond()
+            let value = child.ExprPrefix()
+            let value = child.ExprRepeat -100 value
             BoolCond value
         | Some token -> raise (ParserExp(UnexpectedToken(token, "Condition")))
         | None -> raise (ParserExp(IncompleteAtEnd "Condition"))
 
-    member this.ExprPrefix canCurly =
+    member this.ExprPrefix() =
         let { Data = data; Span = span } as token = lexer.Read "expression prefix"
 
         let expr =
@@ -647,17 +666,18 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
             | Lit l -> LitExpr { Value = l; Span = span }
             | Identifier i ->
                 let id = { Sym = i; Span = span }
-                this.ExprPath (Left id) canCurly
+                this.ExprPath(Left id)
 
             | Reserved(PACKAGE | SELF | LOWSELF as kw) ->
                 if not ctx.InDecl && kw = SELF then
                     error.Add(SelfOutOfDecl span)
 
                 let prefix = toPrefix kw
-                this.ExprPath (Right(prefix, span)) canCurly
+                this.ExprPath(Right(prefix, span))
 
             | Open Paren ->
-                let (ele: Expr[]), paren = this.CommaSeq (this.Expr) (Close Paren)
+                let child = this.FreeExpr()
+                let (ele: Expr[]), paren = child.CommaSeq (child.Expr) (Close Paren)
                 let span = span.WithLast paren
 
                 if ele.Length = 1 then
@@ -666,6 +686,8 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                     Tuple { Ele = ele; Span = span }
 
             | Open Bracket ->
+                let child = this.FreeExpr()
+
                 match lexer.Peek() with
                 | None -> raise (ParserExp(IncompletePair token))
                 | Some { Data = Close Bracket; Span = last } ->
@@ -675,7 +697,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                         { Ele = [||]
                           Span = span.WithLast last }
                 | _ ->
-                    let first = this.Expr()
+                    let first = child.Expr()
 
                     let next = lexer.Read "array expression"
 
@@ -685,12 +707,12 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                             { Ele = [| first |]
                               Span = span.WithLast next.Span }
                     | Comma ->
-                        let rest, last = this.CommaSeq this.Expr (Close Bracket)
+                        let rest, last = child.CommaSeq child.Expr (Close Bracket)
                         let ele = Array.append [| first |] rest
 
                         Array { Ele = ele; Span = span.WithLast last }
                     | Delimiter Semi ->
-                        let count = this.Expr()
+                        let count = child.Expr()
                         let last = lexer.Expect (Close Bracket) "array expression"
 
                         ArrayRepeat
@@ -699,11 +721,11 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                               Span = span.WithLast last }
                     | _ -> raise (ParserExp(UnexpectedToken(next, "array expression")))
 
-            | Open Curly when canCurly -> Block(this.Block span)
+            | Open Curly -> Block(this.Block span)
 
             | Operator(Arith(Sub | Mul | BitAnd))
             | Not ->
-                let value = this.ExprPrefix canCurly
+                let value = this.WithCtx({ ctx with InUnary = true }).ExprPrefix()
 
                 let op =
                     match data with
@@ -719,19 +741,14 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                       Span = span.WithLast value.Span }
 
             | DotDot
-            | DotDotCaret -> this.ExprRange token canCurly None
+            | DotDotCaret -> this.ExprRange token None
 
             | Operator(Arith BitOr) ->
-                let old = ctx
-                ctx <- ctx.EnterFn
+                let child = this.WithCtx(ctx.EnterFn())
 
-                let param, _ = this.CommaSeq (fun () -> this.Param true) (Operator(Arith BitOr))
-
-                let ret = this.RetTy()
-
-                let body = this.Expr()
-
-                ctx <- old
+                let param, _ = child.CommaSeq (fun () -> child.Param true) (Operator(Arith BitOr))
+                let ret = child.RetTy()
+                let body = child.Expr()
 
                 Closure
                     { Param = param
@@ -819,8 +836,9 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                       Span = span.WithLast last }
 
             | Reserved MATCH ->
-                let value = this.ExprPrefix false
-                let value = this.ExprRepeat -100 false value
+                let child = this.InCond()
+                let value = child.ExprPrefix()
+                let value = child.ExprRepeat -100 value
 
                 let _ = lexer.Expect (Open Curly) "Match Body"
 
@@ -856,10 +874,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
 
                 let curly = lexer.Expect (Open Curly) "While Expression Body"
 
-                let old = ctx
-                ctx <- { ctx with InLoop = true }
-                let body = this.Block curly
-                ctx <- old
+                let body = this.WithCtx({ ctx with InLoop = true }).Block curly
 
                 While
                     { Cond = cond
@@ -871,15 +886,12 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
 
                 let _ = lexer.Expect (Reserved IN) "For In"
 
-                let iter = this.ExprPrefix false
-                let iter = this.ExprRepeat -100 false iter
-
-                let old = ctx
-                ctx <- { ctx with InLoop = true }
+                let child = this.InCond()
+                let iter = child.ExprPrefix()
+                let iter = child.ExprRepeat -100 iter
 
                 let curly = lexer.Expect (Open Curly) "For Expression Body"
-                let body = this.Block curly
-                ctx <- old
+                let body = this.WithCtx({ ctx with InLoop = true }).Block curly
 
                 For
                     { Pat = pat
@@ -919,8 +931,9 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
 
         | Some { Data = Open Paren } ->
             lexer.Consume()
+            let child = this.FreeExpr()
 
-            let arg, paren = this.CommaSeq this.Expr (Close Paren)
+            let arg, paren = child.CommaSeq child.Expr (Close Paren)
 
             let call =
                 Call
@@ -932,8 +945,9 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
 
         | Some { Data = Open Bracket } ->
             lexer.Consume()
+            let child = this.FreeExpr()
 
-            let index = this.Expr()
+            let index = child.Expr()
 
             let bracket = lexer.Expect (Close Bracket) "index expression"
 
@@ -955,7 +969,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
 
             this.ExprPostfix tryReturn
 
-        | Some { Data = Reserved AS } ->
+        | Some { Data = Reserved AS } when not ctx.InUnary ->
             lexer.Consume()
 
             let ty = this.Type()
@@ -970,13 +984,13 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
 
         | _ -> expr
 
-    member this.ExprPrec (prec: int) (canCurly: bool) (expr: Expr) =
+    member this.ExprPrec (prec: int) (expr: Expr) =
         match lexer.PeekOp() with
         | Some { Data = Operator op } when prec < precedence op ->
             lexer.Consume()
 
-            let right = this.ExprPrefix canCurly
-            let right = this.ExprPrec (precedence op) canCurly right
+            let right = this.ExprPrefix()
+            let right = this.ExprPrec (precedence op) right
 
             Binary
                 { Left = expr
@@ -987,7 +1001,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
         | Some({ Data = DotDot | DotDotCaret } as token) when prec <= -1 ->
             lexer.Consume()
 
-            this.ExprRange token canCurly (Some expr)
+            this.ExprRange token (Some expr)
 
         | Some { Data = Eq | AssignOp _ as data } when prec <= -2 ->
             lexer.Consume()
@@ -998,8 +1012,8 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                 | AssignOp a -> Some a
                 | _ -> failwith "Unreachable"
 
-            let value = this.ExprPrefix canCurly
-            let value = this.ExprRepeat -2 canCurly value
+            let value = this.ExprPrefix()
+            let value = this.ExprRepeat -2 value
 
             if not (isPlace expr) then
                 error.Add(InvalidLValue expr)
@@ -1012,28 +1026,29 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
 
         | _ -> expr
 
-    member this.ExprRepeat (prec: int) canCurly (expr: Expr) =
+    member this.ExprRepeat (prec: int) (expr: Expr) =
         match lexer.PeekOp() with
         | Some { Data = Operator op } when prec < precedence op ->
-            let res = this.ExprPrec prec canCurly expr
-            this.ExprRepeat prec canCurly res
+            let res = this.ExprPrec prec expr
+            this.ExprRepeat prec res
 
         | Some { Data = DotDot | DotDotCaret } when prec <= -1 ->
-            let res = this.ExprPrec prec canCurly expr
-            this.ExprRepeat prec canCurly res
+            let res = this.ExprPrec prec expr
+            this.ExprRepeat prec res
 
         | Some { Data = Eq | AssignOp _ } when prec <= -2 ->
-            let res = this.ExprPrec prec canCurly expr
-            this.ExprRepeat prec canCurly res
+            let res = this.ExprPrec prec expr
+            this.ExprRepeat prec res
 
         | _ -> expr
 
     member this.Expr() =
-        let expr = this.ExprPrefix true
-        this.ExprRepeat -100 true expr
+        let expr = this.ExprPrefix()
+        this.ExprRepeat -100 expr
 
     member this.Block(start: Span) =
-        let stm, last = this.ManyItem this.Stmt (Some(Close Curly))
+        let child = this.FreeExpr()
+        let stm, last = child.ManyItem child.Stmt (Some(Close Curly))
 
         { Stmt = stm
           Span = start.WithLast last }
@@ -1240,24 +1255,21 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                   Span = span.WithLast value.Span }
 
         | Reserved FUNCTION ->
-            let old = ctx
-            ctx <- ctx.EnterFn
+            let child = this.WithCtx(ctx.EnterFn())
 
             let id = lexer.ReadId "Function Name"
 
-            let tyParam, _ = this.TypeParamList "Function Type Parameter"
+            let tyParam, _ = child.TypeParamList "Function Type Parameter"
 
             let _ = lexer.Expect (Open Paren) "Function Parameter"
 
-            let param, _ = this.CommaSeq (fun () -> this.Param false) (Close Paren)
+            let param, _ = child.CommaSeq (fun () -> child.Param false) (Close Paren)
 
-            let ret = this.RetTy()
+            let ret = child.RetTy()
 
             let blockStart = lexer.Expect (Open Curly) "Function Body"
 
-            let body = this.Block blockStart
-
-            ctx <- old
+            let body = child.Block blockStart
 
             FnDecl
                 { Name = id
@@ -1273,12 +1285,14 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
             let tyParam, last = this.TypeParamList "Struct Type Parameter"
             let last = Option.defaultValue name.Span last
 
+            let child = this.WithCtx({ ctx with InDecl = true })
+
             let field () =
-                let vis, span = this.Vis()
+                let vis, span = child.Vis()
 
                 let name = lexer.ReadId "Struct Field"
                 let _ = lexer.Expect Colon "Struct Field"
-                let ty = this.Type()
+                let ty = child.Type()
 
                 let span = Option.defaultValue name.Span span
 
@@ -1287,18 +1301,14 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                   Ty = ty
                   Span = span.WithLast ty.Span }
 
-            let old = ctx
-            ctx <- { ctx with InDecl = true }
 
             let field, last =
                 match lexer.PeekInline() with
                 | Some { Data = Open Curly } ->
                     lexer.Consume()
 
-                    this.StructLike field
+                    child.StructLike field
                 | _ -> [||], last
-
-            ctx <- old
 
             StructDecl
                 { Name = name
@@ -1311,6 +1321,8 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
 
             let tyParam, _ = this.TypeParamList "Enum Type Parameter"
 
+            let child = this.WithCtx({ ctx with InDecl = true })
+
             let variant () =
                 let name = lexer.ReadId "Variant Name"
 
@@ -1319,7 +1331,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                     | Some { Data = Open Paren } ->
                         lexer.Consume()
 
-                        this.CommaSeq this.Type (Close Paren)
+                        child.CommaSeq child.Type (Close Paren)
                     | _ -> [||], name.Span
 
                 let value, last =
@@ -1327,7 +1339,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                     | Some { Data = Eq } ->
                         lexer.Consume()
 
-                        let value = this.Expr()
+                        let value = child.Expr()
 
                         Some value, value.Span
 
@@ -1338,20 +1350,15 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                   Tag = value
                   Span = name.Span.WithLast last }
 
-            let old = ctx
-            ctx <- { ctx with InDecl = true }
-
             let variant, last =
                 let first = lexer.Expect (Open Curly) "Enum Variant"
 
-                let v, last = this.StructLike variant
+                let v, last = child.StructLike variant
 
                 if v.Length = 0 then
                     error.Add(EmptyEnum(first.WithLast last))
 
                 v, last
-
-            ctx <- old
 
             EnumDecl
                 { Name = name
@@ -1367,8 +1374,10 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
 
             let super = this.TypeBound()
 
+            let child = this.WithCtx { ctx with InDecl = true }
+
             let item () =
-                let attr = this.Attr()
+                let attr = child.Attr()
 
                 let decl =
                     match lexer.Peek() with
@@ -1376,13 +1385,13 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                         lexer.Consume()
                         let name = lexer.ReadId "Trait Type Name"
 
-                        let bound = this.TypeBound()
+                        let bound = child.TypeBound()
 
                         let defaultTy =
                             match lexer.PeekInline() with
                             | Some { Data = Eq } ->
                                 lexer.Consume()
-                                this.Type() |> Some
+                                child.Type() |> Some
                             | _ -> None
 
                         let last =
@@ -1407,16 +1416,16 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
 
                         let _ = lexer.Expect (Open Paren) "Trait Method Parameter"
 
-                        let param, last = this.CommaSeq (fun () -> this.Param false) (Close Paren)
+                        let param, last = child.CommaSeq (fun () -> child.Param false) (Close Paren)
 
-                        let ret = this.RetTy()
+                        let ret = child.RetTy()
 
                         let impl =
                             match lexer.PeekInline() with
                             | Some { Data = Open Curly; Span = span } ->
                                 lexer.Consume()
 
-                                this.Block span |> Some
+                                child.Block span |> Some
                             | _ -> None
 
                         let last =
@@ -1439,18 +1448,13 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                   Member = decl
                   Span = decl.Span }
 
-            let old = ctx
-            ctx <- { ctx with InDecl = true }
-
             let item, last =
                 match lexer.PeekInline() with
                 | Some { Data = Open Curly } ->
                     lexer.Consume()
 
-                    this.ManyItem item (Some(Close Curly))
+                    child.ManyItem item (Some(Close Curly))
                 | _ -> [||], last
-
-            ctx <- old
 
             Trait
                 { Name = name
@@ -1487,9 +1491,11 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                     second, t
                 | _ -> first, None
 
+            let child = this.WithCtx { ctx with InDecl = true }
+
             let item () =
-                let attr = this.Attr()
-                let vis, first = this.Vis()
+                let attr = child.Attr()
+                let vis, first = child.Vis()
 
                 let item =
                     match lexer.Peek() with
@@ -1499,7 +1505,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
 
                         let _ = lexer.Expect Eq "Impl Type"
 
-                        let ty = this.Type()
+                        let ty = child.Type()
 
                         AssocType
                             { Name = name
@@ -1511,17 +1517,17 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                         lexer.Consume()
                         let name = lexer.ReadId "Method Name"
 
-                        let tyParam, _ = this.TypeParamList "Method Type Parameter"
+                        let tyParam, _ = child.TypeParamList "Method Type Parameter"
 
                         let _ = lexer.Expect (Open Paren) "Method Parameter"
 
-                        let param, last = this.CommaSeq (fun () -> this.Param false) (Close Paren)
+                        let param, last = child.CommaSeq (fun () -> child.Param false) (Close Paren)
 
-                        let ret = this.RetTy()
+                        let ret = child.RetTy()
 
                         let curly = lexer.Expect (Open Curly) "Method Body"
 
-                        let body = this.Block curly
+                        let body = child.Block curly
 
                         Method
                             { Name = name
@@ -1541,18 +1547,13 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>) =
                   Item = item
                   Span = first.WithLast item.Span }
 
-            let old = ctx
-            ctx <- { ctx with InDecl = true }
-
             let item, last =
                 match lexer.PeekInline() with
                 | Some { Data = Open Curly } ->
                     lexer.Consume()
 
-                    this.ManyItem item (Some(Close Curly))
+                    child.ManyItem item (Some(Close Curly))
                 | _ -> [||], last
-
-            ctx <- old
 
             Impl
                 { TyParam = tyParam
@@ -1667,7 +1668,7 @@ let parse (input: string) =
 
     try
         let lexer = Lexer(input, error)
-        let parser = Parser(lexer, error)
+        let parser = Parser(lexer, error, Context.Normal)
 
         let m = parser.ParseModule()
 

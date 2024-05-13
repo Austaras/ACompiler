@@ -1,0 +1,5 @@
+Closure@0..5
+    body: Range@2..5
+        from: a@2..2
+        exclusive: False
+        to: b@5..5
