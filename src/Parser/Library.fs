@@ -774,7 +774,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>, ctx: Context) =
 
                 match lexer.Peek() with
                 | Some { Data = data } when canStartExpr data ->
-                    let value = this.Expr()
+                    let value = this.FreeExpr().Expr()
                     Return { Value = Some value; Span = span }
 
                 | _ -> Return { Value = None; Span = span }

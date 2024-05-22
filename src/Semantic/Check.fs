@@ -297,7 +297,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
                 match callee with
                 | None ->
-                    error.Add(UndefinedMethod(f.Receiver.Span, f.Field.Sym))
+                    error.Add(UndefinedMethod(f.Receiver.Span, receiver, f.Field.Sym))
                     TNever
                 | Some callee ->
                     let arg = Array.map this.Expr c.Arg
@@ -485,6 +485,19 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
         let proc (p: TyParam) =
             let generic = env.NewGeneric p.Id.Sym
             env.RegisterTy p.Id (TGen generic)
+
+            for b in p.Bound do
+                if b.Prefix <> None || b.Seg.Length > 1 then
+                    failwith "Not Implemented"
+
+                let name = fst b.Seg[0]
+
+                let tr = env.GetTrait (fst b.Seg[0]).Sym
+
+                match tr with
+                | None -> error.Add(Undefined name)
+                | Some tr -> env.AddBound (TGen generic) tr
+
             generic
 
         let res = Array.map proc p
@@ -578,8 +591,24 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
             | Trait t ->
                 env.EnterScope TypeScope
 
-                if t.TyParam.Length > 0 || t.Super.Length > 0 then
+                if t.TyParam.Length > 0 then
                     failwith "Not Implemented"
+
+                let super = ResizeArray()
+
+                for path in t.Super do
+                    if path.Prefix <> None || path.Seg.Length > 1 then
+                        failwith "Not Implemented"
+
+                    let id = (fst path.Seg[0])
+
+                    let tr = env.GetTrait id.Sym
+
+                    match tr with
+                    | Some s -> super.Add s
+                    | None -> error.Add(Undefined id)
+
+                let super = super.ToArray()
 
                 let processParam (p: Param) = p.Ty |> Option.get |> this.Type
 
@@ -606,7 +635,10 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
                 env.ExitScope()
 
-                env.RegisterTrait { Name = t.Name; Method = method }
+                env.RegisterTrait
+                    { Name = t.Name
+                      Method = method
+                      Super = super }
             | Impl i ->
                 let trait_ =
                     match i.Trait with
@@ -617,11 +649,17 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
                         fst t.Seg[0]
 
+                env.EnterScope TypeScope
+
                 let gen = this.TyParam i.TyParam
                 let ty = this.Type i.Ty
                 let scm = { Generic = gen; Type = ty }
 
-                env.ImplTrait trait_ scm i.Span
+                match env.GetTrait trait_.Sym with
+                | None -> error.Add(Undefined trait_)
+                | Some t -> env.ImplTrait t scm i.Span
+
+                env.ExitScope()
 
         let fnMap = Dictionary()
         let valueMap = Dictionary()

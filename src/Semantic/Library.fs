@@ -188,7 +188,8 @@ let UnitType = TTuple [||]
 
 type Trait =
     { Name: Id
-      Method: Map<string, Function> }
+      Method: Map<string, Function>
+      Super: Trait[] }
 
 type Scheme =
     { Generic: Generic[]
@@ -221,7 +222,7 @@ type SemanticInfo =
 type Error =
     | Undefined of Id
     | UndefinedField of Span * string
-    | UndefinedMethod of Span * string
+    | UndefinedMethod of Span * Type * string
     | UndefinedVariant of Id * Id
     | DuplicateDefinition of Id * Id
     | DuplicateField of Id
@@ -240,6 +241,5 @@ type Error =
     | LoopInType of Id[]
     | CaptureDynamic of Id
     | OverlapImpl of Trait * Scheme * Scheme * Span
-    | UnresolvedType of Span
     | UnboundGeneric of Generic
     | TraitNotImpl of Trait * Type * Span
