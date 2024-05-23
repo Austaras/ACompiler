@@ -25,8 +25,8 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
     let env = Environment(error)
 
     member this.Type ty =
-        let resolve id =
-            match env.GetTy id with
+        let resolve (id: Id) =
+            match env.GetTy id.Sym with
             | Some ty -> ty.Ty
             | None ->
                 error.Add(Undefined id)
@@ -198,7 +198,12 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                   Mut = mut
                   Static = static_ }
 
-            env.RegisterVar mayShadow info { Generic = [||]; Type = ty }
+            env.RegisterVar
+                mayShadow
+                info
+                { Generic = [||]
+                  Type = ty
+                  Pred = [||] }
 
     member this.Expr e =
         match e with
@@ -388,8 +393,56 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
             | LitExpr { Value = Int len } -> TArray(ty, len)
             | _ -> failwith "Not Implemented"
 
-        | StructLit(_) -> failwith "Not Implemented"
-        | Tuple s -> s.Ele |> Array.map this.Expr |> TTuple
+        | StructLit s ->
+            if s.Struct.Prefix <> None || s.Struct.Seg.Length > 1 then
+                failwith "Not Implemented"
+
+            let stru, gen = s.Struct.Seg[0]
+            let span = stru.Span
+
+            match env.GetTy stru.Sym with
+            | None ->
+                error.Add(Undefined stru)
+                TNever
+            | Some { Ty = TStruct sTy; Def = id } ->
+                let stru = env.GetStruct id
+
+                let gen =
+                    if gen.Length > 0 then
+                        Array.map this.Type gen
+                    else
+                        Array.map (fun _ -> TVar(env.NewTVar span)) stru.Generic
+
+                let sTy = TStruct { sTy with Generic = gen }
+
+                for field in s.Field do
+                    match field with
+                    | ShorthandField v ->
+                        if stru.Field.ContainsKey v.Sym then
+                            let field = stru.Field[v.Sym].Instantiate stru.Generic gen
+
+                            match env.GetVarTyWithCapture id with
+                            | None -> error.Add(Undefined id)
+                            | Some ty -> env.Unify field ty v.Span
+                        else
+                            error.Add(UndefinedField(v.Span, v.Sym))
+                    | KeyValueField kv ->
+                        if stru.Field.ContainsKey kv.Name.Sym then
+                            let field = stru.Field[kv.Name.Sym].Instantiate stru.Generic gen
+                            let ty = this.Expr kv.Value
+                            env.Unify field ty kv.Span
+                        else
+                            error.Add(UndefinedField(kv.Name.Span, kv.Name.Sym))
+                    | RestField r ->
+                        let ty = this.Expr r.Value
+                        env.Unify sTy ty r.Span
+
+                env.NormalizeTy sTy
+            | Some ty ->
+                error.Add(ExpectStruct(stru, ty.Ty))
+                TNever
+
+        | Tuple t -> t.Ele |> Array.map this.Expr |> TTuple
         | Closure c ->
             env.EnterScope TypeScope
 
@@ -482,8 +535,14 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
         env.NormalizeTy ty
 
     member _.TyParam(p: TyParam[]) =
-        let proc (p: TyParam) =
-            let generic = env.NewGeneric p.Id.Sym
+        let group = env.NewGenGroup()
+
+        let proc (idx) (p: TyParam) =
+            let generic =
+                { GroupId = group
+                  Id = idx
+                  Sym = p.Id.Sym }
+
             env.RegisterTy p.Id (TGen generic)
 
             for b in p.Bound do
@@ -500,7 +559,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
             generic
 
-        let res = Array.map proc p
+        let res = Array.mapi proc p
 
         res
 
@@ -524,7 +583,6 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
             | TypeDecl _ -> failwith "Not Implemented"
             | Use _ -> failwith "Not Implemented"
-            // TODO: we need to register here for dyn trait
             | Trait t -> ()
             | Impl _ -> ()
 
@@ -653,7 +711,11 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
                 let gen = this.TyParam i.TyParam
                 let ty = this.Type i.Ty
-                let scm = { Generic = gen; Type = ty }
+
+                let scm =
+                    { Generic = gen
+                      Type = ty
+                      Pred = [||] }
 
                 match env.GetTrait trait_.Sym with
                 | None -> error.Add(Undefined trait_)
@@ -695,7 +757,12 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
                 fnMap.Add(f.Name, (generic, fnTy))
 
-                env.RegisterVar false info { Generic = generic; Type = TFn fnTy }
+                env.RegisterVar
+                    false
+                    info
+                    { Generic = generic
+                      Type = TFn fnTy
+                      Pred = [||] }
 
             | Let l ->
                 let ty =

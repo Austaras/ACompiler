@@ -76,6 +76,10 @@ type internal Canonical =
     { Subst: Dictionary<int, Type>
       Pred: Dictionary<int, HashSet<Trait>> }
 
+    static member New() =
+        { Subst = Dictionary()
+          Pred = Dictionary() }
+
 type internal TypeEnvironment() =
     let unionFind = Dictionary<int, Type>()
     let traitImpl = Dictionary<Trait, ResizeArray<Scheme>>(HashIdentity.Reference)
@@ -93,10 +97,10 @@ type internal TypeEnvironment() =
         varId <- varId + 1
         tvar
 
-    member _.NewGeneric sym =
-        let bound = { Id = genId; Sym = sym }
+    member _.NewGenGroup() =
+        let id = genId
         genId <- genId + 1
-        bound
+        id
 
     member this.NormalizeTy(ty: Type) =
         let onvar (tvar: Var) =
@@ -192,6 +196,8 @@ type internal TypeEnvironment() =
         else
             predict.Add(ty, HashSet([ tr ]))
 
+    member _.ApplyCanon canon = 1
+
     member this.Instantiate scm level span =
         if scm.Generic.Length = 0 then
             scm.Type
@@ -222,8 +228,10 @@ type internal TypeEnvironment() =
             | TFn f -> f.Param |> Array.map _.FindTVar() |> Seq.concat
             | _ -> Seq.empty
 
-        let makeGen (var: Var) =
-            let gen = this.NewGeneric ""
+        let group = this.NewGenGroup()
+
+        let makeGen (idx, var: Var) =
+            let gen = { Id = idx; GroupId = group; Sym = "" }
             this.AddUnion var.Id (TGen gen)
             var, gen
 
@@ -231,6 +239,7 @@ type internal TypeEnvironment() =
             Seq.append newTVar retTVar
             |> Seq.filter inScope
             |> Seq.distinct
+            |> Seq.indexed
             |> Seq.map makeGen
             |> Map.ofSeq
 
@@ -245,7 +254,9 @@ type internal TypeEnvironment() =
         let generic = map.Values.ToArray()
         let ty = { Param = param; Ret = ret }
 
-        { Generic = generic; Type = TFn ty }
+        { Generic = generic
+          Type = TFn ty
+          Pred = [||] }
 
     member this.ImplTrait trait_ scm =
         if traitImpl.ContainsKey trait_ then
@@ -326,13 +337,12 @@ type internal Environment(error: ResizeArray<Error>) =
 
     member _.NewTVar span = tyEnv.NewTVar scope.Count span
 
-    member _.NewGeneric sym = tyEnv.NewGeneric sym
+    member _.NewGenGroup = tyEnv.NewGenGroup
 
     member _.EnterScope data =
         let s = Scope.Create data
 
         scope.Push s
-
 
     member _.ExitScope() =
         let last = scope.Pop()
@@ -344,7 +354,11 @@ type internal Environment(error: ResizeArray<Error>) =
                 sema.DeclTy[name] <- ty
             else
                 let ty = tyEnv.NormalizeTy(TFn ty)
-                sema.DeclTy[name] <- { Generic = gen; Type = ty }
+
+                sema.DeclTy[name] <-
+                    { Generic = gen
+                      Type = ty
+                      Pred = [||] }
         | _ -> ()
 
     member _.Pick picker =
@@ -363,10 +377,10 @@ type internal Environment(error: ResizeArray<Error>) =
 
         curr.Ty[id.Sym] <- { Ty = ty; Def = id }
 
-    member this.GetTy(id: Id) =
+    member this.GetTy sym =
         let pickId scope =
-            if scope.Ty.ContainsKey id.Sym then
-                let id = scope.Ty[id.Sym]
+            if scope.Ty.ContainsKey sym then
+                let id = scope.Ty[sym]
                 Some id
             else
                 None
@@ -408,7 +422,9 @@ type internal Environment(error: ResizeArray<Error>) =
                 { Mut = false
                   Static = true
                   Def = v.Name }
-                { Generic = ty.Generic; Type = variant }
+                { Generic = ty.Generic
+                  Type = variant
+                  Pred = [||] }
 
         sema.Enum[decl.Name] <- ty
 
@@ -494,6 +510,8 @@ type internal Environment(error: ResizeArray<Error>) =
             let scm = sema.DeclTy[def]
 
             tyEnv.Instantiate scm scope.Count id.Span |> Some
+
+    member _.GetStruct id = sema.Struct[id]
 
     member this.FindField ty field span =
         let ty = tyEnv.NormalizeTy ty

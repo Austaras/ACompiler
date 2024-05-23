@@ -94,12 +94,12 @@ impl <T: Foo, U: Foo> Foo for (T, U) {
 }
 
 fn test() {
-    (1, 2).foo()
+    (1, (1, 2)).foo()
 }"
     |> toBe (Map [| "test", "|| -> ()" |])
 
 [<Fact>]
-let Enum () =
+let BoundEnum () =
     runInfer
         "
 trait Foo {
@@ -118,7 +118,7 @@ fn test(a: int) {
     |> toBe (Map [| "test", "|int| -> Bar<int>" |])
 
 [<Fact>]
-let Subst () =
+let TuplePred () =
     runInfer
         "
 trait Foo {
@@ -136,4 +136,4 @@ impl <T: Foo> Foo for (int, T) {
 fn test(a) {
     (a, a).foo()
 }"
-    |> toBe (Map [| "test", "<T1>|T1| -> ()" |])
+    |> toBe (Map [| "test", "<T0>|T0| -> ()" |])

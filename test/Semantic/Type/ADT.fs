@@ -91,3 +91,14 @@ struct Foo {
 
 fn get_f(f) { &f.f }"
     |> toBe (Map [| "get_f", "|Foo| -> &uint" |])
+
+[<Fact>]
+let GenericStruct () =
+    runInfer
+        "
+struct Foo<T> {
+    f: T
+}
+
+fn new_foo() { Foo { f: 1 } }"
+    |> toBe (Map [| "new_foo", "|| -> Foo<int>" |])

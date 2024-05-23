@@ -41,6 +41,7 @@ and Var = { Level: int; Id: int; Span: Span }
 
 and Generic =
     { Id: int
+      GroupId: int
       Sym: string }
 
     member this.Print() =
@@ -161,8 +162,8 @@ and Type =
 
         walk this
 
-    member this.Instantiate bound inst =
-        let map = Array.zip bound inst |> Map.ofArray
+    member this.Instantiate gen inst =
+        let map = Array.zip gen inst |> Map.ofArray
 
         let getMap t =
             match Map.tryFind t map with
@@ -191,8 +192,11 @@ type Trait =
       Method: Map<string, Function>
       Super: Trait[] }
 
+type Pred = { Trait: Trait; Type: Type }
+
 type Scheme =
     { Generic: Generic[]
+      Pred: Pred[]
       Type: Type }
 
     member this.Print() =
@@ -230,6 +234,7 @@ type Error =
     | LoopInDefintion of Id * Id
     | PrivatecInPublic of Id * Id
     | ExpectEnum of Id * Type
+    | ExpectStruct of Id * Type
     | OrPatDifferent of Span * string[] * string[]
     | LengthMismatch of Span * int * int
     | TypeMismatch of Type * Type * Span
