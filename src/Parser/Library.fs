@@ -990,7 +990,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>, ctx: Context) =
             lexer.Consume()
 
             let right = this.ExprPrefix()
-            let right = this.ExprPrec (precedence op) right
+            let right = this.ExprRepeat (precedence op) right
 
             Binary
                 { Left = expr

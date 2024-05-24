@@ -182,6 +182,8 @@ type internal TypeEnvironment() =
                     for (t1, t2) in Array.zip t1 t2 do
                         unify t1 t2
 
+            | TSlice t1, TSlice t2 -> unify t1 t2
+
             | _, _ -> error.Add(TypeMismatch(expect, actual, span))
 
         unify expect actual
@@ -243,13 +245,13 @@ type internal TypeEnvironment() =
             |> Seq.map makeGen
             |> Map.ofSeq
 
-        let toBound t =
+        let toGen t =
             match Map.tryFind t map with
             | Some t -> TGen t
             | None -> TVar t
 
-        let param = Array.map (fun (ty: Type) -> ty.Walk toBound TGen) param
-        let ret = ret.Walk toBound TGen
+        let param = Array.map (fun (ty: Type) -> ty.Walk toGen TGen) param
+        let ret = ret.Walk toGen TGen
 
         let generic = map.Values.ToArray()
         let ty = { Param = param; Ret = ret }

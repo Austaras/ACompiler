@@ -102,3 +102,10 @@ struct Foo<T> {
 
 fn new_foo() { Foo { f: 1 } }"
     |> toBe (Map [| "new_foo", "|| -> Foo<int>" |])
+
+[<Fact>]
+let Slice () =
+    runInfer
+        "
+fn head(a) { a[0] }"
+    |> toBe (Map [| "head", "<T0>|[T0]| -> T0" |])

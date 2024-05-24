@@ -371,11 +371,17 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
             env.FindField receiver key f.Span
 
         | TupleAccess(_) -> failwith "Not Implemented"
-        | Index(_) -> failwith "Not Implemented"
+        | Index idx ->
+            let container = this.Expr idx.Container
+            let index = this.Expr idx.Index
+            env.Unify (TInt(true, ISize)) index idx.Index.Span
+            let value = env.NewTVar idx.Span |> TVar
+            env.Unify (TSlice value) container idx.Span
+            env.NormalizeTy value
         | Array a ->
             if a.Ele.Length = 0 then
                 let ele = env.NewTVar a.Span
-                TArray(TVar ele, 0UL)
+                TSlice(TVar ele) // , 0UL)
             else
                 let first = this.Expr a.Ele[0]
 
@@ -383,14 +389,14 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                     let ty = this.Expr ele
                     env.Unify first ty ele.Span
 
-                TArray(first, uint64 a.Ele.Length)
+                TSlice(first) //, uint64 a.Ele.Length)
 
         | ArrayRepeat a ->
             // TODO: clone trait
             let ty = this.Expr a.Ele
 
             match a.Len with
-            | LitExpr { Value = Int len } -> TArray(ty, len)
+            | LitExpr { Value = Int len } -> TSlice ty // len)
             | _ -> failwith "Not Implemented"
 
         | StructLit s ->

@@ -32,6 +32,7 @@ let snap = TextSnapshot("snap", basePath)
 [<InlineData("AssignOp", "a *= b + c")>]
 [<InlineData("RightAssoc", "a = b = c")>]
 [<InlineData("RightPrec", "a .. b = c")>]
+[<InlineData("Cmp", "a < b - c - 1")>]
 
 [<InlineData("Paren", "(1 + 2) * 3")>]
 [<InlineData("ManyParen", "((((1 + 2))) * (3))")>]
