@@ -72,14 +72,24 @@ type internal Scope =
 
         scope
 
-type internal Obligation = { Pred: Pred; TVar: Var[]; Span: Span }
+type internal Obligation =
+    { Pred: Pred
+      TVar: Var[]
+      Span: Span }
+
+    static member FromPred span (pred: Pred) =
+        let tvar = pred.Type.FindTVar() |> Array.ofSeq
+
+        { Pred = pred
+          TVar = tvar
+          Span = span }
 
 type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
     let scope = Stack([| Scope.Prelude |])
 
     let unionFind = Dictionary<int, Type>()
     let traitImpl = Dictionary<Trait, ResizeArray<Scheme>>(HashIdentity.Reference)
-    let pending = ResizeArray<Obligation>()
+    let mutable pending = ResizeArray<Obligation>()
     let predCache = Dictionary<Type, HashSet<Trait>>()
 
     let mutable varId = 0
@@ -110,33 +120,23 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
 
         ty.Walk onvar TGen
 
+    member this.NormalizeTyWith (subst: Dictionary<int, Type>) (ty: Type) =
+        let ty = this.NormalizeTy ty
+
+        let rec calc ty =
+            match ty with
+            | TVar t -> if subst.ContainsKey t.Id then calc subst[t.Id] else ty
+            | _ -> ty
+
+        calc ty
+
     member this.UnifyInner expect actual span =
         let union = Dictionary<int, Type>()
         let error = ResizeArray()
 
-        let normalize (ty: Type) =
-            let ty = this.NormalizeTy ty
-
-            let rec calc ty =
-                match ty with
-                | TVar t -> if union.ContainsKey t.Id then calc union[t.Id] else ty
-                | _ -> ty
-
-            calc ty
-
-        let addUnion (v: Var) t =
-            union.Add(v.Id, t)
-
-            if predCache.ContainsKey(TVar v) then
-                let tr = predCache[TVar v]
-
-                for tr in tr do
-                    if not (this.HasTrait tr t) then
-                        error.Add(TraitNotImpl(tr, t, span))
-
         let rec unify expect actual =
-            let expect = normalize expect
-            let actual = normalize actual
+            let expect = this.NormalizeTyWith union expect
+            let actual = this.NormalizeTyWith union actual
 
             match expect, actual with
             | p1, p2 when p1 = p2 -> ()
@@ -144,17 +144,20 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
             | _, TNever -> ()
             | TVar v1 as t1, (TVar v2 as t2) ->
                 if v1.Level > v2.Level then
-                    addUnion v1 t2
+                    union.Add(v1.Id, t2)
                 else if v1.Level = v2.Level then
-                    if v1.Id > v2.Id then addUnion v1 t2 else addUnion v2 t1
+                    if v1.Id > v2.Id then
+                        union.Add(v1.Id, t2)
+                    else
+                        union.Add(v2.Id, t1)
                 else
-                    addUnion v2 t1
+                    union.Add(v2.Id, t1)
 
             | TVar v, ty
             | ty, TVar v ->
                 match ty.FindTVar() |> Seq.tryFind ((=) v) with
                 | Some _ -> error.Add(FailToUnify(expect, actual, span))
-                | None -> addUnion v ty
+                | None -> union.Add(v.Id, ty)
 
             | TFn f1, TFn f2 ->
                 if f1.Param.Length <> f2.Param.Length then
@@ -194,29 +197,70 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
         | Ok union ->
             for KeyValue(var, ty) in union do
                 unionFind.Add(var, ty)
+
+            let newPending = ResizeArray()
+
+            for ob in pending do
+                let newTVar (v: Var) =
+                    if union.ContainsKey v.Id then
+                        match union[v.Id] with
+                        | TVar v -> Some v
+                        | _ -> None
+                    else
+                        Some v
+
+                let newTVar = Array.choose newTVar ob.TVar
+
+                if newTVar.Length = 0 then
+                    let pred =
+                        { ob.Pred with
+                            Type = this.NormalizeTy ob.Pred.Type }
+
+                    if not (this.HasTrait span pred) then
+                        error.Add(TraitNotImpl(pred, ob.Span))
+                else if newTVar = ob.TVar then
+                    newPending.Add ob
+                else
+                    let ob =
+                        { ob with
+                            Pred =
+                                { ob.Pred with
+                                    Type = this.NormalizeTy ob.Pred.Type }
+                            TVar = newTVar }
+
+                    newPending.Add ob
+
+            pending <- newPending
+
         | Error unionError ->
             for e in unionError do
                 error.Add e
 
     member this.Instantiate scm span =
         if scm.Generic.Length = 0 then
-            scm.Type
+            scm.Type, [||]
         else
             let inst gen =
                 let var = this.NewTVar span |> TVar
-                let gen = TGen gen
+                (gen, var)
 
-                if predCache.ContainsKey gen then
-                    let bound = HashSet(predCache[gen])
-                    predCache.Add(var, bound)
+            let map = Array.map inst scm.Generic |> Map.ofArray
 
-                var
+            this.InstantiateWithMap scm map
 
-            let inst = Array.map inst scm.Generic
-            scm.Type.Instantiate scm.Generic inst
+    member _.InstantiateWithMap scm map =
+        let ty = scm.Type.InstantiateWithMap map
 
-    member this.Generalize fnTy level =
-        let inScope (v: Var) = v.Level > level
+        let instPred (pred: Pred) =
+            { pred with
+                Type = pred.Type.InstantiateWithMap map }
+
+        let pred = Array.map instPred scm.Pred
+
+        ty, pred
+
+    member this.Generalize fnTy =
+        let inScope (v: Var) = v.Level > scope.Count
 
         let param = Array.map this.NormalizeTy fnTy.Param
         let ret = this.NormalizeTy fnTy.Ret
@@ -248,96 +292,140 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
             | Some t -> TGen t
             | None -> TVar t
 
-        let param = Array.map (fun (ty: Type) -> ty.Walk toGen TGen) param
-        let ret = ret.Walk toGen TGen
+        let resolve (ty: Type) = ty.Walk toGen TGen
+
+        let param = Array.map resolve param
+        let ret = resolve ret
 
         let generic = map.Values.ToArray()
         let ty = { Param = param; Ret = ret }
 
+        let newPending = ResizeArray()
+        let pred = ResizeArray()
+
+        for ob in pending do
+            let remain key = Map.containsKey key map |> not
+            let remain = Array.filter remain ob.TVar
+            let outScope (v: Var) = v.Level <= scope.Count
+
+            if remain.Length = 0 then
+                let p =
+                    { Trait = ob.Pred.Trait
+                      Type = resolve ob.Pred.Type }
+
+                match this.TraitByInst p.Type p.Trait with
+                | None -> pred.Add p
+                | Some p -> pred.AddRange p
+            else if Array.forall outScope remain then
+                newPending.Add
+                    { ob with
+                        TVar = remain
+                        Pred =
+                            { ob.Pred with
+                                Type = resolve ob.Pred.Type } }
+            else
+                let unresolved = Array.filter outScope remain
+
+                for u in unresolved do
+                    error.Add(AmbiguousTypeVar u)
+
+        pending <- newPending
+
         { Generic = generic
           Type = TFn ty
-          Pred = [||] }
+          Pred = pred.ToArray() }
 
-    member this.ImplTraitInner trait_ scm =
-        if traitImpl.ContainsKey trait_ then
-            let ty = this.Instantiate scm Span.dummy
-            let value = traitImpl[trait_]
+    member this.ImplTrait trait_ scm span =
+        // TODO: pred?
+        let ty, pred = this.Instantiate scm Span.dummy
 
-            let rec overlap prev =
-                let prevTy = this.Instantiate prev Span.dummy
-
-                match this.UnifyInner prevTy ty Span.dummy with
-                | Ok _ -> Some prev
-                | Error _ -> None
-
-            let res = Util.pick overlap value
-
-            match res with
-            | None ->
-                value.Add scm
-                Ok()
-            | Some prev -> Error prev
-
-        else
-            let value = ResizeArray()
-            value.Add scm
-            traitImpl[trait_] <- value
-            Ok()
-
-    member this.HasTrait trait_ ty =
-        let hasTy =
-            if predCache.ContainsKey ty then
-                true
-            else
-                predCache.Add(ty, HashSet())
-                false
-
-        if hasTy && predCache[ty].Contains trait_ then
-            true
-        else if not (traitImpl.ContainsKey trait_) && ty.IsVar then
-            predCache[ty].Add trait_ |> ignore
-            true
-        else if not (traitImpl.ContainsKey trait_) then
-            false
-        else
-            let value = traitImpl[trait_]
-
-            let rec overlap prev =
-                let prevTy = this.Instantiate prev Span.dummy
-
-                match this.UnifyInner prevTy ty Span.dummy with
-                | Ok _ -> Some prev
-                | Error _ -> None
-
-            let res = Util.pick overlap value
-
-            match res with
-            | None -> false
-            | Some _ ->
-                predCache[ty].Add trait_ |> ignore
-                true
-
-    member this.ImplTrait (t: Trait) scm span =
-        let ty = this.Instantiate scm Span.dummy
-
-        let super = ResizeArray(t.Super)
+        let super = ResizeArray(trait_.Super)
         let mutable idx = 0
 
         while idx < super.Count do
             let t = super[idx]
+            let pred = { Trait = t; Type = ty }
 
-            if not (this.HasTrait t ty) then
-                error.Add(TraitNotImpl(t, ty, span))
+            if not (this.HasTrait span pred) then
+                error.Add(TraitNotImpl(pred, span))
 
             super.AddRange(t.Super)
 
             idx <- idx + 1
 
-        match this.ImplTraitInner t scm with
-        | Ok() -> ()
-        | Error prev -> error.Add(OverlapImpl(t, scm, prev, span))
+        if traitImpl.ContainsKey trait_ then
+            let value = traitImpl[trait_]
 
-    member _.AddBound ty tr =
+            let rec overlap prev =
+                let prevTy, prevPred = this.Instantiate prev Span.dummy
+
+                match this.UnifyInner prevTy ty Span.dummy with
+                | Ok _ -> Some prev
+                | Error _ -> None
+
+            let res = Util.pick overlap value
+
+            match res with
+            | None -> value.Add scm
+            | Some prev -> error.Add(OverlapImpl(trait_, scm, prev, span))
+
+        else
+            let value = ResizeArray()
+            value.Add scm
+            traitImpl[trait_] <- value
+
+    member this.TraitByInst ty trait_ =
+        let value = traitImpl[trait_]
+
+        let rec overlap prev =
+            let prevTy, prevPred = this.Instantiate prev Span.dummy
+
+            match this.UnifyInner prevTy ty Span.dummy with
+            | Ok subst ->
+                let normalPred (pred: Pred) =
+                    { pred with
+                        Type = this.NormalizeTyWith subst pred.Type }
+
+                prevPred |> Array.map normalPred |> Some
+            | Error _ -> None
+
+        Util.pick overlap value
+
+    member this.HasTrait span ({ Type = ty; Trait = trait_ }: Pred) =
+        let hasTy = predCache.ContainsKey ty
+
+        if not hasTy then
+            predCache.Add(ty, HashSet())
+
+        // in cache, fast path
+        if hasTy && predCache[ty].Contains trait_ then
+            true
+        // waiting for tvar solution
+        else if ty.FindTVar() |> Seq.isEmpty |> not then
+            let tvar = ty.FindTVar() |> Seq.toArray
+            predCache[ty].Add trait_ |> ignore
+
+            let ob =
+                { Pred = { Trait = trait_; Type = ty }
+                  TVar = tvar
+                  Span = span }
+
+            pending.Add ob
+
+            true
+        else if not (traitImpl.ContainsKey trait_) then
+            false
+        else
+            match this.TraitByInst ty trait_ with
+            | None -> false
+            | Some pred ->
+                if Array.forall (this.HasTrait span) pred then
+                    predCache[ty].Add trait_ |> ignore
+                    true
+                else
+                    false
+
+    member _.AddPred ty tr =
         let add ty tr =
             if predCache.ContainsKey ty then
                 predCache[ty].Add tr |> ignore
@@ -366,7 +454,7 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
         match last.Data with
         | FnScope { Ty = ty; Gen = gen; Name = name } ->
             if gen.Length = 0 then
-                let ty = this.Generalize ty scope.Count
+                let ty = this.Generalize ty
                 sema.DeclTy[name] <- ty
             else
                 let ty = this.NormalizeTy(TFn ty)
@@ -440,7 +528,7 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                   Def = v.Name }
                 { Generic = ty.Generic
                   Type = variant
-                  Pred = [||] }
+                  Pred = ty.Pred }
 
         sema.Enum[decl.Name] <- ty
 
@@ -455,6 +543,8 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
 
         for KeyValue(name, _) in trait_.Method do
             curr.Method.Add name trait_.Name
+
+        traitImpl.Add(trait_, ResizeArray())
 
         sema.Trait.Add(trait_.Name, trait_)
 
@@ -481,7 +571,11 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
         | Some { Def = def } ->
             let scm = sema.DeclTy[def]
 
-            this.Instantiate scm id.Span |> Some
+            let ty, pred = this.Instantiate scm id.Span
+            let ob = Array.map (Obligation.FromPred id.Span) pred
+            pending.AddRange ob
+
+            Some ty
 
     member this.GetVarTyWithCapture(id: Id) =
         let rec resolveVar captured canCapture (i: int) =
@@ -524,8 +618,11 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
             sema.Binding.Add(id, def)
 
             let scm = sema.DeclTy[def]
+            let ty, pred = this.Instantiate scm id.Span
+            let ob = Array.map (Obligation.FromPred id.Span) pred
+            pending.AddRange ob
 
-            this.Instantiate scm id.Span |> Some
+            Some ty
 
     member _.GetStruct id = sema.Struct[id]
 
@@ -580,7 +677,10 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
             | Some id ->
                 let tr = sema.Trait[id]
 
-                if this.HasTrait tr ty then Some tr else None
+                if this.HasTrait span { Trait = tr; Type = ty } then
+                    Some tr
+                else
+                    None
 
         let trait_ = this.Pick findTrait
 

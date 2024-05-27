@@ -416,13 +416,15 @@ type internal Traverse(env: Environment) =
                     else
                         Array.map (fun _ -> TVar(env.NewTVar span)) stru.Generic
 
+                let map = Array.zip stru.Generic gen |> Map.ofArray
+
                 let sTy = TStruct { sTy with Generic = gen }
 
                 for field in s.Field do
                     match field with
                     | ShorthandField v ->
                         if stru.Field.ContainsKey v.Sym then
-                            let field = stru.Field[v.Sym].Instantiate stru.Generic gen
+                            let field = stru.Field[v.Sym].InstantiateWithMap map
 
                             match env.GetVarTyWithCapture id with
                             | None -> env.AddError(Undefined id)
@@ -431,7 +433,7 @@ type internal Traverse(env: Environment) =
                             env.AddError(UndefinedField(v.Span, v.Sym))
                     | KeyValueField kv ->
                         if stru.Field.ContainsKey kv.Name.Sym then
-                            let field = stru.Field[kv.Name.Sym].Instantiate stru.Generic gen
+                            let field = stru.Field[kv.Name.Sym].InstantiateWithMap map
                             let ty = this.Expr kv.Value
                             env.Unify field ty kv.Span
                         else
@@ -540,13 +542,18 @@ type internal Traverse(env: Environment) =
     member _.TyParam(p: TyParam[]) =
         let group = env.NewGenGroup()
 
-        let proc (idx) (p: TyParam) =
+        let gen = ResizeArray()
+        let pred = ResizeArray()
+
+        for (idx, p) in Array.indexed p do
             let generic =
                 { GroupId = group
                   Id = idx
                   Sym = p.Id.Sym }
 
             env.RegisterTy p.Id (TGen generic)
+
+            gen.Add generic
 
             for b in p.Bound do
                 if b.Prefix <> None || b.Seg.Length > 1 then
@@ -558,13 +565,11 @@ type internal Traverse(env: Environment) =
 
                 match tr with
                 | None -> env.AddError(Undefined name)
-                | Some tr -> env.AddBound (TGen generic) tr
+                | Some tr ->
+                    pred.Add { Trait = tr; Type = TGen generic }
+                    env.AddPred (TGen generic) tr
 
-            generic
-
-        let res = Array.mapi proc p
-
-        res
+        gen.ToArray(), pred.ToArray()
 
     member this.HoistDecl (decl: seq<Decl>) topLevel =
         // Process Type Decl Hoisted Name
@@ -601,7 +606,7 @@ type internal Traverse(env: Environment) =
             | FnDecl _ -> staticItem.Add d
             | StructDecl s ->
                 env.EnterScope TypeScope
-                let tvar = this.TyParam s.TyParam
+                let gen, pred = this.TyParam s.TyParam
 
                 let processField m (field: StructFieldDef) =
                     let name = field.Name.Sym
@@ -618,13 +623,14 @@ type internal Traverse(env: Environment) =
                 let stru =
                     { Name = s.Name
                       Field = field
-                      Generic = tvar }
+                      Generic = gen
+                      Pred = pred }
 
                 env.RegisterStruct s stru
 
             | EnumDecl e ->
                 env.EnterScope TypeScope
-                let gen = this.TyParam e.TyParam
+                let gen, pred = this.TyParam e.TyParam
 
                 let processVariant m (variant: EnumVariantDef) =
                     let name = variant.Name.Sym
@@ -643,7 +649,8 @@ type internal Traverse(env: Environment) =
                 let enum =
                     { Name = e.Name
                       Variant = variant
-                      Generic = gen }
+                      Generic = gen
+                      Pred = pred }
 
                 env.RegisterEnum e enum
 
@@ -712,13 +719,13 @@ type internal Traverse(env: Environment) =
 
                 env.EnterScope TypeScope
 
-                let gen = this.TyParam i.TyParam
+                let gen, pred = this.TyParam i.TyParam
                 let ty = this.Type i.Ty
 
                 let scm =
                     { Generic = gen
                       Type = ty
-                      Pred = [||] }
+                      Pred = pred }
 
                 match env.GetTrait trait_.Sym with
                 | None -> env.AddError(Undefined trait_)
@@ -733,7 +740,7 @@ type internal Traverse(env: Environment) =
             match item with
             | FnDecl f ->
                 env.EnterScope TypeScope
-                let generic = this.TyParam f.TyParam
+                let gen, pred = this.TyParam f.TyParam
 
                 let paramTy (p: Param) =
                     match p.Ty with
@@ -758,14 +765,14 @@ type internal Traverse(env: Environment) =
 
                 let fnTy = { Param = param; Ret = ret }
 
-                fnMap.Add(f.Name, (generic, fnTy))
+                fnMap.Add(f.Name, (gen, fnTy))
 
                 env.RegisterVar
                     false
                     info
-                    { Generic = generic
+                    { Generic = gen
                       Type = TFn fnTy
-                      Pred = [||] }
+                      Pred = pred }
 
             | Let l ->
                 let ty =

@@ -27,16 +27,6 @@ type Function =
 
         fstr
 
-and Struct =
-    { Name: Id
-      Field: Map<string, Type>
-      Generic: Generic[] }
-
-and Enum =
-    { Name: Id
-      Variant: Map<string, Type[]>
-      Generic: Generic[] }
-
 and Var = { Level: int; Id: int; Span: Span }
 
 and Generic =
@@ -172,6 +162,15 @@ and Type =
 
         this.Walk TVar getMap
 
+    member this.InstantiateWithMap map =
+
+        let getMap t =
+            match Map.tryFind t map with
+            | None -> TGen t
+            | Some t -> t
+
+        this.Walk TVar getMap
+
     member this.StripRef() =
         let rec stripRef ty =
             match ty with
@@ -180,19 +179,26 @@ and Type =
 
         stripRef this
 
-    member this.IsVar =
-        match this with
-        | TVar _ -> true
-        | _ -> false
-
 let UnitType = TTuple [||]
 
-type Trait =
+type Struct =
+    { Name: Id
+      Field: Map<string, Type>
+      Generic: Generic[]
+      Pred: Pred[] }
+
+and Enum =
+    { Name: Id
+      Variant: Map<string, Type[]>
+      Generic: Generic[]
+      Pred: Pred[] }
+
+and Trait =
     { Name: Id
       Method: Map<string, Function>
       Super: Trait[] }
 
-type Pred = { Trait: Trait; Type: Type }
+and Pred = { Trait: Trait; Type: Type }
 
 type Scheme =
     { Generic: Generic[]
@@ -211,8 +217,7 @@ type Scheme =
             if this.Pred.Length = 0 then
                 res
             else
-                let print pred =
-                    pred.Trait.Name.Sym + ": " + pred.Type.Print()
+                let print { Type = ty; Trait = tr } = ty.Print() + ": " + tr.Name.Sym
 
                 let pred = this.Pred |> Array.map print |> String.concat ", "
 
@@ -234,6 +239,7 @@ type SemanticInfo =
       Module: ModuleType }
 
 type Error =
+    | AmbiguousTypeVar of Var
     | Undefined of Id
     | UndefinedField of Span * string
     | UndefinedMethod of Span * Type * string
@@ -257,4 +263,4 @@ type Error =
     | CaptureDynamic of Id
     | OverlapImpl of Trait * Scheme * Scheme * Span
     | UnboundGeneric of Generic
-    | TraitNotImpl of Trait * Type * Span
+    | TraitNotImpl of Pred * Span

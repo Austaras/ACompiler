@@ -2,19 +2,25 @@ module Util.Util
 
 let pick chooser (array: ResizeArray<_>) =
     let rec loop i =
-        match chooser array[i] with
-        | None -> if i = array.Count - 1 then None else loop (i + 1)
-        | res -> res
+        if i = array.Count then
+            None
+        else
+            match chooser array[i] with
+            | None -> loop (i + 1)
+            | res -> res
 
     loop 0
 
 let pickBack chooser (array: ResizeArray<_>) =
     let rec loop i =
-        match chooser array[i] with
-        | None -> if i = 0 then None else loop (i - 1)
-        | res -> res
+        if i = 0 then
+            None
+        else
+            match chooser array[i - 1] with
+            | None -> loop (i - 1)
+            | res -> res
 
-    loop (array.Count - 1)
+    loop array.Count
 
 type Either<'L, 'R> =
     | Left of 'L

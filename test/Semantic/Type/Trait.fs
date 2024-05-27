@@ -33,7 +33,7 @@ trait Foo {
 fn test(n) {
     n.foo()
 }"
-    |> toBe (Map [| "test", "<T0>|T0| -> ()" |])
+    |> toBe (Map [| "test", "<T0>|T0| -> () where T0: Foo" |])
 
 [<Fact>]
 let Super () =
@@ -134,10 +134,10 @@ fn test(a, b) {
 }
 
 fn main() {
-    test(1, false)
+    test(1, 1)
 }
 "
-    |> toBe (Map [| "test", "<T0, T1>|T0, T1| -> ()" |])
+    |> toBe (Map [| "test", "<T0, T1>|T0, T1| -> () where (T0, T1): Foo" |])
 
 [<Fact>]
 let TuplePredReduce () =
@@ -154,4 +154,4 @@ impl <T: Foo> Foo for (T, T) {
 fn test(a) {
     (a, a).foo()
 }"
-    |> toBe (Map [| "test", "<T0>|T0| -> ()" |])
+    |> toBe (Map [| "test", "<T0>|T0| -> () where T0: Foo" |])
