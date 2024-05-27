@@ -1,0 +1,27 @@
+fn bubble_sort(arr: [int]) {
+    let mut swapped = false
+
+    let mut i = 0
+
+    while i < arr.len() {
+        swapped = false
+        
+        let mut j = 0
+
+        while j < arr.len() - i - 1 {
+            if arr[j] > arr[j + 1] {
+                let mut temp = arr[j]
+                arr[j] = arr[j + 1]
+                arr[j + 1] = temp
+
+                swapped = true
+            }
+        }
+
+        i += 1
+
+        if !swapped {
+            break
+        }
+    }
+}

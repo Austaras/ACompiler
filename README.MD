@@ -24,12 +24,13 @@ Test out various compiler technology with a toy compiler for a toy language **in
    - internal mutable
    - impl block and trait, but user need to import them
    - string is UTF8 and char is UTF32
-   - rust doesn't assume anything, ADF assumes memory allocation tracked by GC
 3. Pratically functional
    - provide immutable std lib and tail call optimization
    - but also mutable std lib and control keyword
 4. Focus on performance and optimization
    - no auto boxing, provide general reference type(s) tracked by GC
+   - no object header, no object identity
+   - rust doesn't assume anything, ADF assumes memory allocation tracked by GC
    - user can roll their own container like in Rust
 5. suffix is .adf which stands for **A**dvanced **D**ominance **F**unctional language
 

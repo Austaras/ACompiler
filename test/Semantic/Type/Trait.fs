@@ -125,11 +125,29 @@ trait Foo {
     fn foo(self)
 }
 
-impl Foo for int {
+impl <T> Foo for (T, T) {
     fn foo(self) {}
 }
 
-impl <T: Foo> Foo for (int, T) {
+fn test(a, b) {
+    (a, b).foo()
+}
+
+fn main() {
+    test(1, false)
+}
+"
+    |> toBe (Map [| "test", "<T0, T1>|T0, T1| -> ()" |])
+
+[<Fact>]
+let TuplePredReduce () =
+    runInfer
+        "
+trait Foo {
+    fn foo(self)
+}
+
+impl <T: Foo> Foo for (T, T) {
     fn foo(self) {}
 }
 

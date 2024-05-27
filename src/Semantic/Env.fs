@@ -72,25 +72,22 @@ type internal Scope =
 
         scope
 
-type internal Canonical =
-    { Subst: Dictionary<int, Type>
-      Pred: Dictionary<int, HashSet<Trait>> }
+type internal Obligation = { Pred: Pred; TVar: Var[]; Span: Span }
 
-    static member New() =
-        { Subst = Dictionary()
-          Pred = Dictionary() }
+type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
+    let scope = Stack([| Scope.Prelude |])
 
-type internal TypeEnvironment() =
     let unionFind = Dictionary<int, Type>()
     let traitImpl = Dictionary<Trait, ResizeArray<Scheme>>(HashIdentity.Reference)
-    let predict = Dictionary<Type, HashSet<Trait>>()
+    let pending = ResizeArray<Obligation>()
+    let predCache = Dictionary<Type, HashSet<Trait>>()
 
     let mutable varId = 0
     let mutable genId = 0
 
-    member _.NewTVar level span =
+    member _.NewTVar span =
         let tvar =
-            { Level = level
+            { Level = scope.Count
               Id = varId
               Span = span }
 
@@ -113,11 +110,11 @@ type internal TypeEnvironment() =
 
         ty.Walk onvar TGen
 
-    member this.Unify expect actual span =
+    member this.UnifyInner expect actual span =
         let union = Dictionary<int, Type>()
         let error = ResizeArray()
 
-        let normalize ty =
+        let normalize (ty: Type) =
             let ty = this.NormalizeTy ty
 
             let rec calc ty =
@@ -130,8 +127,8 @@ type internal TypeEnvironment() =
         let addUnion (v: Var) t =
             union.Add(v.Id, t)
 
-            if predict.ContainsKey(TVar v) then
-                let tr = predict[TVar v]
+            if predCache.ContainsKey(TVar v) then
+                let tr = predCache[TVar v]
 
                 for tr in tr do
                     if not (this.HasTrait tr t) then
@@ -190,27 +187,28 @@ type internal TypeEnvironment() =
 
         if error.Count > 0 then Error(error.ToArray()) else Ok union
 
-    member _.AddUnion var ty = unionFind.Add(var, ty)
+    member this.Unify expect actual span =
+        let res = this.UnifyInner expect actual span
 
-    member _.AddBound ty tr =
-        if predict.ContainsKey ty then
-            predict[ty].Add tr |> ignore
-        else
-            predict.Add(ty, HashSet([ tr ]))
+        match res with
+        | Ok union ->
+            for KeyValue(var, ty) in union do
+                unionFind.Add(var, ty)
+        | Error unionError ->
+            for e in unionError do
+                error.Add e
 
-    member _.ApplyCanon canon = 1
-
-    member this.Instantiate scm level span =
+    member this.Instantiate scm span =
         if scm.Generic.Length = 0 then
             scm.Type
         else
             let inst gen =
-                let var = this.NewTVar level span |> TVar
+                let var = this.NewTVar span |> TVar
                 let gen = TGen gen
 
-                if predict.ContainsKey gen then
-                    let bound = HashSet(predict[gen])
-                    predict.Add(var, bound)
+                if predCache.ContainsKey gen then
+                    let bound = HashSet(predCache[gen])
+                    predCache.Add(var, bound)
 
                 var
 
@@ -234,7 +232,7 @@ type internal TypeEnvironment() =
 
         let makeGen (idx, var: Var) =
             let gen = { Id = idx; GroupId = group; Sym = "" }
-            this.AddUnion var.Id (TGen gen)
+            unionFind.Add(var.Id, TGen gen)
             var, gen
 
         let map =
@@ -260,15 +258,15 @@ type internal TypeEnvironment() =
           Type = TFn ty
           Pred = [||] }
 
-    member this.ImplTrait trait_ scm =
+    member this.ImplTraitInner trait_ scm =
         if traitImpl.ContainsKey trait_ then
-            let ty = this.Instantiate scm 0 Span.dummy
+            let ty = this.Instantiate scm Span.dummy
             let value = traitImpl[trait_]
 
             let rec overlap prev =
-                let prevTy = this.Instantiate prev 0 Span.dummy
+                let prevTy = this.Instantiate prev Span.dummy
 
-                match this.Unify prevTy ty Span.dummy with
+                match this.UnifyInner prevTy ty Span.dummy with
                 | Ok _ -> Some prev
                 | Error _ -> None
 
@@ -288,16 +286,16 @@ type internal TypeEnvironment() =
 
     member this.HasTrait trait_ ty =
         let hasTy =
-            if predict.ContainsKey ty then
+            if predCache.ContainsKey ty then
                 true
             else
-                predict.Add(ty, HashSet())
+                predCache.Add(ty, HashSet())
                 false
 
-        if hasTy && predict[ty].Contains trait_ then
+        if hasTy && predCache[ty].Contains trait_ then
             true
         else if not (traitImpl.ContainsKey trait_) && ty.IsVar then
-            predict[ty].Add trait_ |> ignore
+            predCache[ty].Add trait_ |> ignore
             true
         else if not (traitImpl.ContainsKey trait_) then
             false
@@ -305,9 +303,9 @@ type internal TypeEnvironment() =
             let value = traitImpl[trait_]
 
             let rec overlap prev =
-                let prevTy = this.Instantiate prev 0 Span.dummy
+                let prevTy = this.Instantiate prev Span.dummy
 
-                match this.Unify prevTy ty Span.dummy with
+                match this.UnifyInner prevTy ty Span.dummy with
                 | Ok _ -> Some prev
                 | Error _ -> None
 
@@ -316,46 +314,62 @@ type internal TypeEnvironment() =
             match res with
             | None -> false
             | Some _ ->
-                predict[ty].Add trait_ |> ignore
+                predCache[ty].Add trait_ |> ignore
                 true
 
-type internal Environment(error: ResizeArray<Error>) =
-    let scope = Stack([| Scope.Prelude |])
+    member this.ImplTrait (t: Trait) scm span =
+        let ty = this.Instantiate scm Span.dummy
 
-    let tyEnv = TypeEnvironment()
+        let super = ResizeArray(t.Super)
+        let mutable idx = 0
 
-    let sema =
-        { Binding = Dictionary(HashIdentity.Reference)
-          DeclTy = Dictionary(HashIdentity.Reference)
-          ExprTy = Dictionary(HashIdentity.Reference)
-          Struct = Dictionary(HashIdentity.Reference)
-          Enum = Dictionary(HashIdentity.Reference)
-          Capture = MultiMap(HashIdentity.Reference)
-          Trait = Dictionary(HashIdentity.Reference)
-          Module =
-            { Ty = Map.empty
-              Var = Map.empty
-              Module = Map.empty } }
+        while idx < super.Count do
+            let t = super[idx]
 
-    member _.NewTVar span = tyEnv.NewTVar scope.Count span
+            if not (this.HasTrait t ty) then
+                error.Add(TraitNotImpl(t, ty, span))
 
-    member _.NewGenGroup = tyEnv.NewGenGroup
+            super.AddRange(t.Super)
+
+            idx <- idx + 1
+
+        match this.ImplTraitInner t scm with
+        | Ok() -> ()
+        | Error prev -> error.Add(OverlapImpl(t, scm, prev, span))
+
+    member _.AddBound ty tr =
+        let add ty tr =
+            if predCache.ContainsKey ty then
+                predCache[ty].Add tr |> ignore
+            else
+                predCache.Add(ty, HashSet([ tr ]))
+
+        let super = ResizeArray(tr.Super)
+        let mutable idx = 0
+
+        while idx < super.Count do
+            let tr = super[idx]
+            add ty tr
+            super.AddRange(tr.Super)
+            idx <- idx + 1
+
+        add ty tr
 
     member _.EnterScope data =
         let s = Scope.Create data
 
         scope.Push s
 
-    member _.ExitScope() =
+    member this.ExitScope() =
         let last = scope.Pop()
 
         match last.Data with
         | FnScope { Ty = ty; Gen = gen; Name = name } ->
             if gen.Length = 0 then
-                let ty = tyEnv.Generalize ty scope.Count
+                let ty = this.Generalize ty scope.Count
                 sema.DeclTy[name] <- ty
             else
-                let ty = tyEnv.NormalizeTy(TFn ty)
+                let ty = this.NormalizeTy(TFn ty)
 
                 sema.DeclTy[name] <-
                     { Generic = gen
@@ -467,9 +481,9 @@ type internal Environment(error: ResizeArray<Error>) =
         | Some { Def = def } ->
             let scm = sema.DeclTy[def]
 
-            tyEnv.Instantiate scm scope.Count id.Span |> Some
+            this.Instantiate scm id.Span |> Some
 
-    member _.GetVarTyWithCapture(id: Id) =
+    member this.GetVarTyWithCapture(id: Id) =
         let rec resolveVar captured canCapture (i: int) =
             let curr = scope.ElementAt i
 
@@ -511,12 +525,12 @@ type internal Environment(error: ResizeArray<Error>) =
 
             let scm = sema.DeclTy[def]
 
-            tyEnv.Instantiate scm scope.Count id.Span |> Some
+            this.Instantiate scm id.Span |> Some
 
     member _.GetStruct id = sema.Struct[id]
 
     member this.FindField ty field span =
-        let ty = tyEnv.NormalizeTy ty
+        let ty = this.NormalizeTy ty
 
         let res =
             match ty with
@@ -557,40 +571,8 @@ type internal Environment(error: ResizeArray<Error>) =
 
         this.Pick findTrait
 
-    member _.ImplTrait (t: Trait) scm span =
-        let ty = tyEnv.Instantiate scm 0 Span.dummy
-
-        let super = ResizeArray(t.Super)
-        let mutable idx = 0
-
-        while idx < super.Count do
-            let t = super[idx]
-
-            if not (tyEnv.HasTrait t ty) then
-                error.Add(TraitNotImpl(t, ty, span))
-
-            super.AddRange(t.Super)
-
-            idx <- idx + 1
-
-        match tyEnv.ImplTrait t scm with
-        | Ok() -> ()
-        | Error prev -> error.Add(OverlapImpl(t, scm, prev, span))
-
-    member _.AddBound ty tr =
-        let super = ResizeArray(tr.Super)
-        let mutable idx = 0
-
-        while idx < super.Count do
-            let tr = super[idx]
-            tyEnv.AddBound ty tr
-            super.AddRange(tr.Super)
-            idx <- idx + 1
-
-        tyEnv.AddBound ty tr
-
     member this.FindMethod ty field span =
-        let ty = tyEnv.NormalizeTy ty
+        let ty = this.NormalizeTy ty
 
         let findTrait scope =
             match scope.Method.Get field with
@@ -598,7 +580,7 @@ type internal Environment(error: ResizeArray<Error>) =
             | Some id ->
                 let tr = sema.Trait[id]
 
-                if tyEnv.HasTrait tr ty then Some tr else None
+                if this.HasTrait tr ty then Some tr else None
 
         let trait_ = this.Pick findTrait
 
@@ -606,22 +588,9 @@ type internal Environment(error: ResizeArray<Error>) =
         | None -> None
         | Some t -> Some t.Method[field]
 
-    member _.NormalizeTy ty = tyEnv.NormalizeTy ty
-
-    member _.Unify expect actual span =
-        let res = tyEnv.Unify expect actual span
-
-        match res with
-        | Ok union ->
-            for KeyValue(var, ty) in union do
-                tyEnv.AddUnion var ty
-        | Error unionError ->
-            for e in unionError do
-                error.Add e
-
-    member _.ToNever(name: Id) =
+    member this.ToNever(name: Id) =
         let toNever t =
-            let t = tyEnv.NormalizeTy(TVar t)
+            let t = this.NormalizeTy(TVar t)
 
             match t with
             | TVar t -> if t.Level > scope.Count then TNever else TVar t
@@ -640,4 +609,4 @@ type internal Environment(error: ResizeArray<Error>) =
 
         sema.DeclTy[name] <- { scm with Type = TFn ty }
 
-    member _.GetSema = sema
+    member _.AddError e = error.Add e

@@ -19,17 +19,14 @@ type internal PatMode =
     | CondPat
     | LetPat of LetPat
 
-type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
-    let error = ResizeArray<Error>()
-
-    let env = Environment(error)
+type internal Traverse(env: Environment) =
 
     member this.Type ty =
         let resolve (id: Id) =
             match env.GetTy id.Sym with
             | Some ty -> ty.Ty
             | None ->
-                error.Add(Undefined id)
+                env.AddError(Undefined id)
                 TNever
 
         match ty with
@@ -49,7 +46,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
             | TStruct a when a.Generic.Length = instType.Length -> TStruct { a with Generic = instType }
             | TEnum a when a.Generic.Length = instType.Length -> TEnum { a with Generic = instType }
             | _ ->
-                error.Add(GenericMismatch(container, instType, p.Span))
+                env.AddError(GenericMismatch(container, instType, p.Span))
 
                 TNever
         | TupleType t -> TTuple(Array.map this.Type t.Ele)
@@ -84,7 +81,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
         let addSym sym (i: Id) (ty: Type) =
             if Map.containsKey i.Sym sym then
-                error.Add(DuplicateDefinition(i, (fst sym[i.Sym])))
+                env.AddError(DuplicateDefinition(i, (fst sym[i.Sym])))
 
             Map.add i.Sym (i, ty) sym
 
@@ -93,7 +90,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
             | IdPat i -> addSym sym i ty
             | LitPat l ->
                 if not isCond then
-                    error.Add(RefutablePat l.Span)
+                    env.AddError(RefutablePat l.Span)
 
                 let litTy =
                     match l.Value with
@@ -125,7 +122,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                 proc sym ty a.Pat
             | OrPat { Pat = pat; Span = span } ->
                 if not isCond then
-                    error.Add(RefutablePat span)
+                    env.AddError(RefutablePat span)
 
                 let allSym = Array.map (proc Map.empty ty) pat
 
@@ -137,7 +134,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                         let currKey = sym |> Map.keys |> Array.ofSeq
 
                         if firstKey <> currKey then
-                            error.Add(OrPatDifferent(pat[idx].Span, firstKey, currKey))
+                            env.AddError(OrPatDifferent(pat[idx].Span, firstKey, currKey))
 
                         for key in firstKey do
                             let firstTy = snd first[key]
@@ -156,7 +153,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                     failwith "Not Implemented"
 
                 if not isCond then
-                    error.Add(RefutablePat e.Span)
+                    env.AddError(RefutablePat e.Span)
 
                 let variantId = e.Variant.Seg[0]
 
@@ -166,17 +163,17 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                         match ty with
                         | TFn({ Ret = TEnum _ } as variant) -> Some variant
                         | ty ->
-                            error.Add(ExpectEnum(variantId, ty))
+                            env.AddError(ExpectEnum(variantId, ty))
                             None
                     | None ->
-                        error.Add(Undefined variantId)
+                        env.AddError(Undefined variantId)
                         None
 
                 let payloadTy =
                     match enumTy with
                     | Some fn ->
                         if fn.Param.Length <> e.Payload.Length then
-                            error.Add(LengthMismatch(e.Span, fn.Param.Length, e.Payload.Length))
+                            env.AddError(LengthMismatch(e.Span, fn.Param.Length, e.Payload.Length))
 
                         env.Unify fn.Ret ty e.Span
 
@@ -210,7 +207,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
         | Id id ->
             match env.GetVarTyWithCapture id with
             | None ->
-                error.Add(Undefined id)
+                env.AddError(Undefined id)
                 TNever
             | Some ty -> ty
 
@@ -302,7 +299,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
                 match callee with
                 | None ->
-                    error.Add(UndefinedMethod(f.Receiver.Span, receiver, f.Field.Sym))
+                    env.AddError(UndefinedMethod(f.Receiver.Span, receiver, f.Field.Sym))
                     TNever
                 | Some callee ->
                     let arg = Array.map this.Expr c.Arg
@@ -358,10 +355,10 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
             | None -> ()
             | Some id ->
                 match env.GetVarInfo id with
-                | None -> error.Add(Undefined id)
+                | None -> env.AddError(Undefined id)
                 | Some(info) ->
                     if not info.Mut then
-                        error.Add(AssignImmutable(info.Def, a.Span))
+                        env.AddError(AssignImmutable(info.Def, a.Span))
 
             UnitType
         | Field f ->
@@ -408,7 +405,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
             match env.GetTy stru.Sym with
             | None ->
-                error.Add(Undefined stru)
+                env.AddError(Undefined stru)
                 TNever
             | Some { Ty = TStruct sTy; Def = id } ->
                 let stru = env.GetStruct id
@@ -428,24 +425,24 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                             let field = stru.Field[v.Sym].Instantiate stru.Generic gen
 
                             match env.GetVarTyWithCapture id with
-                            | None -> error.Add(Undefined id)
+                            | None -> env.AddError(Undefined id)
                             | Some ty -> env.Unify field ty v.Span
                         else
-                            error.Add(UndefinedField(v.Span, v.Sym))
+                            env.AddError(UndefinedField(v.Span, v.Sym))
                     | KeyValueField kv ->
                         if stru.Field.ContainsKey kv.Name.Sym then
                             let field = stru.Field[kv.Name.Sym].Instantiate stru.Generic gen
                             let ty = this.Expr kv.Value
                             env.Unify field ty kv.Span
                         else
-                            error.Add(UndefinedField(kv.Name.Span, kv.Name.Sym))
+                            env.AddError(UndefinedField(kv.Name.Span, kv.Name.Sym))
                     | RestField r ->
                         let ty = this.Expr r.Value
                         env.Unify sTy ty r.Span
 
                 env.NormalizeTy sTy
             | Some ty ->
-                error.Add(ExpectStruct(stru, ty.Ty))
+                env.AddError(ExpectStruct(stru, ty.Ty))
                 TNever
 
         | Tuple t -> t.Ele |> Array.map this.Expr |> TTuple
@@ -560,7 +557,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                 let tr = env.GetTrait (fst b.Seg[0]).Sym
 
                 match tr with
-                | None -> error.Add(Undefined name)
+                | None -> env.AddError(Undefined name)
                 | Some tr -> env.AddBound (TGen generic) tr
 
             generic
@@ -610,7 +607,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                     let name = field.Name.Sym
 
                     if Map.containsKey name m then
-                        error.Add(DuplicateField field.Name)
+                        env.AddError(DuplicateField field.Name)
 
                     Map.add name (this.Type field.Ty) m
 
@@ -633,7 +630,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                     let name = variant.Name.Sym
 
                     if Map.containsKey name m then
-                        error.Add(DuplicateVariant variant.Name)
+                        env.AddError(DuplicateVariant variant.Name)
 
                     let payload = Array.map this.Type variant.Payload
 
@@ -670,7 +667,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
                     match tr with
                     | Some s -> super.Add s
-                    | None -> error.Add(Undefined id)
+                    | None -> env.AddError(Undefined id)
 
                 let super = super.ToArray()
 
@@ -724,7 +721,7 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
                       Pred = [||] }
 
                 match env.GetTrait trait_.Sym with
-                | None -> error.Add(Undefined trait_)
+                | None -> env.AddError(Undefined trait_)
                 | Some t -> env.ImplTrait t scm i.Span
 
                 env.ExitScope()
@@ -862,18 +859,32 @@ type internal Traverse(moduleMap: Dictionary<string, ModuleType>) =
 
         env.ExitScope()
 
-        let sema = env.GetSema
-
-        for id in sema.DeclTy.Keys do
-            let scm = sema.DeclTy[id]
-
-            let ty = env.NormalizeTy scm.Type
-
-            sema.DeclTy[id] <- { scm with Type = ty }
-
-        if error.Count = 0 then Ok sema else Error(error.ToArray())
-
 let check (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
-    let traverse = Traverse moduleMap
+    let sema =
+        { Binding = Dictionary(HashIdentity.Reference)
+          DeclTy = Dictionary(HashIdentity.Reference)
+          ExprTy = Dictionary(HashIdentity.Reference)
+          Struct = Dictionary(HashIdentity.Reference)
+          Enum = Dictionary(HashIdentity.Reference)
+          Capture = MultiMap(HashIdentity.Reference)
+          Trait = Dictionary(HashIdentity.Reference)
+          Module =
+            { Ty = Map.empty
+              Var = Map.empty
+              Module = Map.empty } }
+
+    let error = ResizeArray()
+    let env = Environment(sema, error)
+
+    let traverse = Traverse env
 
     traverse.Module m
+
+    for id in sema.DeclTy.Keys do
+        let scm = sema.DeclTy[id]
+
+        let ty = env.NormalizeTy scm.Type
+
+        sema.DeclTy[id] <- { scm with Type = ty }
+
+    if error.Count = 0 then Ok sema else Error(error.ToArray())

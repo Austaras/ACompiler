@@ -206,7 +206,17 @@ type Scheme =
             ty
         else
             let tvar = this.Generic |> Array.map _.Print() |> String.concat ", "
-            $"<{tvar}>{ty}"
+            let res = $"<{tvar}>{ty}"
+
+            if this.Pred.Length = 0 then
+                res
+            else
+                let print pred =
+                    pred.Trait.Name.Sym + ": " + pred.Type.Print()
+
+                let pred = this.Pred |> Array.map print |> String.concat ", "
+
+                $"{res} where {pred}"
 
 type ModuleType =
     { Ty: Map<string, Type>
