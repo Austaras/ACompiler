@@ -7,6 +7,8 @@
     <Compile Include="Target.fs" />
     <Compile Include="Config.fs" />
     <Compile Include="Span.fs" />
+    <Compile Include="Util.fs" />
+    <Compile Include="MultiMap.fs" />
     <Compile Include="Library.fs" />
   </ItemGroup>
 </Project>

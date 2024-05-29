@@ -3,8 +3,11 @@ module Semantic.Semantic
 open System.Collections.Generic
 
 open Common.Span
-open AST.AST
-open Util.MultiMap
+open Common.Util.MultiMap
+open Syntax.AST
+
+[<ReferenceEquality>]
+type Def = { Id: Id }
 
 type Integer =
     | I8
@@ -228,10 +231,12 @@ type ModuleType =
       Var: Map<string, Type>
       Module: Map<string, ModuleType> }
 
+type WellKnown = { Slice: Def; Eq: Def }
+
 type SemanticInfo =
     { Binding: Dictionary<Id, Id>
       DeclTy: Dictionary<Id, Scheme>
-      ExprTy: Dictionary<Expr, Scheme>
+      ExprTy: Dictionary<Expr, Type>
       Struct: Dictionary<Id, Struct>
       Enum: Dictionary<Id, Enum>
       Capture: MultiMap<Closure, Id>

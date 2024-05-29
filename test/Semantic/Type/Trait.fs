@@ -155,3 +155,20 @@ fn test(a) {
     (a, a).foo()
 }"
     |> toBe (Map [| "test", "<T0>|T0| -> () where T0: Foo" |])
+
+// [<Fact>]
+// let MultiBound () =
+//     runInfer
+//         "
+// trait Foo {
+//     fn foo(self) -> Self
+// }
+
+// trait Bar {
+//     fn bar(self)
+// }
+
+// fn test(a) {
+//     a.foo().bar()
+// }"
+//     |> toBe (Map [| "test", "<T0>|T0| -> () where T0: Foo" |])

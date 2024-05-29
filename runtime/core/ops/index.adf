@@ -1,5 +1,0 @@
-pub trait Index {
-    type Output
-
-    fn index(&self, index: usize) -> &Self::Output
-}

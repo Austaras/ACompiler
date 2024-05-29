@@ -1,0 +1,6 @@
+pub trait Index {
+    type Idx
+    type Output
+
+    fn index(&self, index: Self::Idx) -> &Self::Output
+}

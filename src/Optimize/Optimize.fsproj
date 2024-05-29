@@ -1,17 +1,19 @@
 <Project Sdk="Microsoft.NET.Sdk">
-
   <PropertyGroup>
     <TargetFramework>net8.0</TargetFramework>
     <GenerateDocumentationFile>true</GenerateDocumentationFile>
   </PropertyGroup>
-
   <ItemGroup>
+    <Compile Include="FLIR/Type.fs" />
+    <Compile Include="FLIR/FLIR.fs" />
+    <Compile Include="FLIR/Env.fs" />
+    <Compile Include="FLIR/Lower.fs" />
+    <Compile Include="Pass/LVN.fs" />
     <Compile Include="Library.fs" />
   </ItemGroup>
-
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.fsproj" />
-    <ProjectReference Include="..\Optimize\Optimize.fsproj" />
+    <ProjectReference Include="..\Syntax\Syntax.fsproj" />
+    <ProjectReference Include="..\Semantic\Semantic.fsproj" />
   </ItemGroup>
-
 </Project>

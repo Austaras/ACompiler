@@ -7,8 +7,8 @@ open System.Collections.Generic
 // TODO: operator overloading
 
 open Common.Span
-open Util.MultiMap
-open AST.AST
+open Common.Util.MultiMap
+open Syntax.AST
 open Semantic
 open Env
 
@@ -202,7 +202,7 @@ type internal Traverse(env: Environment) =
                   Type = ty
                   Pred = [||] }
 
-    member this.Expr e =
+    member this.ExprInner e =
         match e with
         | Id id ->
             match env.GetVarTyWithCapture id with
@@ -316,7 +316,7 @@ type internal Traverse(env: Environment) =
 
                 env.Unify (TFn { Param = arg; Ret = ret }) callee c.Span
 
-                ret
+                env.NormalizeTy ret
         | As _ -> failwith "Not Implemented"
         | Unary u ->
             let value = this.Expr u.Value
@@ -336,7 +336,7 @@ type internal Traverse(env: Environment) =
 
                 env.Unify (TRef ptr) value u.Span
 
-                ptr
+                env.NormalizeTy ptr
         | Assign a ->
             let value = this.Expr a.Value
             let place = this.Expr a.Place
@@ -512,6 +512,11 @@ type internal Traverse(env: Environment) =
 
             TNever
         | TryReturn(_) -> failwith "Not Implemented"
+
+    member this.Expr e =
+        let ty = this.ExprInner e
+        env.RegisterExpr e ty
+        ty
 
     member this.Block(b: Block) =
         env.EnterScope BlockScope
@@ -765,7 +770,13 @@ type internal Traverse(env: Environment) =
 
                 let fnTy = { Param = param; Ret = ret }
 
-                fnMap.Add(f.Name, (gen, fnTy))
+                let fnScope =
+                    { Ty = fnTy
+                      Gen = gen
+                      Pred = pred
+                      Name = f.Name }
+
+                fnMap.Add(f.Name, fnScope)
 
                 env.RegisterVar
                     false
@@ -791,16 +802,16 @@ type internal Traverse(env: Environment) =
         for item in staticItem do
             match item with
             | FnDecl f ->
-                let gen, fnTy = fnMap[f.Name]
+                let fnScope = fnMap[f.Name]
 
-                env.EnterScope(FnScope { Ty = fnTy; Gen = gen; Name = f.Name })
+                env.EnterScope(FnScope fnScope)
 
-                for (param, ty) in Array.zip f.Param fnTy.Param do
+                for (param, ty) in Array.zip f.Param fnScope.Ty.Param do
                     this.Pat ParamPat param.Pat ty
 
                 let ret = this.Block f.Body
 
-                env.Unify fnTy.Ret ret f.Name.Span
+                env.Unify fnScope.Ty.Ret ret f.Name.Span
 
                 env.ExitScope()
 

@@ -4,10 +4,10 @@ open System.Collections.Generic
 open System.Linq
 
 open Common.Span
-open Util.MultiMap
-open AST.AST
+open Common.Util.MultiMap
+open Common.Util
+open Syntax.AST
 open Semantic
-open Util
 
 let internal primitive =
     [| TInt(true, I8)
@@ -27,6 +27,7 @@ let internal primitive =
 type internal FnScope =
     { Ty: Function
       Gen: Generic[]
+      Pred: Pred[]
       Name: Id }
 
 type internal ClosureScope = { Closure: Closure; Ret: Type }
@@ -708,5 +709,7 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
         let ty = { ty with Ret = ret }
 
         sema.DeclTy[name] <- { scm with Type = TFn ty }
+
+    member _.RegisterExpr expr ty = sema.ExprTy.Add(expr, ty)
 
     member _.AddError e = error.Add e
