@@ -199,6 +199,7 @@ and Enum =
 and Trait =
     { Name: Id
       Method: Map<string, Function>
+      ObjectSafe: bool
       Super: Trait[] }
 
 and Pred = { Trait: Trait; Type: Type }

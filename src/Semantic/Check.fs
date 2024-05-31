@@ -711,6 +711,8 @@ type internal Traverse(env: Environment) =
                 env.RegisterTrait
                     { Name = t.Name
                       Method = method
+                      // TODO
+                      ObjectSafe = true
                       Super = super }
             | Impl i ->
                 let trait_ =

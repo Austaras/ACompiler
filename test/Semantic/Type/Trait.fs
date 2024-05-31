@@ -75,7 +75,7 @@ trait Bar : Foo {
 fn test<T: Bar>(a: T) {
     a.foo()
 }"
-    |> toBe (Map [| "test", "<T>|T| -> ()" |])
+    |> toBe (Map [| "test", "<T>|T| -> () where T: Bar" |])
 
 [<Fact>]
 let Bound () =
@@ -140,7 +140,7 @@ fn main() {
     |> toBe (Map [| "test", "<T0, T1>|T0, T1| -> () where (T0, T1): Foo" |])
 
 [<Fact>]
-let TuplePredReduce () =
+let SimplifyByInst () =
     runInfer
         "
 trait Foo {
@@ -156,19 +156,20 @@ fn test(a) {
 }"
     |> toBe (Map [| "test", "<T0>|T0| -> () where T0: Foo" |])
 
-// [<Fact>]
-// let MultiBound () =
-//     runInfer
-//         "
-// trait Foo {
-//     fn foo(self) -> Self
-// }
+[<Fact>]
+let SimplifyBySuper () =
+    runInfer
+        "
+trait Foo {
+    fn foo(self)
+}
 
-// trait Bar {
-//     fn bar(self)
-// }
+trait Bar : Foo {
+    fn bar(self)
+}
 
-// fn test(a) {
-//     a.foo().bar()
-// }"
-//     |> toBe (Map [| "test", "<T0>|T0| -> () where T0: Foo" |])
+fn test(a) {
+    a.foo()
+    a.bar()
+}"
+    |> toBe (Map [| "test", "<T0>|T0| -> () where T0: Bar" |])

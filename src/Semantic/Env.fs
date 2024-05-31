@@ -261,32 +261,28 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
         ty, pred
 
     member this.Generalize fnTy =
-        let inScope (v: Var) = v.Level > scope.Count
-
-        let param = Array.map this.NormalizeTy fnTy.Param
-        let ret = this.NormalizeTy fnTy.Ret
-
-        let newTVar = param |> Seq.map _.FindTVar() |> Seq.concat
-
-        let retTVar =
-            match ret with
-            | TFn f -> f.Param |> Array.map _.FindTVar() |> Seq.concat
-            | _ -> Seq.empty
-
         let group = this.NewGenGroup()
 
-        let makeGen (idx, var: Var) =
-            let gen = { Id = idx; GroupId = group; Sym = "" }
-            unionFind.Add(var.Id, TGen gen)
-            var, gen
+        let acc map (var: Var) =
+            if var.Level <= scope.Count || Map.containsKey var map then
+                map
+            else
+                let c = Map.count map
+                let gen = { Id = c; GroupId = group; Sym = "" }
+                unionFind.Add(var.Id, TGen gen)
+                Map.add var gen map
+
+        let seqAcc map (ty: Type) = ty.FindTVar() |> Seq.fold acc map
+
+        let param = fnTy.Param |> Array.map this.NormalizeTy
+        let map = param |> Array.fold seqAcc Map.empty
+
+        let ret = this.NormalizeTy fnTy.Ret
 
         let map =
-            Seq.append newTVar retTVar
-            |> Seq.filter inScope
-            |> Seq.distinct
-            |> Seq.indexed
-            |> Seq.map makeGen
-            |> Map.ofSeq
+            match ret with
+            | TFn f -> f.Param |> Array.fold seqAcc map
+            | _ -> map
 
         let toGen t =
             match Map.tryFind t map with
@@ -303,6 +299,13 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
 
         let newPending = ResizeArray()
         let pred = ResizeArray()
+        let super = Dictionary()
+
+        let addToPred (p: Pred) =
+            pred.Add p
+
+            for s in this.AllSuperTrait p.Trait do
+                super.Add({ p with Trait = s }, pred)
 
         for ob in pending do
             let remain key = Map.containsKey key map |> not
@@ -315,8 +318,10 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                       Type = resolve ob.Pred.Type }
 
                 match this.TraitByInst p.Type p.Trait with
-                | None -> pred.Add p
-                | Some p -> pred.AddRange p
+                | None -> addToPred p
+                | Some p ->
+                    for p in p do
+                        addToPred p
             else if Array.forall outScope remain then
                 newPending.Add
                     { ob with
@@ -332,27 +337,30 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
 
         pending <- newPending
 
+        let bySuper pred = not (super.ContainsKey pred)
+        let pred = pred.ToArray() |> Array.filter bySuper
+
         { Generic = generic
           Type = TFn ty
-          Pred = pred.ToArray() }
+          Pred = pred }
+
+    member this.AllSuperTrait trait_ =
+        seq {
+            yield! trait_.Super
+
+            for s in trait_.Super do
+                yield! this.AllSuperTrait s
+        }
 
     member this.ImplTrait trait_ scm span =
         // TODO: pred?
         let ty, pred = this.Instantiate scm Span.dummy
 
-        let super = ResizeArray(trait_.Super)
-        let mutable idx = 0
-
-        while idx < super.Count do
-            let t = super[idx]
-            let pred = { Trait = t; Type = ty }
+        for super in this.AllSuperTrait trait_ do
+            let pred = { Trait = super; Type = ty }
 
             if not (this.HasTrait span pred) then
                 error.Add(TraitNotImpl(pred, span))
-
-            super.AddRange(t.Super)
-
-            idx <- idx + 1
 
         if traitImpl.ContainsKey trait_ then
             let value = traitImpl[trait_]
@@ -426,21 +434,15 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                 else
                     false
 
-    member _.AddPred ty tr =
+    member this.AddPred ty tr =
         let add ty tr =
             if predCache.ContainsKey ty then
                 predCache[ty].Add tr |> ignore
             else
                 predCache.Add(ty, HashSet([ tr ]))
 
-        let super = ResizeArray(tr.Super)
-        let mutable idx = 0
-
-        while idx < super.Count do
-            let tr = super[idx]
-            add ty tr
-            super.AddRange(tr.Super)
-            idx <- idx + 1
+        for super in this.AllSuperTrait tr do
+            add ty super
 
         add ty tr
 
@@ -453,7 +455,10 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
         let last = scope.Pop()
 
         match last.Data with
-        | FnScope { Ty = ty; Gen = gen; Name = name } ->
+        | FnScope { Ty = ty
+                    Gen = gen
+                    Name = name
+                    Pred = pred } ->
             if gen.Length = 0 then
                 let ty = this.Generalize ty
                 sema.DeclTy[name] <- ty
@@ -463,7 +468,7 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                 sema.DeclTy[name] <-
                     { Generic = gen
                       Type = ty
-                      Pred = [||] }
+                      Pred = pred }
         | _ -> ()
 
     member _.Pick picker =
