@@ -3,7 +3,7 @@ module Optimize.Pass.LVN
 
 open System.Collections.Generic
 
-open Optimize.FLIR.FLIR
+open Optimize.FLIR
 
 let lvn (m: Module) =
     let mutable num = 0

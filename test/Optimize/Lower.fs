@@ -8,7 +8,7 @@ open Xunit
 open Snapshot
 open Syntax.Parser
 open Semantic.Check
-open Optimize.FLIR.Lower
+open Optimize.Lower.Lower
 
 let snap = Snapshot("flir")
 

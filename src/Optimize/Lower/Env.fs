@@ -1,12 +1,11 @@
-module Optimize.FLIR.Env
+module Optimize.Lower.Env
 
 open System.Collections.Generic
 open System.Linq
 
 open Common.Span
 open Syntax
-open FLIR
-open Type
+open Optimize.FLIR
 
 type ScopeInfo =
     | Loop

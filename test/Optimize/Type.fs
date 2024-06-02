@@ -3,7 +3,7 @@ module FLIR.Tests.Type
 open Xunit
 
 open Common.Target
-open Optimize.FLIR.Type
+open Optimize.FLIR
 
 let layout = X86_64.Layout
 

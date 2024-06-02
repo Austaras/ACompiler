@@ -1,12 +1,11 @@
-module Optimize.FLIR.Lower
+module Optimize.Lower.Lower
 
 open Common.Target
 open Common.Span
 open Syntax
 open Semantic
-open Optimize.FLIR.Type
-open Optimize.FLIR.FLIR
-open Optimize.FLIR.Env
+open Optimize.FLIR
+open Optimize.Lower.Env
 
 let fromArith arith =
     match arith with

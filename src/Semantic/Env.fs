@@ -91,7 +91,7 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
     let unionFind = Dictionary<int, Type>()
     let traitImpl = Dictionary<Trait, ResizeArray<Scheme>>(HashIdentity.Reference)
     let mutable pending = ResizeArray<Obligation>()
-    let predCache = Dictionary<Type, HashSet<Trait>>()
+    let predCache = HashSet<Type * Trait>()
 
     let mutable varId = 0
     let mutable genId = 0
@@ -262,9 +262,10 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
 
     member this.Generalize fnTy =
         let group = this.NewGenGroup()
+        let outScope (v: Var) = v.Level <= scope.Count
 
         let acc map (var: Var) =
-            if var.Level <= scope.Count || Map.containsKey var map then
+            if outScope var || Map.containsKey var map then
                 map
             else
                 let c = Map.count map
@@ -310,7 +311,6 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
         for ob in pending do
             let remain key = Map.containsKey key map |> not
             let remain = Array.filter remain ob.TVar
-            let outScope (v: Var) = v.Level <= scope.Count
 
             if remain.Length = 0 then
                 let p =
@@ -330,7 +330,7 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                             { ob.Pred with
                                 Type = resolve ob.Pred.Type } }
             else
-                let unresolved = Array.filter outScope remain
+                let unresolved = Array.filter (outScope >> not) remain
 
                 for u in unresolved do
                     error.Add(AmbiguousTypeVar u)
@@ -401,18 +401,14 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
         Util.pick overlap value
 
     member this.HasTrait span ({ Type = ty; Trait = trait_ }: Pred) =
-        let hasTy = predCache.ContainsKey ty
-
-        if not hasTy then
-            predCache.Add(ty, HashSet())
 
         // in cache, fast path
-        if hasTy && predCache[ty].Contains trait_ then
+        if predCache.Contains((ty, trait_)) then
             true
         // waiting for tvar solution
         else if ty.FindTVar() |> Seq.isEmpty |> not then
             let tvar = ty.FindTVar() |> Seq.toArray
-            predCache[ty].Add trait_ |> ignore
+            predCache.Add(ty, trait_) |> ignore
 
             let ob =
                 { Pred = { Trait = trait_; Type = ty }
@@ -429,22 +425,16 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
             | None -> false
             | Some pred ->
                 if Array.forall (this.HasTrait span) pred then
-                    predCache[ty].Add trait_ |> ignore
+                    predCache.Add(ty, trait_) |> ignore
                     true
                 else
                     false
 
     member this.AddPred ty tr =
-        let add ty tr =
-            if predCache.ContainsKey ty then
-                predCache[ty].Add tr |> ignore
-            else
-                predCache.Add(ty, HashSet([ tr ]))
-
         for super in this.AllSuperTrait tr do
-            add ty super
+            predCache.Add(ty, super) |> ignore
 
-        add ty tr
+        predCache.Add(ty, tr) |> ignore
 
     member _.EnterScope data =
         let s = Scope.Create data
