@@ -1,6 +1,5 @@
-pub trait Index {
-    type Idx
+pub trait Index<Idx> {
     type Output
 
-    fn index(&self, index: Self::Idx) -> &Self::Output
+    fn index(&self, index: Idx) -> &Output
 }

@@ -34,7 +34,9 @@ let runTansform input =
         | Ok m -> m
         | Error(e, _) -> failwithf "parse error %A" e
 
-    match check (Dictionary()) m with
+    let sema = Semantic.Semantic.SemanticInfo.Create()
+
+    match check sema m with
     | Ok sema -> (lower arch m sema).Print
     | Error e -> failwithf "type error %A" e
 

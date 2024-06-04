@@ -1,7 +1,6 @@
 Enum@0..39
     name: Option@5..10
-    type param@12..12
-        id: T@12..12
+    type param: T@12..12
     variant@21..27
         name: Some@21..24
         payload: T@26..26

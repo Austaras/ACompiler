@@ -7,7 +7,6 @@ open System.Collections.Generic
 // TODO: operator overloading
 
 open Common.Span
-open Common.Util.MultiMap
 open Syntax.AST
 open Semantic
 open Env
@@ -32,6 +31,15 @@ type internal Traverse(env: Environment) =
         match ty with
         | NeverType _ -> TNever
         | IdType i -> resolve i
+        | PathType { Prefix = Some Self; Seg = seg } ->
+            if seg.Length > 0 then
+                failwith "Not Implemented"
+
+            match env.GetSelfType() with
+            | Some ty -> ty
+            | None ->
+                env.AddError(UnboundSelfType ty.Span)
+                TNever
         | PathType p ->
             if p.Prefix <> None || p.Seg.Length > 1 then
                 failwith "Not Implemented"
@@ -51,10 +59,7 @@ type internal Traverse(env: Environment) =
                 TNever
         | TupleType t -> TTuple(Array.map this.Type t.Ele)
         | RefType r -> TRef(this.Type r.Ty)
-        | InferedType span ->
-            let newTVar = env.NewTVar span
-
-            TVar newTVar
+        | InferedType span -> env.NewTVar span |> TVar
         | ArrayType a ->
             let ele = this.Type a.Ele
 
@@ -73,6 +78,8 @@ type internal Traverse(env: Environment) =
         | NegType _ -> failwith "Not Implemented"
 
     member _.Pat mode pat ty =
+        env.RegisterPat pat ty
+
         let mut, mayShadow, isCond, static_ =
             match mode with
             | LetPat { Mut = mut; Static = static_ } -> mut, not static_, false, static_
@@ -293,21 +300,12 @@ type internal Traverse(env: Environment) =
         | Block b -> this.Block b
         | Call c ->
             match c.Callee with
+            // method
             | Field f ->
                 let receiver = this.Expr f.Receiver
-                let callee = env.FindMethod receiver f.Field.Sym f.Span
+                let arg = Array.map this.Expr c.Arg
+                env.FindMethod receiver arg f.Field.Sym f.Span
 
-                match callee with
-                | None ->
-                    env.AddError(UndefinedMethod(f.Receiver.Span, receiver, f.Field.Sym))
-                    TNever
-                | Some callee ->
-                    let arg = Array.map this.Expr c.Arg
-                    let ret = TVar(env.NewTVar c.Span)
-
-                    env.Unify (TFn { Param = arg; Ret = ret }) (TFn callee) c.Span
-
-                    ret
             | _ ->
                 let callee = this.Expr c.Callee
 
@@ -449,8 +447,6 @@ type internal Traverse(env: Environment) =
 
         | Tuple t -> t.Ele |> Array.map this.Expr |> TTuple
         | Closure c ->
-            env.EnterScope TypeScope
-
             let paramTy (p: Param) =
                 match p.Ty with
                 | Some ty -> this.Type ty
@@ -465,8 +461,6 @@ type internal Traverse(env: Environment) =
                 match c.Ret with
                 | Some ty -> this.Type ty
                 | None -> TVar(env.NewTVar c.Span)
-
-            env.ExitScope()
 
             let closureScope = ClosureScope { Closure = c; Ret = retTy }
 
@@ -489,13 +483,10 @@ type internal Traverse(env: Environment) =
         | Break _ -> TNever
         | Continue _ -> TNever
         | Return r ->
-            let pickRet scope =
-                match scope.Data with
-                | FnScope { Ty = { Ret = r } }
-                | ClosureScope { Ret = r } -> Some r
-                | _ -> None
-
-            let retTy = pickRet |> env.Pick |> Option.get
+            let retTy =
+                match env.GetReturn() with
+                | Some ty -> ty
+                | None -> failwith "Unreachable"
 
             let ty =
                 match r.Value with
@@ -571,47 +562,140 @@ type internal Traverse(env: Environment) =
                 match tr with
                 | None -> env.AddError(Undefined name)
                 | Some tr ->
-                    pred.Add { Trait = tr; Type = TGen generic }
-                    env.AddPred (TGen generic) tr
+                    let p = { Trait = tr; Type = TGen generic }
+                    pred.Add p
+                    env.AddPred p
 
         gen.ToArray(), pred.ToArray()
 
     member this.HoistDecl (decl: seq<Decl>) topLevel =
+        let genMap = Dictionary()
+        let fnMap = Dictionary()
+
+        let makeGen group (idx, id: Id) =
+            { GroupId = group
+              Id = idx
+              Sym = id.Sym }
+
         // Process Type Decl Hoisted Name
         for d in decl do
-            let dummyTVar _ =
-                TVar { Level = 0; Id = 0; Span = Span.dummy }
-
             match d with
             | Let _
             | Const _
             | FnDecl _ -> ()
             | StructDecl s ->
-                let tvar = Array.map dummyTVar s.TyParam
-                env.RegisterTy s.Name (TStruct { Name = s.Name; Generic = tvar })
+                let group = env.NewGenGroup()
+                let gen = s.TyParam |> Array.indexed |> Array.map (makeGen group)
+                genMap.Add(s.Name, gen)
+
+                env.RegisterTy
+                    s.Name
+                    (TStruct
+                        { Name = s.Name
+                          Generic = Array.map TGen gen })
 
             | EnumDecl e ->
-                let tvar = Array.map dummyTVar e.TyParam
-                env.RegisterTy e.Name (TEnum { Name = e.Name; Generic = tvar })
+                let group = env.NewGenGroup()
+                let gen = e.TyParam |> Array.indexed |> Array.map (makeGen group)
+                genMap.Add(e.Name, gen)
+
+                env.RegisterTy
+                    e.Name
+                    (TEnum
+                        { Name = e.Name
+                          Generic = Array.map TGen gen })
 
             | TypeDecl _ -> failwith "Not Implemented"
             | Use _ -> failwith "Not Implemented"
-            | Trait t -> ()
-            | Impl _ -> ()
+            | Trait t ->
+                let group = env.NewGenGroup()
 
-        let staticItem = ResizeArray()
+                let makeGen (idx, p: TyParam) =
+                    { GroupId = group
+                      Id = idx + 1
+                      Sym = p.Id.Sym }
+
+                let self =
+                    { GroupId = group
+                      Id = 0
+                      Sym = "self" }
+
+                let gen = t.TyParam |> Array.indexed |> Array.map makeGen
+                genMap.Add(t.Name, Array.append [| self |] gen)
+
+                env.RegisterTy
+                    t.Name
+                    (TTrait
+                        { Name = t.Name
+                          Generic = Array.map TGen gen })
+            | Impl _ -> ()
 
         // Process Type Decl
         for d in decl do
             match d with
-            | Let _ ->
-                if topLevel then
-                    staticItem.Add d
+            | Let l when topLevel ->
+                let ty: Type =
+                    match l.Ty with
+                    | Some ty -> this.Type ty
+                    | None -> env.NewTVar l.Span |> TVar
+
+                this.Pat (LetPat { Mut = l.Mut; Static = true }) l.Pat ty
+            | Let _ -> ()
             | Const _ -> ()
-            | FnDecl _ -> staticItem.Add d
-            | StructDecl s ->
+            | FnDecl f ->
                 env.EnterScope TypeScope
-                let gen, pred = this.TyParam s.TyParam
+                let gen, pred = this.TyParam f.TyParam
+
+                let paramTy (p: Param) =
+                    match p.Ty with
+                    | Some ty -> this.Type ty
+                    | None ->
+                        let newTVar = env.NewTVar p.Span
+                        TVar newTVar
+
+                let param = Array.map paramTy f.Param
+
+                let ret =
+                    match f.Ret with
+                    | Some ty -> this.Type ty
+                    | None -> TVar(env.NewTVar f.Span)
+
+                env.ExitScope()
+
+                let info =
+                    { Def = f.Name
+                      Mut = false
+                      Static = true }
+
+                let fnTy = { Param = param; Ret = ret }
+
+                let fnScope =
+                    { Param = param
+                      Ret = ret
+                      Fixed = f.TyParam.Length > 0
+                      Name = f.Name }
+
+                fnMap.Add(f.Name, fnScope)
+
+                env.RegisterVar
+                    false
+                    info
+                    { Generic = gen
+                      Type = TFn fnTy
+                      Pred = pred }
+            | StructDecl s ->
+                let gen = genMap[s.Name]
+
+                env.EnterScope(
+                    AdtScope
+                        { Self =
+                            TStruct
+                                { Name = s.Name
+                                  Generic = Array.map TGen gen } }
+                )
+
+                for idx, p in Array.indexed s.TyParam do
+                    env.RegisterTy p (TGen gen[idx])
 
                 let processField m (field: StructFieldDef) =
                     let name = field.Name.Sym
@@ -628,14 +712,23 @@ type internal Traverse(env: Environment) =
                 let stru =
                     { Name = s.Name
                       Field = field
-                      Generic = gen
-                      Pred = pred }
+                      Generic = gen }
 
                 env.RegisterStruct s stru
 
             | EnumDecl e ->
-                env.EnterScope TypeScope
-                let gen, pred = this.TyParam e.TyParam
+                let gen = genMap[e.Name]
+
+                env.EnterScope(
+                    AdtScope
+                        { Self =
+                            TStruct
+                                { Name = e.Name
+                                  Generic = Array.map TGen gen } }
+                )
+
+                for idx, p in Array.indexed e.TyParam do
+                    env.RegisterTy p (TGen gen[idx])
 
                 let processVariant m (variant: EnumVariantDef) =
                     let name = variant.Name.Sym
@@ -654,18 +747,16 @@ type internal Traverse(env: Environment) =
                 let enum =
                     { Name = e.Name
                       Variant = variant
-                      Generic = gen
-                      Pred = pred }
+                      Generic = gen }
 
                 env.RegisterEnum e enum
 
             | TypeDecl _ -> failwith "Not Implemented"
             | Use _ -> failwith "Not Implemented"
             | Trait t ->
-                env.EnterScope TypeScope
+                let gen = genMap[t.Name]
 
-                if t.TyParam.Length > 0 then
-                    failwith "Not Implemented"
+                env.EnterScope(TraitScope { Self = TGen gen[0] })
 
                 let super = ResizeArray()
 
@@ -702,17 +793,24 @@ type internal Traverse(env: Environment) =
                         let f = { Param = param; Ret = ret }
 
                         Map.add m.Name.Sym f method
+                    | TraitType t -> failwith "Not Implemented"
                     | _ -> failwith "Not Implemented"
 
                 let method = t.Item |> Array.map _.Member |> Array.fold processMember Map.empty
+
+                let methodSafe f =
+                    (TFn f).FindTGen() |> Seq.forall (fun g -> g.Id <> 0)
+
+                let safe = method |> Map.values |> Seq.forall methodSafe
 
                 env.ExitScope()
 
                 env.RegisterTrait
                     { Name = t.Name
                       Method = method
+                      Generic = gen
                       // TODO
-                      ObjectSafe = true
+                      ObjectSafe = safe
                       Super = super }
             | Impl i ->
                 let trait_ =
@@ -740,87 +838,26 @@ type internal Traverse(env: Environment) =
 
                 env.ExitScope()
 
-        let fnMap = Dictionary()
-        let valueMap = Dictionary()
-
-        for item in staticItem do
-            match item with
-            | FnDecl f ->
-                env.EnterScope TypeScope
-                let gen, pred = this.TyParam f.TyParam
-
-                let paramTy (p: Param) =
-                    match p.Ty with
-                    | Some ty -> this.Type ty
-                    | None ->
-                        let newTVar = env.NewTVar p.Span
-                        TVar newTVar
-
-                let param = Array.map paramTy f.Param
-
-                let ret =
-                    match f.Ret with
-                    | Some ty -> this.Type ty
-                    | None -> TVar(env.NewTVar f.Span)
-
-                env.ExitScope()
-
-                let info =
-                    { Def = f.Name
-                      Mut = false
-                      Static = true }
-
-                let fnTy = { Param = param; Ret = ret }
-
-                let fnScope =
-                    { Ty = fnTy
-                      Gen = gen
-                      Pred = pred
-                      Name = f.Name }
-
-                fnMap.Add(f.Name, fnScope)
-
-                env.RegisterVar
-                    false
-                    info
-                    { Generic = gen
-                      Type = TFn fnTy
-                      Pred = pred }
-
-            | Let l ->
-                let ty =
-                    match l.Ty with
-                    | Some ty -> this.Type ty
-                    | None ->
-                        let sym = l.Pat.Name
-                        let newTVar = env.NewTVar l.Span
-
-                        TVar newTVar
-
-                valueMap.Add(l.Pat, ty)
-                this.Pat (LetPat { Mut = l.Mut; Static = true }) l.Pat ty
-            | _ -> ()
-
-        for item in staticItem do
+        for item in decl do
             match item with
             | FnDecl f ->
                 let fnScope = fnMap[f.Name]
 
                 env.EnterScope(FnScope fnScope)
 
-                for (param, ty) in Array.zip f.Param fnScope.Ty.Param do
+                for (param, ty) in Array.zip f.Param fnScope.Param do
                     this.Pat ParamPat param.Pat ty
 
                 let ret = this.Block f.Body
 
-                env.Unify fnScope.Ty.Ret ret f.Name.Span
+                env.Unify fnScope.Ret ret f.Name.Span
 
                 env.ExitScope()
 
-            | Let l ->
+            | Let l when topLevel ->
                 let value = this.Expr l.Value
 
-                env.Unify valueMap[l.Pat] value l.Span
+                env.Unify (env.GetPatTy l.Pat) value l.Span
             | _ -> ()
 
         for name in fnMap.Keys do
@@ -879,20 +916,7 @@ type internal Traverse(env: Environment) =
 
         env.ExitScope()
 
-let check (moduleMap: Dictionary<string, ModuleType>) (m: Module) =
-    let sema =
-        { Binding = Dictionary(HashIdentity.Reference)
-          DeclTy = Dictionary(HashIdentity.Reference)
-          ExprTy = Dictionary(HashIdentity.Reference)
-          Struct = Dictionary(HashIdentity.Reference)
-          Enum = Dictionary(HashIdentity.Reference)
-          Capture = MultiMap(HashIdentity.Reference)
-          Trait = Dictionary(HashIdentity.Reference)
-          Module =
-            { Ty = Map.empty
-              Var = Map.empty
-              Module = Map.empty } }
-
+let check (sema: SemanticInfo) (m: Module) =
     let error = ResizeArray()
     let env = Environment(sema, error)
 

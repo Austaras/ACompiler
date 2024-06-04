@@ -49,7 +49,8 @@ let snap = TextSnapshot("snap", basePath)
 
 [<InlineData("Trait",
              "trait Summary {
-    fn summarize(&self) -> String
+    type Res: Serializable
+    fn summarize(&self) -> Res
 }")>]
 
 [<InlineData("Use", "use some_name::foo::{self, bar::*, baz::Baz}")>]

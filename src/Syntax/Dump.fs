@@ -599,7 +599,9 @@ type Dump(tw: TextWriter) =
 
             name stru.Name
 
-            tyParam stru.TyParam
+            for p in stru.TyParam do
+                this.Prop "type param"
+                this.Id p
 
             for p in stru.Field do
                 this.Indent()
@@ -620,7 +622,9 @@ type Dump(tw: TextWriter) =
 
             name e.Name
 
-            tyParam e.TyParam
+            for p in e.TyParam do
+                this.Prop "type param"
+                this.Id p
 
             for v in e.Variant do
                 this.Indent()
@@ -728,7 +732,13 @@ type Dump(tw: TextWriter) =
                     | None -> ()
                     | Some f -> this.Child "body" f.Span this.Block f
 
-                | TraitType t -> tw.WriteLine("trait type" + s)
+                | TraitType t ->
+                    tw.WriteLine("trait type" + s)
+
+                    name t.Name
+
+                    for b in t.Bound do
+                        this.Child "bound" b.Span this.Path b
                 | TraitValue v -> tw.WriteLine("trait value" + s)
 
                 level <- level - 1

@@ -1125,6 +1125,19 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>, ctx: Context) =
           Bound = bound
           Span = span }
 
+    member this.SimpleTypeParamList msg =
+        match lexer.Peek() with
+        | Some { Data = Operator(Cmp Lt); Span = span } ->
+            lexer.Consume()
+            let parser () = lexer.ReadId "Type Parameter Name"
+            let g, last = this.LtGt parser msg
+
+            if g.Length = 0 then
+                error.Add(EmptyTypeParam(span.WithLast last))
+
+            g, Some last
+        | _ -> [||], None
+
     member this.TypeParamList msg =
         match lexer.Peek() with
         | Some { Data = Operator(Cmp Lt); Span = span } ->
@@ -1281,7 +1294,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>, ctx: Context) =
         | Reserved STRUCT ->
             let name = lexer.ReadId "Struct Name"
 
-            let tyParam, last = this.TypeParamList "Struct Type Parameter"
+            let tyParam, last = this.SimpleTypeParamList "Struct Type Parameter"
             let last = Option.defaultValue name.Span last
 
             let child = this.WithCtx({ ctx with InDecl = true })
@@ -1318,7 +1331,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>, ctx: Context) =
         | Reserved ENUM ->
             let name = lexer.ReadId "Enum Name"
 
-            let tyParam, _ = this.TypeParamList "Enum Type Parameter"
+            let tyParam, _ = this.SimpleTypeParamList "Enum Type Parameter"
 
             let child = this.WithCtx({ ctx with InDecl = true })
 
@@ -1386,26 +1399,15 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>, ctx: Context) =
 
                         let bound = child.TypeBound()
 
-                        let defaultTy =
-                            match lexer.PeekInline() with
-                            | Some { Data = Eq } ->
-                                lexer.Consume()
-                                child.Type() |> Some
-                            | _ -> None
-
                         let last =
-                            match defaultTy with
-                            | Some d -> d.Span
-                            | None ->
-                                if bound.Length > 0 then
-                                    (Array.last bound).Span
-                                else
-                                    name.Span
+                            if bound.Length > 0 then
+                                (Array.last bound).Span
+                            else
+                                name.Span
 
                         TraitType
                             { Name = name
                               Bound = bound
-                              DefaultTy = defaultTy
                               Span = span.WithLast last }
 
                     | Some { Data = Reserved FUNCTION

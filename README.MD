@@ -38,8 +38,8 @@ Test out various compiler technology with a toy compiler for a toy language **in
 
 #### Design decisions
 
-- [ ] template string
 - [ ] effect system, immtuable, pure, lazy
+- [ ] region
 - [ ] const generic
 - [ ] refinement type
 - [ ] ABI
@@ -49,17 +49,25 @@ Test out various compiler technology with a toy compiler for a toy language **in
 
 #### Implementation
 
-- [ ] Type class
+- [ ] cross module type check
+- [x] type class
+  - [ ] multi parameter type class
+  - [ ] functional dependency
+  - [ ] existential type
+- [ ] fixed size array
+- [ ] IR lowering
+  - [ ] SSA
+  - [ ] generic
 
 ### Code Architecture
 
 1. plain ADT for AST
 
-   [AST](./src/AST)
+   [AST](./src/Syntax/Library.fs)
 
 2. hand written recursive descendant parser
 
-   [Parser](./src/Parser)
+   [Parser](./src/Syntax/Parser.fs)
 
 3. HM type inference with trait
 
@@ -67,7 +75,7 @@ Test out various compiler technology with a toy compiler for a toy language **in
 
 4. FLIR, which stands for First Linear Intermediate Representation
 
-   [FLIR](./src/FLIR)
+   [FLIR](./src/Optimize/Library.fs)
 
    - three address code, basic block, SSA
    - eliminates ADT, operator overloading, assign operator and pattern

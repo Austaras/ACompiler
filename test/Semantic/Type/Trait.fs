@@ -99,25 +99,6 @@ fn test() {
     |> toBe (Map [| "test", "|| -> ()" |])
 
 [<Fact>]
-let BoundEnum () =
-    runInfer
-        "
-trait Foo {
-    fn foo(self)
-}
-
-impl Foo for int {
-    fn foo(self) {}
-}
-
-enum Bar<T: Foo> { A(T), B }
-
-fn test(a: int) {
-    A(a)
-}"
-    |> toBe (Map [| "test", "|int| -> Bar<int>" |])
-
-[<Fact>]
 let TuplePred () =
     runInfer
         "
@@ -164,7 +145,7 @@ trait Foo {
     fn foo(self)
 }
 
-trait Bar : Foo {
+trait Bar: Foo {
     fn bar(self)
 }
 
@@ -173,3 +154,22 @@ fn test(a) {
     a.bar()
 }"
     |> toBe (Map [| "test", "<T0>|T0| -> () where T0: Bar" |])
+
+[<Fact>]
+let Self () =
+    runInfer
+        "
+trait Id {
+    fn id(self) -> Self
+}
+
+impl Id for int {
+    fn id(self) -> Self {
+        self
+    }
+}
+
+fn test(i: int) {
+    i.id()
+}"
+    |> toBe (Map [| "test", "|int| -> int" |])

@@ -109,3 +109,14 @@ let Slice () =
         "
 fn head(a) { a[0] }"
     |> toBe (Map [| "head", "<T0>|[T0]| -> T0" |])
+
+[<Fact>]
+let Self () =
+    runInfer
+        "
+struct Foo {
+    next: &Self
+}
+
+fn next(f: &Foo) { f.next }"
+    |> toBe (Map [| "next", "|&Foo| -> &Foo" |])

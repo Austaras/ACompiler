@@ -53,6 +53,7 @@ and Type =
             enum.Variant.Values |> Seq.map variant |> Seq.sum
 
         | Semantic.TTuple t -> field t
+        | Semantic.TTrait _
         | Semantic.TFn _ -> 10000
         | Semantic.TRef t
         | Semantic.TArray(t, _)
@@ -79,7 +80,8 @@ and Type =
         | Semantic.TFloat Semantic.F64 -> TFloat F64
         | Semantic.TChar -> TInt I32
         | Semantic.TRef _
-        | Semantic.TFn _ -> TRef
+        | Semantic.TFn _
+        | Semantic.TTrait _ -> TRef
         | Semantic.TSlice _
         | Semantic.TString -> TMany [| TRef; size |]
         | Semantic.TTuple t -> t |> Array.map (Type.FromSema semantic layout) |> TMany

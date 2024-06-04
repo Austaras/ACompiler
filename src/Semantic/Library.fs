@@ -7,7 +7,10 @@ open Common.Util.MultiMap
 open Syntax.AST
 
 [<ReferenceEquality>]
-type Def = { Id: Id }
+type Def =
+    { Id: Id }
+
+    static member Create sym span = { Id = { Sym = sym; Span = span } }
 
 type Integer =
     | I8
@@ -40,7 +43,8 @@ and Generic =
     member this.Print() =
         if this.Sym.Length = 0 then $"T{this.Id}" else this.Sym
 
-and ADT = { Name: Id; Generic: Type[] }
+/// Type constructor
+and Cons = { Name: Id; Generic: Type[] }
 
 and Type =
     /// bool signs if it's signed
@@ -50,8 +54,9 @@ and Type =
     | TChar
     | TString
     // named type can refer each other
-    | TStruct of ADT
-    | TEnum of ADT
+    | TStruct of Cons
+    | TEnum of Cons
+    | TTrait of Cons
     | TTuple of Type[]
     | TArray of Type * uint64
     | TFn of Function
@@ -72,7 +77,8 @@ and Type =
             | TVar v -> yield v
             | TGen _ -> ()
             | TStruct a
-            | TEnum a ->
+            | TEnum a
+            | TTrait a ->
                 for v in a.Generic do
                     yield! v.FindTVar()
             | TTuple t ->
@@ -86,6 +92,35 @@ and Type =
                 yield! f.Ret.FindTVar()
             | TRef r -> yield! r.FindTVar()
             | TSlice s -> yield! s.FindTVar()
+            | TNever -> ()
+        }
+
+    member this.FindTGen() =
+        seq {
+            match this with
+            | TInt _
+            | TFloat _
+            | TBool
+            | TChar
+            | TString
+            | TVar _ -> ()
+            | TGen g -> yield g
+            | TStruct a
+            | TEnum a
+            | TTrait a ->
+                for v in a.Generic do
+                    yield! v.FindTGen()
+            | TTuple t ->
+                for t in t do
+                    yield! t.FindTGen()
+            | TArray(t, _) -> yield! t.FindTGen()
+            | TFn f ->
+                for p in f.Param do
+                    yield! p.FindTGen()
+
+                yield! f.Ret.FindTGen()
+            | TRef r -> yield! r.FindTGen()
+            | TSlice s -> yield! s.FindTGen()
             | TNever -> ()
         }
 
@@ -105,7 +140,8 @@ and Type =
         | TChar -> "char"
         | TString -> "str"
         | TStruct a
-        | TEnum a ->
+        | TEnum a
+        | TTrait a ->
             if a.Generic.Length = 0 then
                 a.Name.Sym
             else
@@ -138,6 +174,10 @@ and Type =
                         Generic = a.Generic |> Array.map walk }
             | TEnum a ->
                 TEnum
+                    { a with
+                        Generic = a.Generic |> Array.map walk }
+            | TTrait a ->
+                TTrait
                     { a with
                         Generic = a.Generic |> Array.map walk }
             | TTuple t -> t |> Array.map walk |> TTuple
@@ -187,22 +227,26 @@ let UnitType = TTuple [||]
 type Struct =
     { Name: Id
       Field: Map<string, Type>
-      Generic: Generic[]
-      Pred: Pred[] }
+      Generic: Generic[] }
 
 and Enum =
     { Name: Id
       Variant: Map<string, Type[]>
-      Generic: Generic[]
-      Pred: Pred[] }
+      Generic: Generic[] }
 
 and Trait =
     { Name: Id
       Method: Map<string, Function>
+      Generic: Generic[]
       ObjectSafe: bool
       Super: Trait[] }
 
 and Pred = { Trait: Trait; Type: Type }
+
+type Impl =
+    { Generic: Generic[]
+      Pred: Pred[]
+      Type: Type[] }
 
 type Scheme =
     { Generic: Generic[]
@@ -222,7 +266,6 @@ type Scheme =
                 res
             else
                 let print { Type = ty; Trait = tr } = ty.Print() + ": " + tr.Name.Sym
-
                 let pred = this.Pred |> Array.map print |> String.concat ", "
 
                 $"{res} where {pred}"
@@ -232,17 +275,57 @@ type ModuleType =
       Var: Map<string, Type>
       Module: Map<string, ModuleType> }
 
-type WellKnown = { Slice: Def; Eq: Def }
+type WellKnown =
+    { Slice: Def
+      String: Def
+      Range: Def
+
+      Int: Def
+      Float: Def
+      Num: Def
+      mutable Eq: Def
+      mutable Cmp: Def
+      mutable Add: Def
+      mutable Index: Def }
 
 type SemanticInfo =
-    { Binding: Dictionary<Id, Id>
+    { WellKnown: WellKnown
+      Binding: Dictionary<Id, Id>
       DeclTy: Dictionary<Id, Scheme>
       ExprTy: Dictionary<Expr, Type>
+      PatTy: Dictionary<Pat, Type>
       Struct: Dictionary<Id, Struct>
       Enum: Dictionary<Id, Enum>
       Capture: MultiMap<Closure, Id>
       Trait: Dictionary<Id, Trait>
       Module: ModuleType }
+
+    static member Create() =
+        let well =
+            { Slice = Def.Create "slice" Span.dummy
+              String = Def.Create "string" Span.dummy
+              Range = Def.Create "Range" Span.dummy
+              Int = Def.Create "Int" Span.dummy
+              Float = Def.Create "Float" Span.dummy
+              Num = Def.Create "Num" Span.dummy
+              Eq = Def.Create "Eq" Span.dummy
+              Cmp = Def.Create "Cmp" Span.dummy
+              Add = Def.Create "Add" Span.dummy
+              Index = Def.Create "Index" Span.dummy }
+
+        { WellKnown = well
+          Binding = Dictionary(HashIdentity.Reference)
+          DeclTy = Dictionary(HashIdentity.Reference)
+          ExprTy = Dictionary(HashIdentity.Reference)
+          PatTy = Dictionary(HashIdentity.Reference)
+          Struct = Dictionary(HashIdentity.Reference)
+          Enum = Dictionary(HashIdentity.Reference)
+          Capture = MultiMap(HashIdentity.Reference)
+          Trait = Dictionary(HashIdentity.Reference)
+          Module =
+            { Ty = Map.empty
+              Var = Map.empty
+              Module = Map.empty } }
 
 type Error =
     | AmbiguousTypeVar of Var
@@ -269,4 +352,5 @@ type Error =
     | CaptureDynamic of Id
     | OverlapImpl of Trait * Scheme * Scheme * Span
     | UnboundGeneric of Generic
+    | UnboundSelfType of Span
     | TraitNotImpl of Pred * Span

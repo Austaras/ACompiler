@@ -1,7 +1,11 @@
-Trait@0..50
+Trait@0..74
     name: Summary@6..12
-    item: trait method@20..48
-        name: summarize@23..31
-        param@33..37
-            pat: ref self@33..37
-        ret: String@43..48
+    item: trait type@20..41
+        name: Res@25..27
+        bound@30..41
+            seg: Serializable@30..41
+    item: trait method@47..72
+        name: summarize@50..58
+        param@60..64
+            pat: ref self@60..64
+        ret: Res@70..72

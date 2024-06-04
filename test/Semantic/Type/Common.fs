@@ -15,7 +15,9 @@ let runInfer input =
         | Ok m -> m
         | Error(e, _) -> failwithf "parse error %A" e
 
-    match check (Dictionary()) m with
+    let sema = SemanticInfo.Create()
+
+    match check sema m with
     | Ok sema ->
         let map (id: AST.Id, t: Scheme) = (id.Sym, t.Print())
         sema.DeclTy |> Seq.map (|KeyValue|) |> Seq.map map |> Map.ofSeq

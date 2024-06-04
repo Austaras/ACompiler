@@ -257,11 +257,6 @@ and Pat =
         | SelfPat _ -> SelfPat span
         | RefSelfPat _ -> RefSelfPat span
 
-    member this.Name =
-        match this with
-        | IdPat i -> i.Sym
-        | _ -> ""
-
 type Param =
     { Pat: Pat
       Ty: Option<Type>
@@ -526,7 +521,7 @@ and StructFieldDef =
 
 and StructDecl =
     { Name: Id
-      TyParam: TyParam[]
+      TyParam: Id[]
       Field: StructFieldDef[]
       Span: Span }
 
@@ -538,7 +533,7 @@ and EnumVariantDef =
 
 and EnumDecl =
     { Name: Id
-      TyParam: TyParam[]
+      TyParam: Id[]
       Variant: EnumVariantDef[]
       Span: Span }
 
@@ -549,11 +544,7 @@ and TraitMethod =
       Default: Option<Block>
       Span: Span }
 
-and TraitType =
-    { Name: Id
-      Bound: Path[]
-      DefaultTy: Option<Type>
-      Span: Span }
+and TraitType = { Name: Id; Bound: Path[]; Span: Span }
 
 and TraitValue =
     { Id: Id

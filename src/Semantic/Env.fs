@@ -25,17 +25,24 @@ let internal primitive =
        TString |]
 
 type internal FnScope =
-    { Ty: Function
-      Gen: Generic[]
-      Pred: Pred[]
+    { Param: Type[]
+      Ret: Type
+      Fixed: bool
       Name: Id }
 
 type internal ClosureScope = { Closure: Closure; Ret: Type }
+type internal MethodScope = { Self: Type; Ret: Type }
+
+type internal AdtScope = { Self: Type }
 
 type internal ScopeData =
     | FnScope of FnScope
     | ClosureScope of ClosureScope
     | BlockScope
+    | AdtScope of AdtScope
+    | TraitScope of AdtScope
+    | ImplScope of AdtScope
+    | MethodScope of MethodScope
     | TypeScope
     | TopLevelScope
 
@@ -91,7 +98,7 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
     let unionFind = Dictionary<int, Type>()
     let traitImpl = Dictionary<Trait, ResizeArray<Scheme>>(HashIdentity.Reference)
     let mutable pending = ResizeArray<Obligation>()
-    let predCache = HashSet<Type * Trait>()
+    let predCache = HashSet<Pred>()
 
     let mutable varId = 0
     let mutable genId = 0
@@ -260,7 +267,7 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
 
         ty, pred
 
-    member this.Generalize fnTy =
+    member this.Generalize(fnTy: Function) =
         let group = this.NewGenGroup()
         let outScope (v: Var) = v.Level <= scope.Count
 
@@ -317,7 +324,7 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                     { Trait = ob.Pred.Trait
                       Type = resolve ob.Pred.Type }
 
-                match this.TraitByInst p.Type p.Trait with
+                match this.TraitByInst p with
                 | None -> addToPred p
                 | Some p ->
                     for p in p do
@@ -383,13 +390,13 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
             value.Add scm
             traitImpl[trait_] <- value
 
-    member this.TraitByInst ty trait_ =
-        let value = traitImpl[trait_]
+    member this.TraitByInst pred =
+        let value = traitImpl[pred.Trait]
 
         let rec overlap prev =
             let prevTy, prevPred = this.Instantiate prev Span.dummy
 
-            match this.UnifyInner prevTy ty Span.dummy with
+            match this.UnifyInner prevTy pred.Type Span.dummy with
             | Ok subst ->
                 let normalPred (pred: Pred) =
                     { pred with
@@ -400,41 +407,41 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
 
         Util.pick overlap value
 
-    member this.HasTrait span ({ Type = ty; Trait = trait_ }: Pred) =
+    member this.HasTrait span pred =
 
         // in cache, fast path
-        if predCache.Contains((ty, trait_)) then
+        if predCache.Contains pred then
             true
         // waiting for tvar solution
-        else if ty.FindTVar() |> Seq.isEmpty |> not then
-            let tvar = ty.FindTVar() |> Seq.toArray
-            predCache.Add(ty, trait_) |> ignore
+        else if pred.Type.FindTVar() |> Seq.isEmpty |> not then
+            let tvar = pred.Type.FindTVar() |> Seq.toArray
+            predCache.Add pred |> ignore
 
             let ob =
-                { Pred = { Trait = trait_; Type = ty }
+                { Pred = pred
                   TVar = tvar
                   Span = span }
 
             pending.Add ob
 
             true
-        else if not (traitImpl.ContainsKey trait_) then
+        else if not (traitImpl.ContainsKey pred.Trait) then
             false
         else
-            match this.TraitByInst ty trait_ with
+            match this.TraitByInst pred with
             | None -> false
-            | Some pred ->
-                if Array.forall (this.HasTrait span) pred then
-                    predCache.Add(ty, trait_) |> ignore
+            | Some p ->
+                if Array.forall (this.HasTrait span) p then
+                    predCache.Add pred |> ignore
                     true
                 else
                     false
 
-    member this.AddPred ty tr =
-        for super in this.AllSuperTrait tr do
-            predCache.Add(ty, super) |> ignore
+    member this.AddPred(pred: Pred) =
+        for super in this.AllSuperTrait pred.Trait do
+            predCache.Add({ pred with Trait = super }) |> ignore
 
-        predCache.Add(ty, tr) |> ignore
+        predCache.Add pred |> ignore
 
     member _.EnterScope data =
         let s = Scope.Create data
@@ -445,20 +452,14 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
         let last = scope.Pop()
 
         match last.Data with
-        | FnScope { Ty = ty
-                    Gen = gen
+        | FnScope { Param = param
+                    Ret = ret
                     Name = name
-                    Pred = pred } ->
-            if gen.Length = 0 then
-                let ty = this.Generalize ty
-                sema.DeclTy[name] <- ty
-            else
-                let ty = this.NormalizeTy(TFn ty)
+                    Fixed = f } ->
 
-                sema.DeclTy[name] <-
-                    { Generic = gen
-                      Type = ty
-                      Pred = pred }
+            if not f then
+                let scm = this.Generalize { Param = param; Ret = ret }
+                sema.DeclTy[name] <- scm
         | _ -> ()
 
     member _.Pick picker =
@@ -524,7 +525,7 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                   Def = v.Name }
                 { Generic = ty.Generic
                   Type = variant
-                  Pred = ty.Pred }
+                  Pred = [||] }
 
         sema.Enum[decl.Name] <- ty
 
@@ -664,7 +665,7 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
 
         this.Pick findTrait
 
-    member this.FindMethod ty field span =
+    member this.FindMethod ty (arg: Type[]) field span =
         let ty = this.NormalizeTy ty
 
         let findTrait scope =
@@ -681,8 +682,42 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
         let trait_ = this.Pick findTrait
 
         match trait_ with
-        | None -> None
-        | Some t -> Some t.Method[field]
+        | None -> TNever
+        | Some t ->
+            let m = t.Method[field]
+            let map = Map [| t.Generic[0], ty |]
+
+            if m.Param.Length <> arg.Length then
+                error.Add(LengthMismatch(span, m.Param.Length, arg.Length))
+            else
+                for p, a in Array.zip m.Param arg do
+                    let p = p.InstantiateWithMap map
+                    this.Unify p a span
+
+            m.Ret.InstantiateWithMap map
+
+    member this.GetReturn() =
+        let pickRet scope =
+            match scope.Data with
+            | FnScope { Ret = r }
+            | MethodScope { Ret = r }
+            | ClosureScope { Ret = r } -> Some r
+            | _ -> None
+
+        this.Pick pickRet
+
+    member _.GetSelfType() =
+        let rec loop (i: int) =
+            let data = (scope.ElementAt i).Data
+
+            match data with
+            | AdtScope { Self = self }
+            | TraitScope { Self = self }
+            | ImplScope { Self = self } -> Some self
+            | FnScope _ -> None
+            | _ -> if i + 1 = scope.Count then None else loop (i + 1)
+
+        loop 0
 
     member this.ToNever(name: Id) =
         let toNever t =
@@ -706,5 +741,7 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
         sema.DeclTy[name] <- { scm with Type = TFn ty }
 
     member _.RegisterExpr expr ty = sema.ExprTy.Add(expr, ty)
+    member _.RegisterPat pat ty = sema.PatTy.Add(pat, ty)
+    member _.GetPatTy pat = sema.PatTy[pat]
 
     member _.AddError e = error.Add e

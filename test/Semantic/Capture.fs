@@ -14,7 +14,9 @@ let runCheck input =
         | Ok m -> m
         | Error(e, _) -> failwithf "parse error %A" e
 
-    match check (Dictionary()) m with
+    let sema = SemanticInfo.Create()
+
+    match check sema m with
     | Ok sema -> Map.values sema.Capture.ToMap |> Seq.map (Array.map _.Sym) |> Array.ofSeq
     | Error e -> failwithf "type error %A" e
 
