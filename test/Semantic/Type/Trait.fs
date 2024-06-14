@@ -173,3 +173,32 @@ fn test(i: int) {
     i.id()
 }"
     |> toBe (Map [| "test", "|int| -> int" |])
+
+// [<Fact>]
+// let BadCollect () =
+//     runInfer
+//         "
+// trait Collect<C> {
+//     fn insert(self, value: C)
+// }
+
+// fn twice(c, a, b) {
+//     c.insert(a)
+//     c.insert(b)
+// }"
+//     |> toBe (Map [| "twice", "<T0, T1, T2>|T0, T1, T2| -> () where T0: Collect<T1>, T0: Collect<T2>" |])
+
+// [<Fact>]
+// let GoodCollect () =
+//     runInfer
+//         "
+// trait Collect {
+//     type C
+//     fn insert(self, value: C)
+// }
+
+// fn twice(c, a, b) {
+//     c.insert(a)
+//     c.insert(b)
+// }"
+//     |> toBe (Map [| "twice", "<T0, T1>|T0, T1, T1| -> () where T0: Collect<T1>" |])

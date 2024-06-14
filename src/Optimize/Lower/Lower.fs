@@ -20,26 +20,125 @@ let fromArith arith =
     | AST.Shl -> Shl
     | AST.Shr -> failwith "Not Implemented"
 
+type Habit =
+    | Finite of int
+    | Infinite
+
+    static member (+)(a, b) =
+        match a, b with
+        | Finite a, Finite b -> Finite(a + b)
+        | Infinite, _
+        | _, Infinite -> Infinite
+
+    static member (*)(a, b) =
+        match a, b with
+        | Finite a, Finite b -> Finite(a * b)
+        | Infinite, _
+        | _, Infinite -> Infinite
+
 type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
     let layout = arch.Layout
     let habitable = Type.Habitable sema
-    let toIrType = Type.FromSema sema layout
 
     let env = Env()
 
-    member _.Pat(p: AST.Pat) =
+    member this.Pat(p: AST.Pat) =
         match p with
         | AST.IdPat i ->
-            let ty = toIrType sema.DeclTy[i].Type
+            let ty = this.Type sema.DeclTy[i].Type
             env.DeclareVar ty i
         | _ -> failwith "Not Implmented"
 
+    member this.Type(ty: Semantic.Type) =
+        let size =
+            match layout.PtrSize with
+            | 4 -> I32
+            | 8 -> I64
+            | _ -> failwith "Not Implemented"
+            |> TInt
+
+        match ty with
+        | Semantic.TBool -> TInt I1
+        | Semantic.TInt(_, Semantic.I8) -> TInt I8
+        | Semantic.TInt(_, Semantic.I32) -> TInt I32
+        | Semantic.TInt(_, Semantic.I64) -> TInt I64
+        | Semantic.TInt(_, Semantic.ISize) -> size
+        | Semantic.TFloat Semantic.F32 -> TFloat F32
+        | Semantic.TFloat Semantic.F64 -> TFloat F64
+        | Semantic.TChar -> TInt I32
+        | Semantic.TRef _
+        | Semantic.TFn _
+        | Semantic.TTrait _ -> TRef
+        | Semantic.TSlice _
+        | Semantic.TString -> TMany [| TRef; size |]
+        | Semantic.TTuple t -> t |> Array.map this.Type |> TMany
+        | Semantic.TArray(t, n) -> TSame(this.Type t, n)
+        | Semantic.TStruct a ->
+            let strukt = sema.Struct[a.Name]
+
+            let trans (ty: Semantic.Type) =
+                ty.Instantiate strukt.Generic a.Generic |> this.Type
+
+            strukt.Field.Values
+            |> Seq.map trans
+            |> Array.ofSeq
+            |> TMany
+            |> _.OptLayout(layout)
+        | Semantic.TEnum e ->
+            let enum = sema.Enum[e.Name]
+            failwith "Not Implemented"
+        | Semantic.TNever
+        | Semantic.TVar _
+        | Semantic.TGen _ -> failwith "unreachable"
+
     member this.Cond(c: AST.Cond) =
         match c with
-        | AST.BoolCond b -> this.Expr b None
+        | AST.BoolCond b -> this.BoolCond None b
         | AST.LetCond _ -> failwith "Not Implemented"
 
-    member this.Expr (e: AST.Expr) (target: Option<int>) =
+    member this.BoolCond (target: Option<int>) (e: AST.Expr) =
+        let rec expr t f e =
+            match e with
+            | AST.Binary({ Op = AST.Logic AST.And } as a) ->
+                let lt = ResizeArray()
+                expr lt f a.Left
+
+                for t, tar in lt do
+                    env.ModifyBr t tar env.CurrBlockId
+
+                expr t f a.Right
+            | AST.Binary({ Op = AST.Logic AST.Or } as a) ->
+                let lf = ResizeArray()
+                expr t lf a.Left
+
+                for t, tar in lf do
+                    env.ModifyBr t tar env.CurrBlockId
+
+                expr t f a.Right
+            | AST.Unary({ Op = AST.Not } as u) -> expr f t u.Value
+            | e ->
+                let value = this.Expr target e
+
+                let id =
+                    env.FinalizeBlock(
+                        Branch
+                            { Value = value
+                              One = 0
+                              Zero = 0
+                              Span = e.Span }
+                    )
+
+                t.Add(id, One)
+                f.Add(id, Zero)
+
+        let t = ResizeArray()
+        let f = ResizeArray()
+
+        expr t f e
+
+        t, f
+
+    member this.Expr (target: Option<int>) (e: AST.Expr) =
         match e with
         | AST.Id i ->
             let v = env.GetVar sema.Binding[i] |> Binding
@@ -57,39 +156,56 @@ type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
             | None -> ()
 
             v
+        | AST.Unary u ->
+            let value = this.Expr target u.Value
+
+            match u.Op with
+            | AST.Neg ->
+                let target = env.OfTarget target (TInt I64)
+
+                env.AddInstr(
+                    Unary
+                        { Target = target
+                          Op = Neg
+                          Value = value
+                          Span = u.Span }
+                )
+
+                Binding target
+            | AST.Not ->
+                let target = env.OfTarget target (TInt I1)
+
+                env.AddInstr(
+                    Unary
+                        { Target = target
+                          Op = Neg
+                          Value = value
+                          Span = u.Span }
+                )
+
+                Binding target
+            | AST.Ref
+            | AST.Deref -> failwith "Not Implemented"
         | AST.Binary({ Op = AST.Logic op } as bin) ->
-            let target =
-                match target with
-                | Some t -> t
-                | None -> env.AddVar(TInt I1)
+            let target = env.OfTarget target (TInt I1)
+            let t, f = this.BoolCond (Some target) e
 
-            let l = this.Expr bin.Left (Some target)
+            for t, tar in t do
+                env.ModifyBr t tar env.CurrBlockId
 
-            let reverse =
-                match op with
-                | AST.And -> true
-                | AST.Or -> false
-
-            let lBlock = env.CurrBlockId
-
-            env.FinalizeBlock(Unreachable Span.dummy)
-
-            let _ = this.Expr bin.Right (Some target)
-
-            env.ToNext bin.Right.Span
+            for f, tar in f do
+                env.ModifyBr f tar env.CurrBlockId
 
             env.ModifyTrans
-                lBlock
-                (Branch
-                    { Value = l
-                      Zero = if reverse then env.CurrBlockId else lBlock + 1
-                      One = if reverse then lBlock + 1 else env.CurrBlockId
+                (env.CurrBlockId - 1)
+                (Jump
+                    { Target = env.CurrBlockId
                       Span = bin.Span })
 
             Binding target
         | AST.Binary bin ->
-            let l = this.Expr bin.Left None
-            let r = this.Expr bin.Right None
+            let l = this.Expr None bin.Left
+            let r = this.Expr None bin.Right
 
             // TODO: trait
             let op, ty =
@@ -104,10 +220,7 @@ type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
                 | AST.Logic _ -> failwith "Unreachable"
                 | AST.Pipe -> failwith "Not Implemented"
 
-            let target =
-                match target with
-                | Some t -> t
-                | None -> env.AddVar ty
+            let target = env.OfTarget target ty
 
             env.AddInstr(
                 Binary
@@ -121,13 +234,13 @@ type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
             Binding target
         | AST.Assign a ->
             let t =
-                match this.Expr a.Place None with
+                match this.Expr None a.Place with
                 | Binding i -> i
                 | Const _ -> failwith "Unreachable"
 
             match a.Op with
             | Some op ->
-                let value = this.Expr a.Value None
+                let value = this.Expr None a.Value
 
                 let op = fromArith op
 
@@ -141,90 +254,75 @@ type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
                 )
 
                 Binding t
-            | None -> this.Expr a.Value (Some t)
+            | None -> this.Expr (Some t) a.Value
 
         | AST.If i ->
-            let cond = this.Cond i.Cond
+            let t, f = this.Cond i.Cond
 
             if i.ElseIf.Length > 0 then
                 failwith "Not Implemented"
 
-            let condId = env.CurrBlockId
-
             match i.Else with
             | Some e ->
-                env.FinalizeBlock(Unreachable Span.dummy)
-                let _ = this.Block e target Normal
-                let elseId = env.CurrBlockId
-                env.FinalizeBlock(Unreachable Span.dummy)
+                let elseStart = env.CurrBlockId
+                let _ = this.Block target Normal e
+                let elseId = env.FinalizeBlock(Unreachable Span.dummy)
 
-                let _ = this.Block i.Then target Normal
+                let thenStart = env.CurrBlockId
+                let _ = this.Block target Normal i.Then
                 let next = env.CurrBlockId + 1
 
-                env.FinalizeBlock(Jump { Target = next; Span = i.Then.Span })
+                let _ = env.FinalizeBlock(Jump { Target = next; Span = i.Then.Span })
                 env.ModifyTrans elseId (Jump { Target = next; Span = e.Span })
 
-                env.ModifyTrans
-                    condId
-                    (Branch
-                        { Value = cond
-                          Zero = condId + 1
-                          One = elseId + 1
-                          Span = i.Cond.Span })
+                for t, tar in t do
+                    env.ModifyBr t tar thenStart
 
-                cond
+                for f, tar in f do
+                    env.ModifyBr f tar elseStart
+
+                Const 0UL
             | None ->
-                let cond = env.Reverse cond
-                env.FinalizeBlock(Unreachable Span.dummy)
-                let _ = this.Block i.Then target Normal
+                let thenStart = env.CurrBlockId
+                let _ = this.Block target Normal i.Then
                 env.ToNext i.Then.Span
 
-                env.ModifyTrans
-                    condId
-                    (Branch
-                        { Value = cond
-                          Zero = condId + 1
-                          One = env.CurrBlockId
-                          Span = i.Cond.Span })
+                for t, tar in t do
+                    env.ModifyBr t tar thenStart
 
-                cond
+                for f, tar in f do
+                    env.ModifyBr f tar env.CurrBlockId
+
+                Const 0UL
 
         | AST.While w ->
-            env.ToNext Span.dummy
-
-            let cond = this.Cond w.Cond
-            let cond = env.Reverse cond
-            let condId = env.CurrBlockId
-            env.FinalizeBlock(Unreachable Span.dummy)
+            let t, f = this.Cond w.Cond
 
             let bodyStart = env.CurrBlockId
-            let _, scope = this.Block w.Body target Loop
 
-            if scope.Continue.Count > 0 then
-                env.ToNext Span.dummy
+            for t, tar in t do
+                env.ModifyBr t tar bodyStart
+
+            let _, scope = this.Block target Loop w.Body
 
             let endCondStart = env.CurrBlockId
-            let endCond = this.Cond w.Cond
-            let nextId = env.CurrBlockId + 1
+            let et, ef = this.Cond w.Cond
 
-            env.FinalizeBlock(
-                Branch
-                    { Value = endCond
-                      Zero = nextId
-                      One = bodyStart
-                      Span = w.Cond.Span }
-            )
+            for t, tar in et do
+                env.ModifyBr t tar bodyStart
 
-            env.ModifyTrans
-                condId
-                (Branch
-                    { Value = cond
-                      Zero = bodyStart
-                      One = nextId
-                      Span = w.Cond.Span })
+            for f, tar in f do
+                env.ModifyBr f tar env.CurrBlockId
+
+            for f, tar in ef do
+                env.ModifyBr f tar env.CurrBlockId
 
             for id, span in scope.Break do
-                env.ModifyTrans id (Jump { Target = nextId; Span = span })
+                env.ModifyTrans
+                    id
+                    (Jump
+                        { Target = env.CurrBlockId
+                          Span = span })
 
             for id, span in scope.Continue do
                 env.ModifyTrans id (Jump { Target = endCondStart; Span = span })
@@ -241,7 +339,7 @@ type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
 
         | _ -> failwith "Not Implemented"
 
-    member this.Block (b: AST.Block) (target: Option<int>) (info: ScopeInfo) =
+    member this.Block (target: Option<int>) (info: ScopeInfo) (b: AST.Block) =
         env.EnterScope info
 
         let mutable res = None
@@ -251,11 +349,11 @@ type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
             | AST.ExprStmt e ->
                 let target = if idx = b.Stmt.Length - 1 then target else None
 
-                let value = this.Expr e target
+                let value = this.Expr target e
                 res <- Some value
             | AST.DeclStmt(AST.Let l) ->
                 let name = this.Pat l.Pat
-                let _ = this.Expr l.Value (Some name)
+                let _ = this.Expr (Some name) l.Value
 
                 res <- None
             | _ -> ()
@@ -277,7 +375,7 @@ type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
 
         let ret =
             if habitable fnTy.Ret > 1 then
-                let ret = toIrType fnTy.Ret
+                let ret = this.Type fnTy.Ret
                 let id = env.AddVar ret
                 Some id
             else
@@ -293,8 +391,8 @@ type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
 
             param.ToArray()
 
-        let _ = this.Block f.Body ret Normal
-        env.FinalizeBlock(Return { Value = ret; Span = f.Body.Span })
+        let _ = this.Block ret Normal f.Body
+        let _ = env.FinalizeBlock(Return { Value = ret; Span = f.Body.Span })
 
         let _ = env.ExitScope()
 

@@ -180,7 +180,7 @@ type internal Traverse(env: Environment) =
                     match enumTy with
                     | Some fn ->
                         if fn.Param.Length <> e.Payload.Length then
-                            env.AddError(LengthMismatch(e.Span, fn.Param.Length, e.Payload.Length))
+                            env.AddError(ParamLenMismatch(e.Span, fn.Param.Length, e.Payload.Length))
 
                         env.Unify fn.Ret ty e.Span
 
@@ -315,7 +315,13 @@ type internal Traverse(env: Environment) =
                 env.Unify (TFn { Param = arg; Ret = ret }) callee c.Span
 
                 env.NormalizeTy ret
-        | As _ -> failwith "Not Implemented"
+        | As a ->
+            let ty = this.Type a.Ty
+            // As has three kinds of usage
+            // 1. cast to another kind of number
+            // 2. make trait object
+            // 3. make slice from array
+            failwith "Not Implemented"
         | Unary u ->
             let value = this.Expr u.Value
 
@@ -758,6 +764,9 @@ type internal Traverse(env: Environment) =
 
                 env.EnterScope(TraitScope { Self = TGen gen[0] })
 
+                for idx, p in Array.indexed t.TyParam do
+                    env.RegisterTy p.Id (TGen gen[idx + 1])
+
                 let super = ResizeArray()
 
                 for path in t.Super do
@@ -793,7 +802,7 @@ type internal Traverse(env: Environment) =
                         let f = { Param = param; Ret = ret }
 
                         Map.add m.Name.Sym f method
-                    | TraitType t -> failwith "Not Implemented"
+                    | TraitType t -> method
                     | _ -> failwith "Not Implemented"
 
                 let method = t.Item |> Array.map _.Member |> Array.fold processMember Map.empty
@@ -809,7 +818,6 @@ type internal Traverse(env: Environment) =
                     { Name = t.Name
                       Method = method
                       Generic = gen
-                      // TODO
                       ObjectSafe = safe
                       Super = super }
             | Impl i ->

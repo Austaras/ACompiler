@@ -62,48 +62,6 @@ and Type =
         | Semantic.TVar _
         | Semantic.TGen _ -> failwith "Type Variable should be substituted in previous pass"
 
-    static member FromSema (semantic: Semantic.SemanticInfo) (layout: Layout) (ty: Semantic.Type) =
-        let size =
-            match layout.PtrSize with
-            | 4 -> I32
-            | 8 -> I64
-            | _ -> failwith "Not Implemented"
-            |> TInt
-
-        match ty with
-        | Semantic.TBool -> TInt I1
-        | Semantic.TInt(_, Semantic.I8) -> TInt I8
-        | Semantic.TInt(_, Semantic.I32) -> TInt I32
-        | Semantic.TInt(_, Semantic.I64) -> TInt I64
-        | Semantic.TInt(_, Semantic.ISize) -> size
-        | Semantic.TFloat Semantic.F32 -> TFloat F32
-        | Semantic.TFloat Semantic.F64 -> TFloat F64
-        | Semantic.TChar -> TInt I32
-        | Semantic.TRef _
-        | Semantic.TFn _
-        | Semantic.TTrait _ -> TRef
-        | Semantic.TSlice _
-        | Semantic.TString -> TMany [| TRef; size |]
-        | Semantic.TTuple t -> t |> Array.map (Type.FromSema semantic layout) |> TMany
-        | Semantic.TArray(t, n) -> TSame(Type.FromSema semantic layout t, n)
-        | Semantic.TStruct a ->
-            let strukt = semantic.Struct[a.Name]
-
-            let trans (ty: Semantic.Type) =
-                ty.Instantiate strukt.Generic a.Generic |> Type.FromSema semantic layout
-
-            strukt.Field.Values
-            |> Seq.map trans
-            |> Array.ofSeq
-            |> TMany
-            |> _.OptLayout(layout)
-        | Semantic.TEnum e ->
-            let enum = semantic.Enum[e.Name]
-            failwith "Not Implemented"
-        | Semantic.TNever
-        | Semantic.TVar _
-        | Semantic.TGen _ -> failwith "unreachable"
-
     member internal this.SizeAndAlign(layout: Layout) =
         match this with
         | TInt I1 -> 1, layout.I1Align

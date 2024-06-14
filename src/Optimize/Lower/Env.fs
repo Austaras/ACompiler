@@ -17,6 +17,10 @@ type Scope =
       Continue: ResizeArray<int * Span>
       Break: ResizeArray<int * Span> }
 
+type BranchTarget =
+    | One
+    | Zero
+
 type Env() =
     let scope = Stack<Scope>()
     let var = ResizeArray<Var>()
@@ -33,6 +37,11 @@ type Env() =
         let id = var.Count
         var.Add { Name = ""; Type = ty }
         id
+
+    member this.OfTarget target ty =
+        match target with
+        | Some t -> t
+        | None -> this.AddVar ty
 
     member _.DeclareVar ty (def: AST.Id) =
         let id = var.Count
@@ -65,6 +74,8 @@ type Env() =
         instr.Clear()
 
         block.Add newBlock
+
+        block.Count - 1
 
     member this.Reverse(value: Value) =
         let target =
@@ -125,6 +136,19 @@ type Env() =
 
         block[id] <- { b with Trans = trans }
 
+    member _.ModifyBr id target toId =
+        let b = block[id]
+
+        match b.Trans with
+        | Branch br ->
+            let br =
+                match target with
+                | One -> { br with One = toId }
+                | Zero -> { br with Zero = toId }
+
+            block[id] <- { b with Trans = Branch br }
+        | _ -> failwith "Unreachable"
+
     member _.EnterScope(info: ScopeInfo) =
         scope.Push
             { Continue = ResizeArray()
@@ -140,7 +164,7 @@ type Env() =
 
         register.Add(this.CurrBlockId, span)
 
-        this.FinalizeBlock(Unreachable Span.dummy)
+        this.FinalizeBlock(Unreachable Span.dummy) |> ignore
 
     member this.Break span =
         let picker s =
@@ -150,7 +174,7 @@ type Env() =
 
         register.Add(this.CurrBlockId, span)
 
-        this.FinalizeBlock(Unreachable Span.dummy)
+        this.FinalizeBlock(Unreachable Span.dummy) |> ignore
 
     member _.ExitScope() = scope.Pop()
 

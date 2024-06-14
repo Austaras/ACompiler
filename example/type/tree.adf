@@ -1,11 +1,11 @@
 struct Tree<T> {
     val: T,
-    left: Option<&Tree<T>>,
-    right: Option<&Tree<T>>
+    left: Option<&Self>,
+    right: Option<&Self>
 }
 
-impl<T: Add> Tree<T> {
-    fn sum(&self) -> uint {
+impl<T: Add<T>> Tree<T> {
+    fn sum(&self) -> T {
         let mut res = self.val
 
         if let Some(l) = self.left {

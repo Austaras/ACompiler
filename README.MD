@@ -7,10 +7,13 @@ Test out various compiler technology with a toy compiler for a toy language **in
 - _Modern Compiler Implementation in ML_
 - _Engineering a Compiler_
 - _Programming Language Concepts_
+- _Compilers: Principles, Techniques, and Tools_
 
 #### Paper
 
 - _Typing Haskell in Haskell_
+- _Type classes: an exploration of the design space_
+- _Type Classes with Functional Dependencies_
 
 ### Design Decisions
 

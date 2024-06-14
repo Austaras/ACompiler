@@ -185,7 +185,7 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
 
             | TTuple t1, TTuple t2 ->
                 if t1.Length <> t2.Length then
-                    error.Add(LengthMismatch(span, t1.Length, t2.Length))
+                    error.Add(ParamLenMismatch(span, t1.Length, t2.Length))
                 else
                     for (t1, t2) in Array.zip t1 t2 do
                         unify t1 t2
@@ -667,6 +667,7 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
 
     member this.FindMethod ty (arg: Type[]) field span =
         let ty = this.NormalizeTy ty
+        let arg = Array.map this.NormalizeTy arg
 
         let findTrait scope =
             match scope.Method.Get field with
@@ -682,13 +683,15 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
         let trait_ = this.Pick findTrait
 
         match trait_ with
-        | None -> TNever
+        | None ->
+            error.Add(UndefinedMethod(span, ty, field))
+            TNever
         | Some t ->
             let m = t.Method[field]
             let map = Map [| t.Generic[0], ty |]
 
             if m.Param.Length <> arg.Length then
-                error.Add(LengthMismatch(span, m.Param.Length, arg.Length))
+                error.Add(ParamLenMismatch(span, m.Param.Length, arg.Length))
             else
                 for p, a in Array.zip m.Param arg do
                     let p = p.InstantiateWithMap map

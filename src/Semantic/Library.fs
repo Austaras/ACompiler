@@ -8,9 +8,12 @@ open Syntax.AST
 
 [<ReferenceEquality>]
 type Def =
-    { Id: Id }
+    { Sym: string
+      Span: Span }
 
-    static member Create sym span = { Id = { Sym = sym; Span = span } }
+    static member Create sym span = { Sym = sym; Span = span }
+
+    static member FromId(id: Id) = { Sym = id.Sym; Span = id.Span }
 
 type Integer =
     | I8
@@ -313,19 +316,22 @@ type SemanticInfo =
               Add = Def.Create "Add" Span.dummy
               Index = Def.Create "Index" Span.dummy }
 
-        { WellKnown = well
-          Binding = Dictionary(HashIdentity.Reference)
-          DeclTy = Dictionary(HashIdentity.Reference)
-          ExprTy = Dictionary(HashIdentity.Reference)
-          PatTy = Dictionary(HashIdentity.Reference)
-          Struct = Dictionary(HashIdentity.Reference)
-          Enum = Dictionary(HashIdentity.Reference)
-          Capture = MultiMap(HashIdentity.Reference)
-          Trait = Dictionary(HashIdentity.Reference)
-          Module =
-            { Ty = Map.empty
-              Var = Map.empty
-              Module = Map.empty } }
+        let sema =
+            { WellKnown = well
+              Binding = Dictionary(HashIdentity.Reference)
+              DeclTy = Dictionary(HashIdentity.Reference)
+              ExprTy = Dictionary(HashIdentity.Reference)
+              PatTy = Dictionary(HashIdentity.Reference)
+              Struct = Dictionary(HashIdentity.Reference)
+              Enum = Dictionary(HashIdentity.Reference)
+              Capture = MultiMap(HashIdentity.Reference)
+              Trait = Dictionary(HashIdentity.Reference)
+              Module =
+                { Ty = Map.empty
+                  Var = Map.empty
+                  Module = Map.empty } }
+
+        sema
 
 type Error =
     | AmbiguousTypeVar of Var
@@ -341,7 +347,7 @@ type Error =
     | ExpectEnum of Id * Type
     | ExpectStruct of Id * Type
     | OrPatDifferent of Span * string[] * string[]
-    | LengthMismatch of Span * int * int
+    | ParamLenMismatch of Span * int * int
     | TypeMismatch of Type * Type * Span
     | GenericMismatch of Type * Type[] * Span
     | FailToUnify of Type * Type * Span
