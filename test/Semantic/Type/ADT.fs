@@ -6,7 +6,7 @@ open Common
 
 [<Fact>]
 let Stru () =
-    runInfer
+    runAnalysis
         "
 struct Point {
     x: int,
@@ -26,7 +26,7 @@ fn add(p) {
 
 [<Fact>]
 let AutoDeref () =
-    runInfer
+    runAnalysis
         "
 struct Foo {
     b: &Bar
@@ -43,7 +43,7 @@ fn foo(f) {
 
 [<Fact>]
 let DerefParam () =
-    runInfer
+    runAnalysis
         "
 struct Foo {
     b: uint
@@ -56,7 +56,7 @@ fn foo(f: &Foo) {
 
 [<Fact>]
 let Tuple () =
-    runInfer
+    runAnalysis
         "
 fn foo((a, b, c)) {
     a == 1 && b == 2 && c == 3
@@ -66,7 +66,7 @@ fn foo((a, b, c)) {
 
 [<Fact>]
 let Infer () =
-    runInfer
+    runAnalysis
         "
 struct Foo<T> {
     f: T
@@ -79,11 +79,12 @@ fn foo(f: Foo<_>) -> uint {
 
 [<Fact>]
 let Reference () =
-    runInfer "fn deref(a) { *a + 1 }" |> toBe (Map [| "deref", "|&int| -> int" |])
+    runAnalysis "fn deref(a) { *a + 1 }"
+    |> toBe (Map [| "deref", "|&int| -> int" |])
 
 [<Fact>]
 let RefField () =
-    runInfer
+    runAnalysis
         "
 struct Foo {
     f: uint
@@ -94,7 +95,7 @@ fn get_f(f) { &f.f }"
 
 [<Fact>]
 let GenericStruct () =
-    runInfer
+    runAnalysis
         "
 struct Foo<T> {
     f: T
@@ -105,14 +106,14 @@ fn new_foo() { Foo { f: 1 } }"
 
 [<Fact>]
 let Slice () =
-    runInfer
+    runAnalysis
         "
 fn head(a) { a[0] }"
     |> toBe (Map [| "head", "<T0>|[T0]| -> T0" |])
 
 [<Fact>]
 let Self () =
-    runInfer
+    runAnalysis
         "
 struct Foo {
     next: &Self

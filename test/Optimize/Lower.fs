@@ -7,7 +7,7 @@ open Xunit
 
 open Snapshot
 open Syntax.Parser
-open Semantic.Check
+open Semantic.Analysis
 open Optimize.Lower.Lower
 
 let snap = Snapshot("flir")
@@ -36,7 +36,7 @@ let runTansform input =
 
     let sema = Semantic.Semantic.SemanticInfo.Create()
 
-    match check sema m with
+    match analysis sema m with
     | Ok sema -> (lower arch m sema).Print
     | Error e -> failwithf "type error %A" e
 

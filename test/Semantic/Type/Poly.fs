@@ -6,7 +6,7 @@ open Common
 
 [<Fact>]
 let Poly () =
-    runInfer
+    runAnalysis
         "
 fn id(x) { 
     x
@@ -19,7 +19,7 @@ fn main() {
 
 [<Fact>]
 let HoistedMono () =
-    runInfer
+    runAnalysis
         "
 fn main() {
     one(1)
@@ -30,7 +30,7 @@ fn one(x) { 1 }"
 
 [<Fact>]
 let HoistedTyped () =
-    runInfer
+    runAnalysis
         "
 fn main() {
     id(1)
@@ -44,7 +44,7 @@ fn id<T>(x: T) -> T {
 
 [<Fact>]
 let RecTyped () =
-    runInfer
+    runAnalysis
         "
 fn id<T>(x: T) -> T {
     let _ = id(1)
@@ -55,15 +55,15 @@ fn id<T>(x: T) -> T {
 
 [<Fact>]
 let PolyDouble () =
-    runInfer "fn double(f, x) { f(f(x)) }"
+    runAnalysis "fn double(f, x) { f(f(x)) }"
     |> toBe (Map [| "double", "<T0>||T0| -> T0, T0| -> T0" |])
 
-    runInfer "fn double(f) { |x| f(f(x)) }"
+    runAnalysis "fn double(f) { |x| f(f(x)) }"
     |> toBe (Map [| "double", "<T0>||T0| -> T0| -> |T0| -> T0" |])
 
 [<Fact>]
 let PolyRec () =
-    runInfer
+    runAnalysis
         "
 fn foo(x) {
     bar(1)
@@ -77,12 +77,12 @@ fn bar(x) {
 
 [<Fact>]
 let WeirdRec () =
-    runInfer "fn weird_rec(x) { weird_rec(1) }"
+    runAnalysis "fn weird_rec(x) { weird_rec(1) }"
     |> toBe (Map [| "weird_rec", "|int| -> !" |])
 
 [<Fact>]
 let ExplicitTuple () =
-    runInfer
+    runAnalysis
         "
 pub fn swap<T1, T2>((fst, snd): (T1, T2)) -> (T2, T1) {
     (snd, fst)
@@ -91,7 +91,7 @@ pub fn swap<T1, T2>((fst, snd): (T1, T2)) -> (T2, T1) {
 
 [<Fact>]
 let OtherScope () =
-    runInfer
+    runAnalysis
         "
 fn former(x) {
     later(x)
@@ -104,7 +104,7 @@ fn later(x) {
 
 [<Fact>]
 let Nested () =
-    runInfer
+    runAnalysis
         "
 fn outer(x) {
     fn inner(y) {

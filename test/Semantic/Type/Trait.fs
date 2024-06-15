@@ -6,7 +6,7 @@ open Common
 
 [<Fact>]
 let Basic () =
-    runInfer
+    runAnalysis
         "
 trait Foo {
     fn foo(self)
@@ -24,7 +24,7 @@ fn test(n) {
 
 [<Fact>]
 let Poly () =
-    runInfer
+    runAnalysis
         "
 trait Foo {
     fn foo(self)
@@ -37,7 +37,7 @@ fn test(n) {
 
 [<Fact>]
 let Super () =
-    runInfer
+    runAnalysis
         "
 trait Foo {
     fn foo(self)
@@ -62,7 +62,7 @@ fn test(a: int) {
 
 [<Fact>]
 let SuperGeneric () =
-    runInfer
+    runAnalysis
         "
 trait Foo {
     fn foo(self)
@@ -79,7 +79,7 @@ fn test<T: Bar>(a: T) {
 
 [<Fact>]
 let Bound () =
-    runInfer
+    runAnalysis
         "
 trait Foo {
     fn foo(self)
@@ -100,7 +100,7 @@ fn test() {
 
 [<Fact>]
 let TuplePred () =
-    runInfer
+    runAnalysis
         "
 trait Foo {
     fn foo(self)
@@ -122,7 +122,7 @@ fn main() {
 
 [<Fact>]
 let SimplifyByInst () =
-    runInfer
+    runAnalysis
         "
 trait Foo {
     fn foo(self)
@@ -139,7 +139,7 @@ fn test(a) {
 
 [<Fact>]
 let SimplifyBySuper () =
-    runInfer
+    runAnalysis
         "
 trait Foo {
     fn foo(self)
@@ -157,7 +157,7 @@ fn test(a) {
 
 [<Fact>]
 let Self () =
-    runInfer
+    runAnalysis
         "
 trait Id {
     fn id(self) -> Self

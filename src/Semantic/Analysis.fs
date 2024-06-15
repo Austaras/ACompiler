@@ -1,4 +1,4 @@
-module Semantic.Check
+module Semantic.Analysis
 
 open System.Collections.Generic
 
@@ -924,7 +924,7 @@ type internal Traverse(env: Environment) =
 
         env.ExitScope()
 
-let check (sema: SemanticInfo) (m: Module) =
+let analysis (sema: SemanticInfo) (m: Module) =
     let error = ResizeArray()
     let env = Environment(sema, error)
 

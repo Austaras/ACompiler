@@ -6,7 +6,7 @@ open Common
 
 [<Fact>]
 let MutualRec () =
-    runInfer
+    runAnalysis
         "
 fn is_even(n) {
     if n == 0 {
@@ -27,12 +27,12 @@ fn is_odd(n) {
 
 [<Fact>]
 let Closure () =
-    runInfer "fn call(c) { c(0) + 1 }"
+    runAnalysis "fn call(c) { c(0) + 1 }"
     |> toBe (Map [| "call", "||int| -> int| -> int" |])
 
 [<Fact>]
 let Curry () =
-    runInfer
+    runAnalysis
         "
 fn equal(x) {
     |y| x == y
@@ -41,7 +41,7 @@ fn equal(x) {
 
 [<Fact>]
 let MonoClosure () =
-    runInfer
+    runAnalysis
         "
 fn main() {
     let id = |x| x
@@ -52,7 +52,7 @@ fn main() {
 
 [<Fact>]
 let TopLevel () =
-    runInfer
+    runAnalysis
         "
 fn foo() {
     f
@@ -63,7 +63,7 @@ let f = 1"
 
 [<Fact>]
 let Ret () =
-    runInfer
+    runAnalysis
         "
 fn foo(i) {
     if i == 0 {
@@ -76,7 +76,7 @@ fn foo(i) {
 
 [<Fact>]
 let Never () =
-    runInfer
+    runAnalysis
         "
 fn foo(i) {
     let mut i = i

@@ -6,7 +6,7 @@ open Common
 
 [<Fact>]
 let Fib () =
-    runInfer
+    runAnalysis
         "
 fn fib(n) {
     match n {
@@ -19,7 +19,7 @@ fn fib(n) {
 
 [<Fact>]
 let Enum () =
-    runInfer
+    runAnalysis
         "
 enum Either<L, R> {
     L(L),
@@ -36,7 +36,7 @@ fn is_zero(e) {
 
 [<Fact>]
 let ValueRestriction () =
-    runInfer
+    runAnalysis
         "
 enum Option<V> {
     Some(V),
@@ -52,7 +52,7 @@ fn main() {
 
 [<Fact>]
 let Closure () =
-    runInfer
+    runAnalysis
         "
 fn church(f) {
     match f {

@@ -7,9 +7,9 @@ open Xunit
 open Syntax
 open Syntax.Parser
 open Semantic.Semantic
-open Semantic.Check
+open Semantic.Analysis
 
-let runInfer input =
+let runAnalysis input =
     let m =
         match parse input with
         | Ok m -> m
@@ -17,7 +17,7 @@ let runInfer input =
 
     let sema = SemanticInfo.Create()
 
-    match check sema m with
+    match analysis sema m with
     | Ok sema ->
         let map (id: AST.Id, t: Scheme) = (id.Sym, t.Print())
         sema.DeclTy |> Seq.map (|KeyValue|) |> Seq.map map |> Map.ofSeq
