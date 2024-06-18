@@ -535,7 +535,15 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>, ctx: Context) =
         | _ -> raise (ParserExp(UnexpectedToken(token, "Type")))
 
     member this.Param closure =
+        let mut =
+            match lexer.Peek() with
+            | Some { Data = Reserved MUTABLE } ->
+                lexer.Consume()
+                true
+            | _ -> false
+
         let pat =
+            // closure param cannot contain or pattern because of |
             if closure then
                 let pat = this.PatPrefix()
                 let pat = this.PatRange pat
@@ -551,11 +559,13 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>, ctx: Context) =
 
             { Pat = pat
               Ty = Some ty
+              Mut = mut
               Span = pat.Span.WithLast ty.Span }
 
         | _ ->
             { Pat = pat
               Ty = None
+              Mut = mut
               Span = pat.Span }
 
     member this.ExprPath(first: Either<Id, PathPrefix * Span>) =

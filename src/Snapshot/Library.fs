@@ -48,14 +48,14 @@ let shouldMatch (actual: TextWriter -> unit) snap =
 
             Assert.Fail(msg.ToString())
 
-type Snapshot(suffix: string) =
+type Snapshot(name: string) =
 
     member _.ShouldMatch (transform: string -> TextWriter -> unit) path =
         let path = Path.GetFullPath path
         let content = File.ReadAllText(path)
         let actual = transform content
 
-        let snap = Path.ChangeExtension(path, suffix)
+        let snap = Path.GetDirectoryName(path) + "/" + name
 
         shouldMatch actual snap
 

@@ -6,8 +6,8 @@
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
   <ItemGroup>
-    <Compile Include="Lower.fs" />
     <Compile Include="Type.fs" />
+    <Compile Include="Spec.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
   <ItemGroup>

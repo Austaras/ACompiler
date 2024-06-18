@@ -1,4 +1,4 @@
-module Semantic.Env
+module internal Semantic.Env
 
 open System.Collections.Generic
 open System.Linq
@@ -9,7 +9,7 @@ open Common.Util
 open Syntax.AST
 open Semantic
 
-let internal primitive =
+let primitive =
     [| TInt(true, I8)
        TInt(false, I8)
        TInt(true, I32)
@@ -24,18 +24,18 @@ let internal primitive =
        TChar
        TString |]
 
-type internal FnScope =
+type FnScope =
     { Param: Type[]
       Ret: Type
       Fixed: bool
       Name: Id }
 
-type internal ClosureScope = { Closure: Closure; Ret: Type }
-type internal MethodScope = { Self: Type; Ret: Type }
+type ClosureScope = { Closure: Closure; Ret: Type }
+type MethodScope = { Self: Type; Ret: Type }
 
-type internal AdtScope = { Self: Type }
+type AdtScope = { Self: Type }
 
-type internal ScopeData =
+type ScopeData =
     | FnScope of FnScope
     | ClosureScope of ClosureScope
     | BlockScope
@@ -46,11 +46,11 @@ type internal ScopeData =
     | TypeScope
     | TopLevelScope
 
-type internal TyInfo = { Def: Id; Ty: Type }
+type TyInfo = { Def: Id; Ty: Type }
 
-type internal VarInfo = { Def: Id; Mut: bool; Static: bool }
+type VarInfo = { Def: Id; Mut: bool; Static: bool }
 
-type internal Scope =
+type Scope =
     { Ty: Dictionary<string, TyInfo>
       Var: Dictionary<string, VarInfo>
       Trait: Dictionary<string, Trait>
@@ -80,7 +80,7 @@ type internal Scope =
 
         scope
 
-type internal Obligation =
+type Obligation =
     { Pred: Pred
       TVar: Var[]
       Span: Span }
@@ -92,12 +92,12 @@ type internal Obligation =
           TVar = tvar
           Span = span }
 
-type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
+type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
     let scope = Stack([| Scope.Prelude |])
 
     let unionFind = Dictionary<int, Type>()
     let traitImpl = Dictionary<Trait, ResizeArray<Scheme>>(HashIdentity.Reference)
-    let mutable pending = ResizeArray<Obligation>()
+    let pending = ResizeArray<Obligation>()
     let predCache = HashSet<Pred>()
 
     let mutable varId = 0
@@ -206,9 +206,11 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
             for KeyValue(var, ty) in union do
                 unionFind.Add(var, ty)
 
-            let newPending = ResizeArray()
+            let mutable remainIdx = 0
 
-            for ob in pending do
+            for idx in 0 .. pending.Count - 1 do
+                let ob = pending[idx]
+
                 let newTVar (v: Var) =
                     if union.ContainsKey v.Id then
                         match union[v.Id] with
@@ -227,7 +229,8 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                     if not (this.HasTrait span pred) then
                         error.Add(TraitNotImpl(pred, ob.Span))
                 else if newTVar = ob.TVar then
-                    newPending.Add ob
+                    pending[remainIdx] <- ob
+                    remainIdx <- remainIdx + 1
                 else
                     let ob =
                         { ob with
@@ -236,9 +239,10 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                                     Type = this.NormalizeTy ob.Pred.Type }
                             TVar = newTVar }
 
-                    newPending.Add ob
+                    pending[remainIdx] <- ob
+                    remainIdx <- remainIdx + 1
 
-            pending <- newPending
+            pending.RemoveRange(remainIdx, pending.Count - remainIdx)
 
         | Error unionError ->
             for e in unionError do
@@ -315,7 +319,10 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
             for s in this.AllSuperTrait p.Trait do
                 super.Add({ p with Trait = s }, pred)
 
-        for ob in pending do
+        let mutable remainIdx = 0
+
+        for idx in 0 .. pending.Count - 1 do
+            let ob = pending[idx]
             let remain key = Map.containsKey key map |> not
             let remain = Array.filter remain ob.TVar
 
@@ -330,19 +337,21 @@ type internal Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                     for p in p do
                         addToPred p
             else if Array.forall outScope remain then
-                newPending.Add
+                pending[remainIdx] <-
                     { ob with
                         TVar = remain
                         Pred =
                             { ob.Pred with
                                 Type = resolve ob.Pred.Type } }
+
+                remainIdx <- remainIdx + 1
             else
                 let unresolved = Array.filter (outScope >> not) remain
 
                 for u in unresolved do
                     error.Add(AmbiguousTypeVar u)
 
-        pending <- newPending
+        pending.RemoveRange(remainIdx, pending.Count - remainIdx)
 
         let bySuper pred = not (super.ContainsKey pred)
         let pred = pred.ToArray() |> Array.filter bySuper

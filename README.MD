@@ -56,11 +56,19 @@ Test out various compiler technology with a toy compiler for a toy language **in
 - [x] type class
   - [ ] multi parameter type class
   - [ ] functional dependency
+  - [ ] number type class
   - [ ] existential type
+  - [ ] TRIE based resolution
+  - [ ] lower
+- [ ] pattern match
+  - [ ] coverage
+  - [ ] lower
 - [ ] fixed size array
-- [ ] IR lowering
-  - [ ] SSA
+- [x] IR lower
+  - [ ] function call
   - [ ] generic
+- [ ] SSA
+- [ ] optimization
 
 ### Code Architecture
 

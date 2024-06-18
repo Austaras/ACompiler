@@ -260,6 +260,7 @@ and Pat =
 type Param =
     { Pat: Pat
       Ty: Option<Type>
+      Mut: bool
       Span: Span }
 
 type Call<'a> = { Callee: 'a; Arg: 'a[]; Span: Span }

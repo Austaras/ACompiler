@@ -10,8 +10,6 @@ open Syntax.Parser
 open Semantic.Analysis
 open Optimize.Lower.Lower
 
-let snap = Snapshot("flir")
-
 let getAllFile path =
     let path = __SOURCE_DIRECTORY__ + path
 
@@ -43,7 +41,9 @@ let runTansform input =
 let specFile = getAllFile "/Spec"
 let spec = specFile.Keys |> Seq.map (Array.create 1)
 
+let lowerSnap = Snapshot("raw.flir")
+
 [<Theory>]
 [<MemberData(nameof (spec))>]
-let Spec name =
-    snap.ShouldMatch runTansform specFile[name]
+let Lower name =
+    lowerSnap.ShouldMatch runTansform specFile[name]

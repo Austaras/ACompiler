@@ -230,6 +230,10 @@ type Dump(tw: TextWriter) =
         this.Prop "pat"
         this.Pat p.Pat
 
+        if p.Mut then
+            this.Prop "mut"
+            tw.Write "true"
+
         match p.Ty with
         | None -> ()
         | Some t ->

@@ -6,7 +6,6 @@ open System.Collections.Generic
 // TODO: type alias
 // TODO: operator overloading
 
-open Common.Span
 open Syntax.AST
 open Semantic
 open Env
@@ -14,7 +13,7 @@ open Env
 type internal LetPat = { Mut: bool; Static: bool }
 
 type internal PatMode =
-    | ParamPat
+    | ParamPat of bool
     | CondPat
     | LetPat of LetPat
 
@@ -83,7 +82,7 @@ type internal Traverse(env: Environment) =
         let mut, mayShadow, isCond, static_ =
             match mode with
             | LetPat { Mut = mut; Static = static_ } -> mut, not static_, false, static_
-            | ParamPat -> true, false, false, false
+            | ParamPat mut -> mut, false, false, false
             | CondPat -> true, true, true, false
 
         let addSym sym (i: Id) (ty: Type) =
@@ -473,7 +472,7 @@ type internal Traverse(env: Environment) =
             env.EnterScope closureScope
 
             for (param, ty) in Array.zip c.Param paramTy do
-                this.Pat ParamPat param.Pat ty
+                this.Pat (ParamPat param.Mut) param.Pat ty
 
             let ret = this.Expr c.Body
 
@@ -854,7 +853,7 @@ type internal Traverse(env: Environment) =
                 env.EnterScope(FnScope fnScope)
 
                 for (param, ty) in Array.zip f.Param fnScope.Param do
-                    this.Pat ParamPat param.Pat ty
+                    this.Pat (ParamPat param.Mut) param.Pat ty
 
                 let ret = this.Block f.Body
 

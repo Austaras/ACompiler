@@ -1,4 +1,4 @@
-module Syntax.Lexer
+module internal Syntax.Lexer
 
 open System.Globalization
 
@@ -6,7 +6,7 @@ open Common.Span
 open Syntax
 open Syntax.Util
 
-let internal classify input =
+let classify input =
     match input with
     | "if" -> Reserved IF
     | "else" -> Reserved ELSE
@@ -40,9 +40,9 @@ let internal classify input =
     | "_" -> UnderLine
     | str -> Identifier str
 
-let internal unescapeStr = System.Text.RegularExpressions.Regex.Unescape
+let unescapeStr = System.Text.RegularExpressions.Regex.Unescape
 
-let internal letter c =
+let letter c =
     match System.Char.GetUnicodeCategory c with
     | UnicodeCategory.UppercaseLetter
     | UnicodeCategory.LowercaseLetter
@@ -52,9 +52,9 @@ let internal letter c =
     | UnicodeCategory.LetterNumber -> true
     | _ -> false
 
-let internal isIdStart c = c = '_' || letter c
+let isIdStart c = c = '_' || letter c
 
-let internal isIdContinue c =
+let isIdContinue c =
     isIdStart c
     || match System.Char.GetUnicodeCategory c with
        | UnicodeCategory.DecimalDigitNumber
@@ -64,7 +64,7 @@ let internal isIdContinue c =
        | UnicodeCategory.Format -> true
        | _ -> false
 
-type internal Lexer(input: string, error: ResizeArray<Error>) =
+type Lexer(input: string, error: ResizeArray<Error>) =
     let len = input.Length
 
     let mutable pos = 0

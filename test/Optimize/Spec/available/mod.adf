@@ -1,0 +1,12 @@
+fn calc(mut a: int, b: int) {
+    let mut x = 0
+    let z = a + b
+    let y = a * b
+
+    while y > a + b {
+        a = a + 1
+        x = a + b
+    }
+
+    x
+}
