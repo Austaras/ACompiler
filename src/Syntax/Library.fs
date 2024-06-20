@@ -178,7 +178,9 @@ and Type =
         | InferedType _ -> InferedType span
         | FnType f -> FnType { f with Span = span }
 
-type SeqPat = { Ele: Pat[]; Span: Span }
+type IdPat = { Id: Id; Mut: bool; Span: Span }
+
+and SeqPat = { Ele: Pat[]; Span: Span }
 
 and AsPat = { Pat: Pat; Id: Id; Span: Span }
 
@@ -211,7 +213,7 @@ and StructPat =
       Span: Span }
 
 and Pat =
-    | IdPat of Id
+    | IdPat of IdPat
     | LitPat of Literal
     | TuplePat of SeqPat
     | ArrayPat of SeqPat
@@ -260,7 +262,6 @@ and Pat =
 type Param =
     { Pat: Pat
       Ty: Option<Type>
-      Mut: bool
       Span: Span }
 
 type Call<'a> = { Callee: 'a; Arg: 'a[]; Span: Span }
@@ -471,7 +472,6 @@ and Expr =
 
 and Let =
     { Pat: Pat
-      Mut: bool
       Ty: Option<Type>
       Value: Expr
       Span: Span }

@@ -57,6 +57,7 @@ Test out various compiler technology with a toy compiler for a toy language **in
   - [ ] multi parameter type class
   - [ ] functional dependency
   - [ ] number type class
+  - [ ] field selection
   - [ ] existential type
   - [ ] TRIE based resolution
   - [ ] lower

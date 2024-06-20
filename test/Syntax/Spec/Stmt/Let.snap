@@ -2,8 +2,7 @@ Let@0..48
     pat: _@4..4
     value: Block@8..48
         Let@14..27
-            mut: true
-            pat: a@22..22
+            pat: mut a@22..22
             value: 10@26..27
         Call@33..40
             callee: print@33..37

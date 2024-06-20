@@ -215,6 +215,16 @@ type Unary =
       Value: Value
       Span: Span }
 
+type Callee =
+    | Fixed
+    | CBinding of int
+
+type Call =
+    { Target: int
+      Callee: Callee
+      Arg: Value[]
+      Span: Span }
+
 /// Instrument
 type Instr =
     | Load
@@ -222,7 +232,7 @@ type Instr =
     | Assign of Assign
     | Binary of Binary
     | Unary of Unary
-    | Call
+    | Call of Call
     | Alloc
 
     member this.Target =
@@ -230,9 +240,9 @@ type Instr =
         | Binary b -> b.Target
         | Assign a -> a.Target
         | Unary n -> n.Target
+        | Call c -> failwith "Not Implemented"
         | Load -> failwith "Not Implemented"
         | Store -> failwith "Not Implemented"
-        | Call -> failwith "Not Implemented"
         | Alloc -> failwith "Not Implemented"
 
 type Jump = { Target: int; Span: Span }
@@ -322,9 +332,9 @@ type Func =
                       | Unary n ->
                           let v = valueToString n.Value
                           $"= ! {v}"
+                      | Call c -> failwith "Not Implemented"
                       | Load -> failwith "Not Implemented"
                       | Store -> failwith "Not Implemented"
-                      | Call -> failwith "Not Implemented"
                       | Alloc -> failwith "Not Implemented"
 
                 tw.WriteLine stm

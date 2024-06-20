@@ -211,7 +211,10 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>, ctx: Context) =
 
         | _ ->
             if path.Prefix = None && path.Seg.Length = 1 then
-                IdPat path.Seg[0]
+                IdPat
+                    { Id = path.Seg[0]
+                      Mut = false
+                      Span = path.Span }
             else if path.Prefix = Some LowSelf && path.Seg.Length = 0 then
                 SelfPat path.Span
             else
@@ -224,6 +227,13 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>, ctx: Context) =
         let { Data = data; Span = span } as token = lexer.Read "Pattern"
 
         match data with
+        | Reserved MUTABLE ->
+            let id = lexer.ReadId "mutable id pattern"
+
+            IdPat
+                { Id = id
+                  Mut = true
+                  Span = span.WithLast id.Span }
         | Identifier sym ->
             let id = { Sym = sym; Span = span }
 
@@ -535,13 +545,6 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>, ctx: Context) =
         | _ -> raise (ParserExp(UnexpectedToken(token, "Type")))
 
     member this.Param closure =
-        let mut =
-            match lexer.Peek() with
-            | Some { Data = Reserved MUTABLE } ->
-                lexer.Consume()
-                true
-            | _ -> false
-
         let pat =
             // closure param cannot contain or pattern because of |
             if closure then
@@ -559,13 +562,11 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>, ctx: Context) =
 
             { Pat = pat
               Ty = Some ty
-              Mut = mut
               Span = pat.Span.WithLast ty.Span }
 
         | _ ->
             { Pat = pat
               Ty = None
-              Mut = mut
               Span = pat.Span }
 
     member this.ExprPath(first: Either<Id, PathPrefix * Span>) =
@@ -1247,13 +1248,6 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>, ctx: Context) =
 
         match data with
         | Reserved LET ->
-            let mut =
-                match lexer.Peek() with
-                | Some { Data = Reserved MUTABLE } ->
-                    lexer.Consume()
-                    true
-                | _ -> false
-
             let pat = this.Pat()
 
             let ty =
@@ -1270,8 +1264,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>, ctx: Context) =
             let value = this.Expr()
 
             Let
-                { Mut = mut
-                  Pat = pat
+                { Pat = pat
                   Ty = ty
                   Value = value
                   Span = span.WithLast value.Span }
@@ -1655,7 +1648,6 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>, ctx: Context) =
 
                 Let
                     { Pat = CatchAllPat Span.dummy
-                      Mut = false
                       Ty = None
                       Value = e
                       Span = Span.dummy }

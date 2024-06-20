@@ -10,10 +10,10 @@ open Syntax.AST
 open Semantic
 open Env
 
-type internal LetPat = { Mut: bool; Static: bool }
+type internal LetPat = { Static: bool }
 
 type internal PatMode =
-    | ParamPat of bool
+    | ParamPat
     | CondPat
     | LetPat of LetPat
 
@@ -79,21 +79,22 @@ type internal Traverse(env: Environment) =
     member _.Pat mode pat ty =
         env.RegisterPat pat ty
 
-        let mut, mayShadow, isCond, static_ =
+        let mayShadow, isCond, static_ =
             match mode with
-            | LetPat { Mut = mut; Static = static_ } -> mut, not static_, false, static_
-            | ParamPat mut -> mut, false, false, false
-            | CondPat -> true, true, true, false
+            | LetPat { Static = static_ } -> not static_, false, static_
+            | ParamPat -> false, false, false
+            | CondPat -> true, true, false
 
-        let addSym sym (i: Id) (ty: Type) =
+        let addSym sym (i: Id) (ty: Type) (mut: bool) =
             if Map.containsKey i.Sym sym then
-                env.AddError(DuplicateDefinition(i, (fst sym[i.Sym])))
+                let (id, _, _) = sym[i.Sym]
+                env.AddError(DuplicateDefinition(i, id))
 
-            Map.add i.Sym (i, ty) sym
+            Map.add i.Sym (i, ty, mut) sym
 
         let rec proc sym ty pat =
             match pat with
-            | IdPat i -> addSym sym i ty
+            | IdPat i -> addSym sym i.Id ty i.Mut
             | LitPat l ->
                 if not isCond then
                     env.AddError(RefutablePat l.Span)
@@ -123,7 +124,7 @@ type internal Traverse(env: Environment) =
 
                 Array.fold2 proc sym patTy t.Ele
             | AsPat a ->
-                let sym = addSym sym a.Id ty
+                let sym = addSym sym a.Id ty false
 
                 proc sym ty a.Pat
             | OrPat { Pat = pat; Span = span } ->
@@ -143,13 +144,13 @@ type internal Traverse(env: Environment) =
                             env.AddError(OrPatDifferent(pat[idx].Span, firstKey, currKey))
 
                         for key in firstKey do
-                            let firstTy = snd first[key]
-                            let id, currTy = sym[key]
+                            let _, firstTy, _ = first[key]
+                            let id, currTy, _ = sym[key]
 
                             env.Unify firstTy currTy id.Span
 
                 let mergeSym sym curr =
-                    Map.fold (fun sym _ (id, ty) -> addSym sym id ty) sym curr
+                    Map.fold (fun sym _ (id, ty, mut) -> addSym sym id ty mut) sym curr
 
                 Array.fold mergeSym sym allSym
             | ArrayPat(_) -> failwith "Not Implemented"
@@ -195,7 +196,7 @@ type internal Traverse(env: Environment) =
 
         let map = proc Map.empty ty pat
 
-        for (id, ty) in map.Values do
+        for (id, ty, mut) in map.Values do
             let info =
                 { Def = id
                   Mut = mut
@@ -472,7 +473,7 @@ type internal Traverse(env: Environment) =
             env.EnterScope closureScope
 
             for (param, ty) in Array.zip c.Param paramTy do
-                this.Pat (ParamPat param.Mut) param.Pat ty
+                this.Pat ParamPat param.Pat ty
 
             let ret = this.Expr c.Body
 
@@ -644,7 +645,7 @@ type internal Traverse(env: Environment) =
                     | Some ty -> this.Type ty
                     | None -> env.NewTVar l.Span |> TVar
 
-                this.Pat (LetPat { Mut = l.Mut; Static = true }) l.Pat ty
+                this.Pat (LetPat { Static = true }) l.Pat ty
             | Let _ -> ()
             | Const _ -> ()
             | FnDecl f ->
@@ -853,7 +854,7 @@ type internal Traverse(env: Environment) =
                 env.EnterScope(FnScope fnScope)
 
                 for (param, ty) in Array.zip f.Param fnScope.Param do
-                    this.Pat (ParamPat param.Mut) param.Pat ty
+                    this.Pat ParamPat param.Pat ty
 
                 let ret = this.Block f.Body
 
@@ -885,7 +886,7 @@ type internal Traverse(env: Environment) =
                     ty
                 | None -> value
 
-            this.Pat (LetPat { Mut = l.Mut; Static = false }) l.Pat ty
+            this.Pat (LetPat { Static = false }) l.Pat ty
 
         | Const _ -> failwith "Not Implemented"
         | Use _ -> failwith "Not Implemented"

@@ -56,7 +56,11 @@ type Dump(tw: TextWriter) =
         level <- level + 1
 
         match p with
-        | IdPat i -> this.Id i
+        | IdPat i ->
+            if i.Mut then
+                tw.Write "mut "
+
+            this.Id i.Id
         | LitPat l -> tw.WriteLine(this.Lit l)
         | TuplePat t ->
             tw.WriteLine("Tuple" + s)
@@ -229,10 +233,6 @@ type Dump(tw: TextWriter) =
 
         this.Prop "pat"
         this.Pat p.Pat
-
-        if p.Mut then
-            this.Prop "mut"
-            tw.Write "true"
 
         match p.Ty with
         | None -> ()
@@ -576,10 +576,6 @@ type Dump(tw: TextWriter) =
         match decl with
         | Let l ->
             tw.WriteLine("Let" + s)
-
-            if l.Mut then
-                this.Prop "mut"
-                tw.WriteLine "true"
 
             this.Prop "pat"
             this.Pat l.Pat

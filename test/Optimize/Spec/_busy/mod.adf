@@ -1,0 +1,11 @@
+fn calc(mut x: int, cb: |int| -> ()) {
+    let a = x - 1
+    let b = x - 2
+
+    while x > 0 {
+        cb(a * b - x)
+        x = x - 1
+    }
+
+    a * b
+}

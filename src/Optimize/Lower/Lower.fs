@@ -45,8 +45,8 @@ type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
     member this.Pat(p: AST.Pat) =
         match p with
         | AST.IdPat i ->
-            let ty = this.Type sema.DeclTy[i].Type
-            env.DeclareVar ty i
+            let ty = this.Type sema.DeclTy[i.Id].Type
+            env.DeclareVar ty i.Id
         | _ -> failwith "Not Implmented"
 
     member this.Type(ty: Semantic.Type) =
@@ -256,6 +256,12 @@ type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
                 Binding t
             | None -> this.Expr (Some t) a.Value
 
+        | AST.Call c ->
+            let callee = this.Expr None c.Callee
+            let arg = Array.map (this.Expr None) c.Arg
+            let target = env.OfTarget target (TInt I64)
+
+            failwith "Not Implemented"
         | AST.If i ->
             let t, f = this.Cond i.Cond
 
