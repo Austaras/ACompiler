@@ -196,11 +196,10 @@ type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
             for f, tar in f do
                 env.ModifyBr f tar env.CurrBlockId
 
-            env.ModifyTrans
+            env.ModifyJmp
                 (env.CurrBlockId - 1)
-                (Jump
-                    { Target = env.CurrBlockId
-                      Span = bin.Span })
+                { Target = env.CurrBlockId
+                  Span = bin.Span }
 
             Binding target
         | AST.Binary bin ->
@@ -278,8 +277,8 @@ type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
                 let _ = this.Block target Normal i.Then
                 let next = env.CurrBlockId + 1
 
-                let _ = env.FinalizeBlock(Jump { Target = next; Span = i.Then.Span })
-                env.ModifyTrans elseId (Jump { Target = next; Span = e.Span })
+                let _ = env.ToNext i.Then.Span
+                env.ModifyJmp elseId { Target = next; Span = e.Span }
 
                 for t, tar in t do
                     env.ModifyBr t tar thenStart
@@ -324,14 +323,13 @@ type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
                 env.ModifyBr f tar env.CurrBlockId
 
             for id, span in scope.Break do
-                env.ModifyTrans
+                env.ModifyJmp
                     id
-                    (Jump
-                        { Target = env.CurrBlockId
-                          Span = span })
+                    { Target = env.CurrBlockId
+                      Span = span }
 
             for id, span in scope.Continue do
-                env.ModifyTrans id (Jump { Target = endCondStart; Span = span })
+                env.ModifyJmp id { Target = endCondStart; Span = span }
 
             Const 0UL
 

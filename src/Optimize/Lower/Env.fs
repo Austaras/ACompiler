@@ -21,6 +21,10 @@ type BranchTarget =
     | One
     | Zero
 
+type CFGData =
+    { Pred: SortedSet<int>
+      Succ: SortedSet<int> }
+
 type Env() =
     let scope = Stack<Scope>()
     let var = ResizeArray<Var>()
@@ -28,7 +32,7 @@ type Env() =
     let varMap = Dictionary<AST.Id, int>(HashIdentity.Reference)
 
     let block = ResizeArray<Block>()
-    let phi = ResizeArray<unit>()
+    let cfg = ResizeArray<CFGData>()
     let instr = ResizeArray<Instr>()
 
     member _.AddInstr i = instr.Add i
@@ -64,18 +68,54 @@ type Env() =
 
     member _.CurrBlockId = block.Count
 
-    member _.FinalizeBlock trans =
+    member _.AddEdge from to_ =
+        if to_ <> 0 then
+            let fromNode =
+                while from >= cfg.Count do
+                    cfg.Add
+                        { Succ = SortedSet()
+                          Pred = SortedSet() }
+
+                cfg[from]
+
+            fromNode.Succ.Add to_ |> ignore
+
+            let toNode =
+                while to_ >= cfg.Count do
+                    cfg.Add
+                        { Succ = SortedSet()
+                          Pred = SortedSet() }
+
+                cfg[to_]
+
+            toNode.Pred.Add from |> ignore
+
+    member this.FinalizeBlock trans =
         let newBlock =
-            { Phi = phi.ToArray()
+            { Phi = [||]
               Instr = instr.ToArray()
               Trans = trans }
 
-        phi.Clear()
         instr.Clear()
 
         block.Add newBlock
 
-        block.Count - 1
+        let id = block.Count - 1
+
+        match trans with
+        | Jump j -> this.AddEdge id j.Target
+        | Branch b ->
+            this.AddEdge id b.One
+            this.AddEdge id b.Zero
+        | Switch s ->
+            for (t, _) in s.Dest do
+                this.AddEdge id t
+
+            this.AddEdge id s.Default
+        | Return _
+        | Unreachable _ -> ()
+
+        id
 
     member this.Reverse(value: Value) =
         let target =
@@ -118,25 +158,21 @@ type Env() =
 
     member this.ToNext span =
         if instr.Count > 0 then
-            let newBlock =
-                { Phi = phi.ToArray()
-                  Instr = instr.ToArray()
-                  Trans =
-                    Jump
-                        { Target = this.CurrBlockId + 1
-                          Span = span } }
+            let trans =
+                Jump
+                    { Target = this.CurrBlockId + 1
+                      Span = span }
 
-            phi.Clear()
-            instr.Clear()
+            this.FinalizeBlock trans |> ignore
 
-            block.Add newBlock
-
-    member _.ModifyTrans id trans =
+    member this.ModifyJmp id jmp =
         let b = block[id]
 
-        block[id] <- { b with Trans = trans }
+        block[id] <- { b with Trans = Jump jmp }
 
-    member _.ModifyBr id target toId =
+        this.AddEdge id jmp.Target
+
+    member this.ModifyBr id target toId =
         let b = block[id]
 
         match b.Trans with
@@ -147,6 +183,8 @@ type Env() =
                 | Zero -> { br with Zero = toId }
 
             block[id] <- { b with Trans = Branch br }
+
+            this.AddEdge id toId
         | _ -> failwith "Unreachable"
 
     member _.EnterScope(info: ScopeInfo) =
@@ -179,8 +217,13 @@ type Env() =
     member _.ExitScope() = scope.Pop()
 
     member _.FinalizeFn param ret span =
+        let toCFG cfg : CFGNode =
+            { Pred = cfg.Pred.ToArray()
+              Succ = cfg.Succ.ToArray() }
+
         let f =
             { Block = block.ToArray()
+              CFG = cfg |> Seq.map toCFG |> Array.ofSeq
               Var = var.ToArray()
               Param = param
               Ret = ret

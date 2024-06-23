@@ -346,7 +346,8 @@ type Error =
     | PrivatecInPublic of Id * Id
     | ExpectEnum of Id * Type
     | ExpectStruct of Id * Type
-    | OrPatDifferent of Span * string[] * string[]
+    | OrPatDiff of Span * string[] * string[]
+    | OrPatMutDiff of Id * Id
     | ParamLenMismatch of Span * int * int
     | TypeMismatch of Type * Type * Span
     | GenericMismatch of Type * Type[] * Span

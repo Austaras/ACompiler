@@ -182,7 +182,11 @@ type IdPat = { Id: Id; Mut: bool; Span: Span }
 
 and SeqPat = { Ele: Pat[]; Span: Span }
 
-and AsPat = { Pat: Pat; Id: Id; Span: Span }
+and AsPat =
+    { Pat: Pat
+      Mut: bool
+      Id: Id
+      Span: Span }
 
 and EnumPat =
     { Variant: PathPat

@@ -83,6 +83,10 @@ type Dump(tw: TextWriter) =
             this.Pat a.Pat
 
             this.Prop "id"
+
+            if a.Mut then
+                tw.Write "mutable "
+
             this.Id a.Id
 
         | PathPat p -> path p

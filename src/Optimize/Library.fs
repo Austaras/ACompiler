@@ -274,8 +274,11 @@ type Block =
       Instr: Instr[]
       Trans: Transfer }
 
+type CFGNode = { Pred: int[]; Succ: int[] }
+
 type Func =
     { Block: Block[]
+      CFG: CFGNode[]
       Param: int[]
       Var: Var[]
       Span: Span

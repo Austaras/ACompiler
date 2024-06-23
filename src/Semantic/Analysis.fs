@@ -113,10 +113,7 @@ type internal Traverse(env: Environment) =
             | RangePat { Span = span } -> failwith "Not Implemented"
             | CatchAllPat _ -> sym
             | TuplePat t ->
-                let addBinding (pat: Pat) =
-                    let newVar = env.NewTVar pat.Span |> TVar
-
-                    newVar
+                let addBinding (pat: Pat) = env.NewTVar pat.Span |> TVar
 
                 let patTy = t.Ele |> Array.map addBinding
 
@@ -124,7 +121,7 @@ type internal Traverse(env: Environment) =
 
                 Array.fold2 proc sym patTy t.Ele
             | AsPat a ->
-                let sym = addSym sym a.Id ty false
+                let sym = addSym sym a.Id ty a.Mut
 
                 proc sym ty a.Pat
             | OrPat { Pat = pat; Span = span } ->
@@ -141,11 +138,14 @@ type internal Traverse(env: Environment) =
                         let currKey = sym |> Map.keys |> Array.ofSeq
 
                         if firstKey <> currKey then
-                            env.AddError(OrPatDifferent(pat[idx].Span, firstKey, currKey))
+                            env.AddError(OrPatDiff(pat[idx].Span, firstKey, currKey))
 
                         for key in firstKey do
-                            let _, firstTy, _ = first[key]
-                            let id, currTy, _ = sym[key]
+                            let fid, firstTy, fmut = first[key]
+                            let id, currTy, cmut = sym[key]
+
+                            if fmut <> cmut then
+                                env.AddError(OrPatMutDiff(fid, id))
 
                             env.Unify firstTy currTy id.Span
 

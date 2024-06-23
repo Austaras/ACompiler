@@ -322,12 +322,20 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>, ctx: Context) =
         | Some { Data = Reserved AS } ->
             lexer.Consume()
 
+            let mut =
+                match lexer.Peek() with
+                | Some { Data = Reserved MUTABLE } ->
+                    lexer.Consume()
+                    true
+                | _ -> false
+
             let id = lexer.ReadId "As Pattern Name"
 
             let pat =
                 AsPat
                     { Pat = pat
                       Id = id
+                      Mut = mut
                       Span = pat.Span.WithLast id.Span }
 
             this.PatAs pat
@@ -361,6 +369,11 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>, ctx: Context) =
             OrPat
                 { Pat = res.ToArray()
                   Span = pat.Span.WithLast last.Span }
+
+    member this.PatNoAlt() =
+        let pat = this.PatPrefix()
+        let pat = this.PatRange pat
+        this.PatAs pat
 
     member this.Pat() =
         let pat = this.PatPrefix()
@@ -547,12 +560,7 @@ type internal Parser(lexer: Lexer, error: ResizeArray<Error>, ctx: Context) =
     member this.Param closure =
         let pat =
             // closure param cannot contain or pattern because of |
-            if closure then
-                let pat = this.PatPrefix()
-                let pat = this.PatRange pat
-                this.PatAs pat
-            else
-                this.Pat()
+            if closure then this.PatNoAlt() else this.Pat()
 
         match lexer.Peek() with
         | Some { Data = Colon } ->
