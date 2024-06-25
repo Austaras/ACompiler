@@ -396,7 +396,13 @@ type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
             param.ToArray()
 
         let _ = this.Block ret Normal f.Body
-        let _ = env.FinalizeBlock(Return { Value = ret; Span = f.Body.Span })
+
+        let _ =
+            env.FinalizeBlock(
+                Return
+                    { Value = Option.map Binding ret
+                      Span = f.Body.Span }
+            )
 
         let _ = env.ExitScope()
 

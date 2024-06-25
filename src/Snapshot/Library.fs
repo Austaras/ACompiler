@@ -50,14 +50,11 @@ let shouldMatch (actual: TextWriter -> unit) snap =
 
 type Snapshot(name: string) =
 
-    member _.ShouldMatch (transform: string -> TextWriter -> unit) path =
-        let path = Path.GetFullPath path
-        let content = File.ReadAllText(path)
-        let actual = transform content
+    member _.ShouldMatch (text: TextWriter -> unit) (path: string) =
 
         let snap = Path.GetDirectoryName(path) + "/" + name
 
-        shouldMatch actual snap
+        shouldMatch text snap
 
 type TextSnapshot(suffix: string, basePath: string) =
 

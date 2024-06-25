@@ -5,9 +5,11 @@ open System.Collections.Generic
 
 open Optimize.FLIR
 
-let lvn (m: Module) =
+let lvnImpl (b: Block) =
     let mutable num = 0
     let varTable = Dictionary()
     let valueTable = Dictionary()
 
-    m
+    b
+
+let lvn = transLocal lvnImpl

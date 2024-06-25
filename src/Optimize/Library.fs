@@ -227,12 +227,12 @@ type Call =
 
 /// Instrument
 type Instr =
-    | Load
-    | Store
     | Assign of Assign
     | Binary of Binary
     | Unary of Unary
     | Call of Call
+    | Load
+    | Store
     | Alloc
 
     member this.Target =
@@ -240,7 +240,7 @@ type Instr =
         | Binary b -> b.Target
         | Assign a -> a.Target
         | Unary n -> n.Target
-        | Call c -> failwith "Not Implemented"
+        | Call c -> c.Target
         | Load -> failwith "Not Implemented"
         | Store -> failwith "Not Implemented"
         | Alloc -> failwith "Not Implemented"
@@ -259,7 +259,7 @@ type Switch =
       Default: int
       Span: Span }
 
-type Ret = { Value: Option<int>; Span: Span }
+type Ret = { Value: Option<Value>; Span: Span }
 
 type Transfer =
     | Jump of Jump
@@ -270,7 +270,7 @@ type Transfer =
 
 /// Basic block
 type Block =
-    { Phi: unit[]
+    { Phi: Map<int, int[]>
       Instr: Instr[]
       Trans: Transfer }
 
@@ -289,8 +289,8 @@ type Func =
 
         let varToString id =
             let var = this.Var[id]
-
-            if var.Name.Length > 0 then var.Name else "_" + string id
+            let name = if var.Name.Length > 0 then var.Name else "_"
+            name + string id
 
         let paramToString id =
             let name = varToString id
@@ -318,27 +318,38 @@ type Func =
             let id = labelToString idx
             tw.WriteLine $"    {id}: {{"
 
+            for KeyValue(var, choose) in block.Phi do
+                tw.Write(String.replicate 8 " ")
+                tw.Write(varToString var)
+                tw.Write " = Φ("
+                let choose = choose |> Array.map varToString
+                let choose = String.Join(", ", choose)
+
+                tw.Write choose
+                tw.WriteLine ")"
+
             for stm in block.Instr do
+                tw.Write(String.replicate 8 " ")
+                tw.Write(varToString stm.Target)
+                tw.Write " = "
+
                 let stm =
-                    String.replicate 8 " "
-                    + varToString stm.Target
-                    + " "
-                    + match stm with
-                      | Binary bin ->
-                          let left = valueToString bin.Left
-                          let op = bin.Op.ToString
-                          let right = valueToString bin.Right
-                          $"= {left} {op} {right}"
-                      | Assign a ->
-                          let v = valueToString a.Value
-                          $"= {v}"
-                      | Unary n ->
-                          let v = valueToString n.Value
-                          $"= ! {v}"
-                      | Call c -> failwith "Not Implemented"
-                      | Load -> failwith "Not Implemented"
-                      | Store -> failwith "Not Implemented"
-                      | Alloc -> failwith "Not Implemented"
+                    match stm with
+                    | Binary bin ->
+                        let left = valueToString bin.Left
+                        let op = bin.Op.ToString
+                        let right = valueToString bin.Right
+                        $"{left} {op} {right}"
+                    | Assign a ->
+                        let v = valueToString a.Value
+                        v
+                    | Unary n ->
+                        let v = valueToString n.Value
+                        $"! {v}"
+                    | Call c -> failwith "Not Implemented"
+                    | Load -> failwith "Not Implemented"
+                    | Store -> failwith "Not Implemented"
+                    | Alloc -> failwith "Not Implemented"
 
                 tw.WriteLine stm
 
@@ -356,7 +367,7 @@ type Func =
                   | Return r ->
                       "ret"
                       + match r.Value with
-                        | Some i -> $" {varToString i}"
+                        | Some i -> $" {valueToString i}"
                         | None -> ""
                   | Switch s -> failwith "Not Implemented"
                   | Unreachable _ -> "Unreachable"
@@ -374,3 +385,13 @@ type Module =
     member this.Print(tw: IO.TextWriter) =
         for func in this.Func do
             func.Print tw
+
+let transLocal trans (m: Module) =
+    let trans f =
+        { f with
+            Block = Array.map trans f.Block }
+
+    { m with Func = Array.map trans m.Func }
+
+let transRegional trans (m: Module) =
+    { m with Func = Array.map trans m.Func }

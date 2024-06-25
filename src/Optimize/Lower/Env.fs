@@ -32,7 +32,13 @@ type Env() =
     let varMap = Dictionary<AST.Id, int>(HashIdentity.Reference)
 
     let block = ResizeArray<Block>()
-    let cfg = ResizeArray<CFGData>()
+
+    let cfg =
+        ResizeArray<CFGData>(
+            [| { Pred = SortedSet()
+                 Succ = SortedSet() } |]
+        )
+
     let instr = ResizeArray<Instr>()
 
     member _.AddInstr i = instr.Add i
@@ -92,7 +98,7 @@ type Env() =
 
     member this.FinalizeBlock trans =
         let newBlock =
-            { Phi = [||]
+            { Phi = Map.empty
               Instr = instr.ToArray()
               Trans = trans }
 
