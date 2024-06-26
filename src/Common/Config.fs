@@ -6,4 +6,4 @@ type Optimization =
 
     static member Debug = { TailCall = false; LVN = false }
 
-    static member Releas = { TailCall = true; LVN = true }
+    static member Release = { TailCall = true; LVN = true }

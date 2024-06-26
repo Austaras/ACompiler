@@ -70,6 +70,7 @@ Test out various compiler technology with a toy compiler for a toy language **in
   - [ ] generic
 - [ ] SSA
 - [ ] optimization
+  - [ ] LVN
 
 ### Code Architecture
 

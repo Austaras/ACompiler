@@ -237,10 +237,10 @@ type Instr =
 
     member this.Target =
         match this with
-        | Binary b -> b.Target
-        | Assign a -> a.Target
-        | Unary n -> n.Target
-        | Call c -> c.Target
+        | Binary b -> Some b.Target
+        | Assign a -> Some a.Target
+        | Unary n -> Some n.Target
+        | Call c -> Some c.Target
         | Load -> failwith "Not Implemented"
         | Store -> failwith "Not Implemented"
         | Alloc -> failwith "Not Implemented"
@@ -330,7 +330,11 @@ type Func =
 
             for stm in block.Instr do
                 tw.Write(String.replicate 8 " ")
-                tw.Write(varToString stm.Target)
+
+                match stm.Target with
+                | Some target -> tw.Write(varToString target)
+                | None -> ()
+
                 tw.Write " = "
 
                 let stm =

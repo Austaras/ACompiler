@@ -24,50 +24,50 @@ type SSA(f: Func) =
         let newId = var.Count - 1
         newId
 
-    member this.RewriteBlock id (b: Block) =
-        let currDef = def[id]
-        let currPhi = Dictionary()
+    member this.RewriteBlock blockId (b: Block) =
+        let currDef = def[blockId]
+        let phiRewrite = Dictionary()
 
-        if id = 0 then
+        if blockId = 0 then
             for p in f.Param do
                 currDef.Add(p, p)
 
-        let resDef t =
-            if currDef.ContainsKey t then
-                let newId = this.AddVar t
-                currDef[t] <- newId
+        let resDef target =
+            if currDef.ContainsKey target then
+                let newId = this.AddVar target
+                currDef[target] <- newId
                 newId
-            else if defined.Contains t then
-                let newId = this.AddVar t
-                currDef[t] <- newId
+            else if defined.Contains target then
+                let newId = this.AddVar target
+                currDef[target] <- newId
                 newId
             else
-                defined.Add t |> ignore
-                currDef.Add(t, t)
-                t
+                defined.Add target |> ignore
+                currDef.Add(target, target)
+                target
 
         let resUse v =
             match v with
             | Const c -> Const c
-            | Binding i ->
-                if currDef.ContainsKey i then
-                    Binding currDef[i]
-                else if phi[id].ContainsKey i then
-                    let newId = this.AddVar i
-                    currDef.Add(i, newId)
-                    currPhi.Add(newId, [| i |])
+            | Binding varId ->
+                if currDef.ContainsKey varId then
+                    Binding currDef[varId]
+                else if phi[blockId].ContainsKey varId then
+                    let newId = this.AddVar varId
+                    currDef.Add(varId, newId)
+                    phiRewrite.Add(newId, varId)
                     Binding newId
                 else
-                    let visited = HashSet([| id |])
-                    let todo = ResizeArray(f.CFG[id].Pred)
+                    let visited = HashSet([| blockId |])
+                    let todo = ResizeArray(f.CFG[blockId].Pred)
                     let mutable idx = 0
                     let mutable res = None
 
                     while idx < todo.Count && res = None do
                         let pred = todo[idx]
 
-                        if def[pred].ContainsKey i then
-                            res <- Some(def[pred][i])
+                        if def[pred].ContainsKey varId then
+                            res <- Some(def[pred][varId])
                         else
                             for p in f.CFG[pred].Pred do
                                 if not (visited.Contains p) then
@@ -123,16 +123,13 @@ type SSA(f: Func) =
             | Jump _
             | Unreachable _ -> b.Trans
 
-        for var in phi[id].Keys do
-            if not (currDef.ContainsKey var) then
-                let newId = this.AddVar var
-                currDef.Add(var, newId)
-                currPhi.Add(newId, [| var |])
+        for varId in phi[blockId].Keys do
+            if not (currDef.ContainsKey varId) then
+                let newId = this.AddVar varId
+                currDef.Add(varId, newId)
+                phiRewrite.Add(newId, varId)
 
-        { b with
-            Phi = dictToMap currPhi
-            Instr = instr
-            Trans = trans }
+        { b with Instr = instr; Trans = trans }, phiRewrite
 
     member this.Transform() =
         let block = ResizeArray(f.Block)
@@ -142,7 +139,9 @@ type SSA(f: Func) =
             let currDef = Dictionary()
 
             for instr in b.Instr do
-                currDef[instr.Target] <- id
+                match instr.Target with
+                | Some t -> currDef[t] <- id
+                | None -> ()
 
             accDef.Add currDef
             phi.Add(Dictionary())
@@ -154,10 +153,10 @@ type SSA(f: Func) =
         let mutable idx = 0
 
         while idx < todo.Count do
-            let id = todo[idx]
+            let currBlock = todo[idx]
             let prevDef = Dictionary<int, HashSet<int>>()
 
-            for p in f.CFG[id].Pred do
+            for p in f.CFG[currBlock].Pred do
                 for KeyValue(var, blockId) in accDef[p] do
                     if prevDef.ContainsKey var then
                         prevDef[var].Add blockId |> ignore
@@ -168,31 +167,34 @@ type SSA(f: Func) =
 
             for KeyValue(var, blockId) in prevDef do
                 if blockId.Count > 1 then
-                    phi[id][var] <- blockId.ToArray()
+                    phi[currBlock][var] <- blockId.ToArray()
 
-                    if not (accDef[id].ContainsKey var) then
-                        accDef[id].Add(var, id)
+                    if not (accDef[currBlock].ContainsKey var) then
+                        accDef[currBlock].Add(var, currBlock)
                         changed <- true
-                    else if accDef[id][var] <> id then
-                        accDef[id][var] <- id
+                    else if accDef[currBlock][var] <> currBlock then
+                        accDef[currBlock][var] <- currBlock
                         changed <- true
 
-                else if not (accDef[id].ContainsKey var) then
-                    accDef[id].Add(var, blockId.ToArray()[0])
+                else if not (accDef[currBlock].ContainsKey var) then
+                    accDef[currBlock].Add(var, blockId.ToArray()[0])
                     changed <- true
 
             if changed then
-                for s in f.CFG[id].Succ do
+                for s in f.CFG[currBlock].Succ do
                     todo.Add s
 
             idx <- idx + 1
 
-        for id in 0 .. block.Count - 1 do
-            block[id] <- this.RewriteBlock id block[id]
+        let phiRewrite = ResizeArray()
 
         for id in 0 .. block.Count - 1 do
-            let phiValue _ (origin: int[]) =
-                let origin = origin[0]
+            let newBlock, phi = this.RewriteBlock id block[id]
+            block[id] <- newBlock
+            phiRewrite.Add phi
+
+        for id in 0 .. block.Count - 1 do
+            let phiValue _ origin =
                 let block = phi[id][origin]
 
                 let resolve blockId =
@@ -201,7 +203,7 @@ type SSA(f: Func) =
 
                 Array.choose resolve block
 
-            let currPhi = Map.map phiValue block[id].Phi
+            let currPhi = phiRewrite[id] |> dictToMap |> Map.map phiValue
             block[id] <- { block[id] with Phi = currPhi }
 
         { f with

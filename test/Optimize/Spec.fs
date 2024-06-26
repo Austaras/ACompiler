@@ -5,11 +5,13 @@ open System.Collections.Generic
 
 open Xunit
 
+open Common.Config
 open Snapshot
 open Syntax.Parser
 open Semantic.Analysis
 open Optimize.Lower.Lower
 open Optimize.SSA
+open Optimize.Optimize
 
 let getAllFile path =
     let path = __SOURCE_DIRECTORY__ + path
@@ -30,8 +32,11 @@ let arch = Common.Target.X86_64
 let specFile = getAllFile "/Spec"
 let spec = specFile.Keys |> Seq.map (Array.create 1)
 
+let optConfig = Optimization.Release
+
 let lowerSnap = Snapshot("raw.flir")
 let ssaSnap = Snapshot("ssa.flir")
+let optSnap = Snapshot("opt.flir")
 
 [<Theory>]
 [<MemberData(nameof (spec))>]
@@ -52,4 +57,7 @@ let Spec name =
 
         let m = ssa m
         ssaSnap.ShouldMatch m.Print specFile[name]
+
+        let m = optimize optConfig m
+        optSnap.ShouldMatch m.Print specFile[name]
     | Error e -> failwithf "type error %A" e

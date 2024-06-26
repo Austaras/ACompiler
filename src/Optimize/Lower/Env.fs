@@ -142,7 +142,7 @@ type Env() =
             let last = instr.Last()
 
             match last with
-            | Binary({ Op = Eq | NotEq | Lt _ | LtEq _ | GtEq _ | Gt _ as binOp } as bin) when last.Target = target ->
+            | Binary({ Op = Eq | NotEq | Lt _ | LtEq _ | GtEq _ | Gt _ as binOp } as bin) when bin.Target = target ->
                 let newOp =
                     match binOp with
                     | Eq -> NotEq

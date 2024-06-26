@@ -9,6 +9,7 @@
     <Compile Include="Lower/Lower.fs" />
     <Compile Include="SSA.fs" />
     <Compile Include="Pass/LVN.fs" />
+    <Compile Include="Optimize.fs" />
   </ItemGroup>
   <ItemGroup>
     <ProjectReference Include="..\Common\Common.fsproj" />
