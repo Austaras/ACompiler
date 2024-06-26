@@ -126,6 +126,7 @@ type SSA(f: Func) =
         for var in phi[id].Keys do
             if not (currDef.ContainsKey var) then
                 let newId = this.AddVar var
+                currDef.Add(var, newId)
                 currPhi.Add(newId, [| var |])
 
         { b with
@@ -135,7 +136,7 @@ type SSA(f: Func) =
 
     member this.Transform() =
         let block = ResizeArray(f.Block)
-        let defInBlock = ResizeArray()
+        let accDef = ResizeArray()
 
         for id, b in Array.indexed f.Block do
             let currDef = Dictionary()
@@ -143,11 +144,11 @@ type SSA(f: Func) =
             for instr in b.Instr do
                 currDef[instr.Target] <- id
 
-            defInBlock.Add currDef
+            accDef.Add currDef
             phi.Add(Dictionary())
 
         for p in f.Param do
-            defInBlock[0][p] <- 0
+            accDef[0][p] <- 0
 
         let todo = ResizeArray([| for i in 0 .. f.Block.Length - 1 -> i |])
         let mutable idx = 0
@@ -157,7 +158,7 @@ type SSA(f: Func) =
             let prevDef = Dictionary<int, HashSet<int>>()
 
             for p in f.CFG[id].Pred do
-                for KeyValue(var, blockId) in defInBlock[p] do
+                for KeyValue(var, blockId) in accDef[p] do
                     if prevDef.ContainsKey var then
                         prevDef[var].Add blockId |> ignore
                     else
@@ -169,11 +170,15 @@ type SSA(f: Func) =
                 if blockId.Count > 1 then
                     phi[id][var] <- blockId.ToArray()
 
-                    if not (defInBlock[id].ContainsKey var) then
-                        defInBlock[id].Add(var, id)
+                    if not (accDef[id].ContainsKey var) then
+                        accDef[id].Add(var, id)
                         changed <- true
-                else if not (defInBlock[id].ContainsKey var) then
-                    defInBlock[id].Add(var, blockId.ToArray()[0])
+                    else if accDef[id][var] <> id then
+                        accDef[id][var] <- id
+                        changed <- true
+
+                else if not (accDef[id].ContainsKey var) then
+                    accDef[id].Add(var, blockId.ToArray()[0])
                     changed <- true
 
             if changed then
