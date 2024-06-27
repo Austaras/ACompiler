@@ -68,7 +68,7 @@ Test out various compiler technology with a toy compiler for a toy language **in
 - [x] IR lower
   - [ ] function call
   - [ ] generic
-- [ ] SSA
+- [x] SSA
 - [ ] optimization
   - [ ] LVN
 

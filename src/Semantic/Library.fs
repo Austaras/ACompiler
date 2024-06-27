@@ -3,7 +3,7 @@ module Semantic.Semantic
 open System.Collections.Generic
 
 open Common.Span
-open Common.Util.MultiMap
+open Common.MultiMap
 open Syntax.AST
 
 [<ReferenceEquality>]

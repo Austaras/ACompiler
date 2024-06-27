@@ -1,4 +1,4 @@
-module Common.Util.MultiMap
+module Common.MultiMap
 
 open System.Collections.Generic
 open System.Linq

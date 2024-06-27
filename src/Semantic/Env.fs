@@ -4,7 +4,7 @@ open System.Collections.Generic
 open System.Linq
 
 open Common.Span
-open Common.Util.MultiMap
+open Common.MultiMap
 open Common.Util
 open Syntax.AST
 open Semantic
