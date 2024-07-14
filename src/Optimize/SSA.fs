@@ -10,7 +10,8 @@ open Optimize.FLIR
 type DomTree = { ImmDom: int; Children: int[] }
 
 type SSA(f: Func) =
-    member this.Transform() =
+    member _.DomFront() =
+
         let blockIndex = f.Block |> Array.indexed |> Array.map fst
 
         // calc dominance tree
@@ -89,9 +90,16 @@ type SSA(f: Func) =
 
         calc 0
 
-        // place phi node
+        domTree, domFront
+
+    member _.PlacePhi(domFront: ResizeArray<HashSet<int>>) =
         let defVarInBlock = Dictionary<int, HashSet<int>>()
         let phiBlockOfVar = Dictionary<int, HashSet<int>>()
+
+        let phiNode = ResizeArray()
+
+        for _ in f.Block do
+            phiNode.Add(Dictionary())
 
         for id, b in Array.indexed f.Block do
             if id = 0 then
@@ -121,14 +129,15 @@ type SSA(f: Func) =
 
                         if not (phiBlockOfVar[front].Contains var) then
                             phiBlockOfVar[front].Add var |> ignore
-                            let phi = f.Block[front].Phi
                             let value = Array.create f.CFG[front].Pred.Length var
-                            let phi = Map.add var value phi
-                            Array.set f.Block front { f.Block[front] with Phi = phi }
+                            phiNode[front].Add(var, value)
 
                             if not (defVarInBlock[var].Contains front) then
                                 todo.Add front
 
+        phiNode
+
+    member _.RewriteBlock (domTree: ResizeArray<DomTree>) (phiNode: ResizeArray<Dictionary<int, int[]>>) =
         let var = ResizeArray(f.Var)
 
         let addVar id =
@@ -140,6 +149,8 @@ type SSA(f: Func) =
         for p in f.Param do
             defined.Add p |> ignore
 
+        let newBlock = ResizeArray(f.Block)
+
         // rewrite block
         let rec rewrite env blockId =
             let currEnv = Dictionary()
@@ -149,9 +160,16 @@ type SSA(f: Func) =
                 for p in f.Param do
                     currEnv.Add(p, p)
 
-            let phi = Dictionary()
+            let newPhi = Dictionary()
 
-            let resDef target =
+            for KeyValue(var, choose) in phiNode[blockId] do
+                let newId = addVar var
+                currEnv.Add(var, newId)
+                newPhi.Add(newId, choose)
+
+            phiNode[blockId] <- newPhi
+
+            let reDef target =
                 if defined.Contains target then
                     let newId = addVar target
                     currEnv[target] <- newId
@@ -168,105 +186,119 @@ type SSA(f: Func) =
                 else if last = 0 then None
                 else resolve env[0 .. last - 1] var
 
-            let resUse v =
+            let reUse v =
                 match v with
                 | Const c -> Const c
                 | Binding varId ->
                     if currEnv.ContainsKey varId then
                         Binding currEnv[varId]
-                    else if f.Block[blockId].Phi.ContainsKey varId then
-                        let choose = f.Block[blockId].Phi[varId]
-                        let newId = addVar varId
-                        currEnv.Add(varId, newId)
-                        phi.Add(newId, choose)
-                        Binding newId
                     else
                         resolve env varId |> Option.get |> Binding
 
-            let rewriteInstr instr =
-                match instr with
-                | Assign a ->
-                    Assign
-                        { a with
-                            Value = resUse a.Value
-                            Target = resDef a.Target }
-                | Unary u ->
-                    Unary
-                        { u with
-                            Value = resUse u.Value
-                            Target = resDef u.Target }
-                | Binary b ->
-                    Binary
-                        { b with
-                            Left = resUse b.Left
-                            Right = resUse b.Right
-                            Target = resDef b.Target }
-                | Call c ->
-                    Call
-                        { c with
-                            Arg = Array.map resUse c.Arg
-                            Target = resDef c.Target }
-                | Load -> failwith "Not Implemented"
-                | Store -> failwith "Not Implemented"
-                | Alloc -> failwith "Not Implemented"
+            let block = newBlock[blockId]
 
-            let block = f.Block[blockId]
+            let block = block.Rewrite reDef reUse
 
-            let instr = Array.map rewriteInstr block.Instr
-
-            let trans =
-                match block.Trans with
-                | Branch b -> Branch { b with Value = resUse b.Value }
-                | Return r ->
-                    let value =
-                        match r.Value with
-                        | None -> None
-                        | Some v -> Some(resUse v)
-
-                    Return { r with Value = value }
-                | Switch s -> Switch { s with Value = resUse s.Value }
-                | Jump _
-                | Unreachable _ -> block.Trans
-
-            for KeyValue(var, choose) in f.Block[blockId].Phi do
-                if not (currEnv.ContainsKey var) then
-                    let newId = addVar var
-                    currEnv.Add(var, newId)
-                    phi.Add(newId, choose)
-
-            let newBlock =
-                { block with
-                    Phi = dictToMap phi
-                    Instr = instr
-                    Trans = trans }
-
-            Array.set f.Block blockId newBlock
+            newBlock[blockId] <- block
 
             for succ in f.CFG[blockId].Succ do
                 let predIdx = Array.findIndex ((=) blockId) f.CFG[succ].Pred
+                let currPhi = phiNode[succ]
 
-                let rewritePhi (varId, choose: int[]) =
+                for varId in currPhi.Keys do
+                    let choose = currPhi[varId]
                     let newVar = resolve newEnv choose[predIdx]
 
                     match newVar with
                     | Some newVar ->
                         Array.set choose predIdx newVar
-                        Some(varId, choose)
+                        currPhi[varId] <- choose
                     // only defined in one path
-                    | None -> None
+                    | None -> ()
 
-                let phi = f.Block[succ].Phi |> Map.toSeq |> Seq.choose rewritePhi |> Map.ofSeq
-
-                let newBlock = { f.Block[succ] with Phi = phi }
-
-                Array.set f.Block succ newBlock
+                newBlock[succ] <- newBlock[succ]
 
             for child in domTree[blockId].Children do
                 rewrite newEnv child
 
         rewrite [||] 0
 
-        { f with Var = var.ToArray() }
+        var, newBlock
+
+    member _.Minimize
+        (phiNode: ResizeArray<Dictionary<int, int[]>>)
+        (var: ResizeArray<Var>)
+        (newBlock: ResizeArray<Block>)
+        =
+        let shouldRemove = HashSet(seq { 0 .. var.Count - 1 })
+
+        for block, currPhi in Seq.zip newBlock phiNode do
+            let def i = shouldRemove.Remove i |> ignore
+
+            let use_ value =
+                match value with
+                | Binding i -> shouldRemove.Remove i |> ignore
+                | Const _ -> ()
+
+            for choose in currPhi.Values do
+                for c in choose do
+                    use_ (Binding c)
+
+            block.Analyze def use_
+
+        let varMapping = ResizeArray()
+        let mutable currIdx = 0
+
+        for id in 0 .. var.Count - 1 do
+            if shouldRemove.Contains id then
+                varMapping.Add -1
+            else
+                varMapping.Add currIdx
+                currIdx <- currIdx + 1
+
+        let mapVar id = varMapping[id]
+
+        let chooseVar id =
+            if shouldRemove.Contains id then
+                None
+            else
+                Some varMapping[id]
+
+        let minimize (currPhi: Dictionary<int, int[]>, block: Block) =
+            let rewritePhi (key, value) =
+                if shouldRemove.Contains key then
+                    None
+                else
+                    Some(mapVar key, Array.choose chooseVar value)
+
+            let currPhi = currPhi |> Seq.map (|KeyValue|) |> Seq.choose rewritePhi |> Map.ofSeq
+
+            let def id = varMapping[id]
+
+            let use_ value =
+                match value with
+                | Const c -> Const c
+                | Binding i -> Binding varMapping[i]
+
+            { block.Rewrite def use_ with
+                Phi = currPhi }
+
+        let newBlock = newBlock |> Seq.zip phiNode |> Seq.map minimize |> Array.ofSeq
+
+        let filterVar (idx, var) =
+            if not (shouldRemove.Contains idx) then Some var else None
+
+        let var = var |> Seq.indexed |> Seq.choose filterVar |> Array.ofSeq
+
+        var, newBlock
+
+    member this.Transform() =
+        let domTree, domFront = this.DomFront()
+        let phiNode = this.PlacePhi domFront
+        let var, newBlock = this.RewriteBlock domTree phiNode
+        let var, newBlock = this.Minimize phiNode var newBlock
+
+        { f with Block = newBlock; Var = var }
 
 let ssaImpl (f: Func) =
     let ssa = SSA f

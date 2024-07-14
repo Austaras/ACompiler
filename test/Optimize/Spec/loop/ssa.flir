@@ -6,16 +6,15 @@ fn (n1: i64) -> i64 {
         br _4 ? '1 : '2
     }
     '1: {
-        sum6 = Φ(sum3, sum8)
-        i7 = Φ(i2, i9)
-        sum8 = sum6 + i7
-        i9 = i7 + 1
+        i6 = Φ(i2, i9)
+        sum7 = Φ(sum3, sum8)
+        sum8 = sum7 + i6
+        i9 = i6 + 1
         _5 = i9 < n1
         br _5 ? '1 : '2
     }
     '2: {
         sum10 = Φ(sum3, sum8)
-        i11 = Φ(i2, i9)
         _0 = sum10
         ret _0
     }

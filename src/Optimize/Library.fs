@@ -274,6 +274,86 @@ type Block =
       Instr: Instr[]
       Trans: Transfer }
 
+    member this.Analyze def use_ =
+        for instr in this.Instr do
+            match instr with
+            | Assign a ->
+                use_ a.Value
+                def a.Target
+            | Unary u ->
+                use_ u.Value
+                def u.Target
+            | Binary b ->
+                use_ b.Left
+                use_ b.Right
+                def b.Target
+            | Call c ->
+                for arg in c.Arg do
+                    use_ arg
+
+                def c.Target
+            | Load -> failwith "Not Implemented"
+            | Store -> failwith "Not Implemented"
+            | Alloc -> failwith "Not Implemented"
+
+        match this.Trans with
+        | Branch b -> use_ b.Value
+        | Return r ->
+            match r.Value with
+            | None -> ()
+            | Some v -> use_ v
+        | Switch s -> use_ s.Value
+        | Jump _
+        | Unreachable _ -> ()
+
+    member this.Rewrite def use_ =
+        let rewriteInstr instr =
+            match instr with
+            | Assign a ->
+                Assign
+                    { a with
+                        Value = use_ a.Value
+                        Target = def a.Target }
+            | Unary u ->
+                Unary
+                    { u with
+                        Value = use_ u.Value
+                        Target = def u.Target }
+            | Binary b ->
+                Binary
+                    { b with
+                        Left = use_ b.Left
+                        Right = use_ b.Right
+                        Target = def b.Target }
+            | Call c ->
+                Call
+                    { c with
+                        Arg = Array.map use_ c.Arg
+                        Target = def c.Target }
+            | Load -> failwith "Not Implemented"
+            | Store -> failwith "Not Implemented"
+            | Alloc -> failwith "Not Implemented"
+
+        let instr = Array.map rewriteInstr this.Instr
+
+        let trans =
+            match this.Trans with
+            | Branch b -> Branch { b with Value = use_ b.Value }
+            | Return r ->
+                let value =
+                    match r.Value with
+                    | None -> None
+                    | Some v -> Some(use_ v)
+
+                Return { r with Value = value }
+            | Switch s -> Switch { s with Value = use_ s.Value }
+            | Jump _
+            | Unreachable _ -> this.Trans
+
+        { this with
+            Instr = instr
+            Trans = trans }
+
 type CFGNode = { Pred: int[]; Succ: int[] }
 
 type Func =
