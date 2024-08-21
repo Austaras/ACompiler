@@ -6,6 +6,7 @@ open System.Collections.Generic
 // TODO: type alias
 // TODO: operator overloading
 
+open Common.Span
 open Syntax.AST
 open Semantic
 open Env
@@ -541,7 +542,7 @@ type internal Traverse(env: Environment) =
 
         env.NormalizeTy ty
 
-    member _.TyParam(p: TyParam[]) =
+    member this.TyParam(p: TyParam[]) =
         let group = env.NewGenGroup()
 
         let gen = ResizeArray()
@@ -551,6 +552,7 @@ type internal Traverse(env: Environment) =
             let generic =
                 { GroupId = group
                   Id = idx
+                  Span = p.Id.Span
                   Sym = p.Id.Sym }
 
             env.RegisterTy p.Id (TGen generic)
@@ -561,14 +563,18 @@ type internal Traverse(env: Environment) =
                 if b.Prefix <> None || b.Seg.Length > 1 then
                     failwith "Not Implemented"
 
-                let name = fst b.Seg[0]
+                let name, gen = b.Seg[0]
+                let gen = Array.map this.Type gen
 
                 let tr = env.GetTrait (fst b.Seg[0]).Sym
 
                 match tr with
                 | None -> env.AddError(Undefined name)
                 | Some tr ->
-                    let p = { Trait = tr; Type = TGen generic }
+                    let p =
+                        { Trait = tr
+                          Type = Array.append [| TGen generic |] gen }
+
                     pred.Add p
                     env.AddPred p
 
@@ -581,6 +587,7 @@ type internal Traverse(env: Environment) =
         let makeGen group (idx, id: Id) =
             { GroupId = group
               Id = idx
+              Span = id.Span
               Sym = id.Sym }
 
         // Process Type Decl Hoisted Name
@@ -619,11 +626,13 @@ type internal Traverse(env: Environment) =
                 let makeGen (idx, p: TyParam) =
                     { GroupId = group
                       Id = idx + 1
+                      Span = p.Id.Span
                       Sym = p.Id.Sym }
 
                 let self =
                     { GroupId = group
                       Id = 0
+                      Span = Span.dummy
                       Sym = "self" }
 
                 let gen = t.TyParam |> Array.indexed |> Array.map makeGen
@@ -821,28 +830,26 @@ type internal Traverse(env: Environment) =
                       ObjectSafe = safe
                       Super = super }
             | Impl i ->
-                let trait_ =
-                    match i.Trait with
-                    | None -> failwith "Not Implemented"
-                    | Some t ->
-                        if t.Prefix <> None || t.Seg.Length > 1 || (snd t.Seg[0]).Length > 0 then
-                            failwith "Not Implemented"
-
-                        fst t.Seg[0]
-
                 env.EnterScope TypeScope
 
                 let gen, pred = this.TyParam i.TyParam
-                let ty = this.Type i.Ty
 
-                let scm =
-                    { Generic = gen
-                      Type = ty
-                      Pred = pred }
+                let trait_, trGen =
+                    match i.Trait with
+                    | None -> failwith "Not Implemented"
+                    | Some t ->
+                        if t.Prefix <> None || t.Seg.Length > 1 then
+                            failwith "Not Implemented"
+
+                        t.Seg[0]
+
+                let trGen = Array.map this.Type trGen
+
+                let ty = this.Type i.Ty
 
                 match env.GetTrait trait_.Sym with
                 | None -> env.AddError(Undefined trait_)
-                | Some t -> env.ImplTrait t scm i.Span
+                | Some t -> env.ImplTrait gen pred t trGen ty i.Span
 
                 env.ExitScope()
 

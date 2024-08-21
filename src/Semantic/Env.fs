@@ -86,17 +86,23 @@ type Obligation =
       Span: Span }
 
     static member FromPred span (pred: Pred) =
-        let tvar = pred.Type.FindTVar() |> Array.ofSeq
+        let tvar =
+            pred.Type |> Array.map _.FindTVar() |> Array.map Array.ofSeq |> Array.concat
 
         { Pred = pred
           TVar = tvar
           Span = span }
 
+type private TraitImpl =
+    { Generic: Generic[]
+      Pred: Pred[]
+      Type: Type[] }
+
 type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
     let scope = Stack([| Scope.Prelude |])
 
     let unionFind = Dictionary<int, Type>()
-    let traitImpl = Dictionary<Trait, ResizeArray<Scheme>>(HashIdentity.Reference)
+    let traitImpl = Dictionary<Trait, ResizeArray<TraitImpl>>(HashIdentity.Reference)
     let pending = ResizeArray<Obligation>()
     let predCache = HashSet<Pred>()
 
@@ -224,7 +230,7 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                 if newTVar.Length = 0 then
                     let pred =
                         { ob.Pred with
-                            Type = this.NormalizeTy ob.Pred.Type }
+                            Type = Array.map this.NormalizeTy ob.Pred.Type }
 
                     if not (this.HasTrait span pred) then
                         error.Add(TraitNotImpl(pred, ob.Span))
@@ -236,7 +242,7 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                         { ob with
                             Pred =
                                 { ob.Pred with
-                                    Type = this.NormalizeTy ob.Pred.Type }
+                                    Type = Array.map this.NormalizeTy ob.Pred.Type }
                             TVar = newTVar }
 
                     pending[remainIdx] <- ob
@@ -248,7 +254,7 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
             for e in unionError do
                 error.Add e
 
-    member this.Instantiate scm span =
+    member this.Instantiate (scm: Scheme) span =
         if scm.Generic.Length = 0 then
             scm.Type, [||]
         else
@@ -260,18 +266,20 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
 
             this.InstantiateWithMap scm map
 
-    member _.InstantiateWithMap scm map =
+    member _.InstantiateWithMap (scm: Scheme) map =
         let ty = scm.Type.InstantiateWithMap map
 
         let instPred (pred: Pred) =
+            let inst (ty: Type) = ty.InstantiateWithMap map
+
             { pred with
-                Type = pred.Type.InstantiateWithMap map }
+                Type = Array.map inst pred.Type }
 
         let pred = Array.map instPred scm.Pred
 
         ty, pred
 
-    member this.Generalize(fnTy: Function) =
+    member this.Generalize(fnTy: Function) : Scheme =
         let group = this.NewGenGroup()
         let outScope (v: Var) = v.Level <= scope.Count
 
@@ -280,7 +288,13 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                 map
             else
                 let c = Map.count map
-                let gen = { Id = c; GroupId = group; Sym = "" }
+
+                let gen =
+                    { Id = c
+                      GroupId = group
+                      Span = var.Span
+                      Sym = "" }
+
                 unionFind.Add(var.Id, TGen gen)
                 Map.add var gen map
 
@@ -309,7 +323,6 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
         let generic = map.Values.ToArray()
         let ty = { Param = param; Ret = ret }
 
-        let newPending = ResizeArray()
         let pred = ResizeArray()
         let super = Dictionary()
 
@@ -329,7 +342,7 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
             if remain.Length = 0 then
                 let p =
                     { Trait = ob.Pred.Trait
-                      Type = resolve ob.Pred.Type }
+                      Type = Array.map resolve ob.Pred.Type }
 
                 match this.TraitByInst p with
                 | None -> addToPred p
@@ -342,7 +355,7 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                         TVar = remain
                         Pred =
                             { ob.Pred with
-                                Type = resolve ob.Pred.Type } }
+                                Type = Array.map resolve ob.Pred.Type } }
 
                 remainIdx <- remainIdx + 1
             else
@@ -368,12 +381,25 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                 yield! this.AllSuperTrait s
         }
 
-    member this.ImplTrait trait_ scm span =
+    member this.ImplTrait generic pred trait_ traitTy ty span =
+        let impl =
+            { Pred = pred
+              Type = Array.append [| ty |] traitTy
+              Generic = generic }
         // TODO: pred?
-        let ty, pred = this.Instantiate scm Span.dummy
+        let ty, pred =
+            this.Instantiate
+                { Generic = generic
+                  Pred = pred
+                  Type = ty }
+                Span.dummy
+
+        let ty = Array.append [| ty |] traitTy
 
         for super in this.AllSuperTrait trait_ do
-            let pred = { Trait = super; Type = ty }
+            let pred =
+                { Trait = super
+                  Type = Array.append ty traitTy }
 
             if not (this.HasTrait span pred) then
                 error.Add(TraitNotImpl(pred, span))
@@ -381,58 +407,94 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
         if traitImpl.ContainsKey trait_ then
             let value = traitImpl[trait_]
 
-            let rec overlap prev =
-                let prevTy, prevPred = this.Instantiate prev Span.dummy
-
+            let overlap (ty, prevTy) =
                 match this.UnifyInner prevTy ty Span.dummy with
-                | Ok _ -> Some prev
+                | Ok _ -> Some prevTy
                 | Error _ -> None
 
-            let res = Util.pick overlap value
+            let allOverlap prev =
+                let inst gen =
+                    let var = this.NewTVar span |> TVar
+                    (gen, var)
+
+                let map = Array.map inst prev.Generic |> Map.ofArray
+
+                let instTy (ty: Type) = ty.InstantiateWithMap map
+
+                let prevTy = Array.map instTy prev.Type
+
+                let res = Array.zip ty prevTy |> Array.map overlap
+
+                if Array.contains None res then
+                    None
+                else
+                    res |> Array.map Option.get |> Some
+
+            let res = Util.pick allOverlap value
 
             match res with
-            | None -> value.Add scm
-            | Some prev -> error.Add(OverlapImpl(trait_, scm, prev, span))
+            | None -> value.Add impl
+            | Some prev -> error.Add(OverlapImpl(trait_, ty, prev, span))
 
         else
             let value = ResizeArray()
-            value.Add scm
+            value.Add impl
             traitImpl[trait_] <- value
 
     member this.TraitByInst pred =
         let value = traitImpl[pred.Trait]
 
-        let rec overlap prev =
-            let prevTy, prevPred = this.Instantiate prev Span.dummy
+        let overlap subst (ty, prevTy) =
+            let prevTy = this.NormalizeTyWith subst prevTy
 
-            match this.UnifyInner prevTy pred.Type Span.dummy with
-            | Ok subst ->
-                let normalPred (pred: Pred) =
+            match this.UnifyInner prevTy ty Span.dummy with
+            | Ok s ->
+                for KeyValue(var, ty) in s do
+                    subst.Add(var, ty)
+
+                true
+            | Error _ -> false
+
+        let allOverlap prev =
+            let inst gen =
+                let var = this.NewTVar Span.dummy |> TVar
+                (gen, var)
+
+            let map = Array.map inst prev.Generic |> Map.ofArray
+
+            let instTy (ty: Type) = ty.InstantiateWithMap map
+
+            let prevTy = Array.map instTy prev.Type
+
+            let instPred (pred: Pred) =
+                let inst (ty: Type) = ty.InstantiateWithMap map
+
+                { pred with
+                    Type = Array.map inst pred.Type }
+
+            let prevPred = Array.map instPred prev.Pred
+
+            let subst = Dictionary()
+
+            let res = Array.zip pred.Type prevTy |> Array.map (overlap subst)
+
+            if Array.contains false res then
+                None
+            else
+                let normal (pred: Pred) =
                     { pred with
-                        Type = this.NormalizeTyWith subst pred.Type }
+                        Type = Array.map (this.NormalizeTyWith subst) pred.Type }
 
-                prevPred |> Array.map normalPred |> Some
-            | Error _ -> None
+                let prevPred = Array.map normal prevPred
 
-        Util.pick overlap value
+                Some prevPred
+
+        Util.pick allOverlap value
 
     member this.HasTrait span pred =
 
         // in cache, fast path
         if predCache.Contains pred then
-            true
-        // waiting for tvar solution
-        else if pred.Type.FindTVar() |> Seq.isEmpty |> not then
-            let tvar = pred.Type.FindTVar() |> Seq.toArray
-            predCache.Add pred |> ignore
-
-            let ob =
-                { Pred = pred
-                  TVar = tvar
-                  Span = span }
-
-            pending.Add ob
-
             true
         else if not (traitImpl.ContainsKey pred.Trait) then
             false
@@ -676,6 +738,7 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
 
     member this.FindMethod ty (arg: Type[]) field span =
         let ty = this.NormalizeTy ty
+        let tvar = ty.FindTVar() |> Seq.toArray
         let arg = Array.map this.NormalizeTy arg
 
         let findTrait scope =
@@ -683,9 +746,38 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
             | None -> None
             | Some id ->
                 let tr = sema.Trait[id]
+                let map = Map [| tr.Generic[0], ty |]
 
-                if this.HasTrait span { Trait = tr; Type = ty } then
-                    Some tr
+                if not (Array.isEmpty tvar) || tr.Generic.Length > 1 then
+
+                    let genTVar =
+                        Array.map (fun (gen: Generic) -> this.NewTVar gen.Span) tr.Generic[1..]
+
+                    let genTy = Array.map TVar genTVar
+
+                    let pred =
+                        { Trait = tr
+                          Type = Array.append [| ty |] genTy }
+
+                    predCache.Add pred |> ignore
+
+                    let ob =
+                        { Pred = pred
+                          TVar = Array.append tvar genTVar
+                          Span = span }
+
+                    let map =
+                        genTVar
+                        |> Array.map TVar
+                        |> Array.zip tr.Generic[1..]
+                        |> Map.ofArray
+                        |> Map.foldBack Map.add map
+
+                    pending.Add ob
+
+                    Some(tr, map)
+                else if this.HasTrait span { Trait = tr; Type = [| ty |] } then
+                    Some(tr, map)
                 else
                     None
 
@@ -695,9 +787,8 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
         | None ->
             error.Add(UndefinedMethod(span, ty, field))
             TNever
-        | Some t ->
+        | Some(t, map) ->
             let m = t.Method[field]
-            let map = Map [| t.Generic[0], ty |]
 
             if m.Param.Length <> arg.Length then
                 error.Add(ParamLenMismatch(span, m.Param.Length, arg.Length))

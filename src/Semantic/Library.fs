@@ -41,6 +41,7 @@ and Var = { Level: int; Id: int; Span: Span }
 and Generic =
     { Id: int
       GroupId: int
+      Span: Span
       Sym: string }
 
     member this.Print() =
@@ -244,7 +245,7 @@ and Trait =
       ObjectSafe: bool
       Super: Trait[] }
 
-and Pred = { Trait: Trait; Type: Type }
+and Pred = { Trait: Trait; Type: Type[] }
 
 type Impl =
     { Generic: Generic[]
@@ -268,7 +269,15 @@ type Scheme =
             if this.Pred.Length = 0 then
                 res
             else
-                let print { Type = ty; Trait = tr } = ty.Print() + ": " + tr.Name.Sym
+                let print { Type = ty; Trait = tr } =
+                    let bound = ty[0].Print() + ": " + tr.Name.Sym
+
+                    if ty.Length = 1 then
+                        bound
+                    else
+                        let gen = ty[1..] |> Array.map _.Print() |> String.concat ", "
+                        $"{bound}<{gen}>"
+
                 let pred = this.Pred |> Array.map print |> String.concat ", "
 
                 $"{res} where {pred}"
@@ -357,7 +366,7 @@ type Error =
     | RefutablePat of Span
     | LoopInType of Id[]
     | CaptureDynamic of Id
-    | OverlapImpl of Trait * Scheme * Scheme * Span
+    | OverlapImpl of Trait * Type[] * Type[] * Span
     | UnboundGeneric of Generic
     | UnboundSelfType of Span
     | TraitNotImpl of Pred * Span
