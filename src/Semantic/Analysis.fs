@@ -636,7 +636,25 @@ type internal Traverse(env: Environment) =
                       Sym = "self" }
 
                 let gen = t.TyParam |> Array.indexed |> Array.map makeGen
-                genMap.Add(t.Name, Array.append [| self |] gen)
+
+                let mutable idx = gen.Length
+
+                let processAssoc item =
+                    match item.Member with
+                    | TraitType t ->
+                        idx <- idx + 1
+
+                        Some(
+                            { GroupId = group
+                              Id = idx + 1
+                              Span = t.Name.Span
+                              Sym = t.Name.Sym }
+                        )
+                    | _ -> None
+
+                let assoc = t.Item |> Array.choose processAssoc
+
+                genMap.Add(t.Name, Array.concat [| [| self |]; gen; assoc |])
 
                 env.RegisterTy
                     t.Name
@@ -773,8 +791,9 @@ type internal Traverse(env: Environment) =
 
                 env.EnterScope(TraitScope { Self = TGen gen[0] })
 
-                for idx, p in Array.indexed t.TyParam do
-                    env.RegisterTy p.Id (TGen gen[idx + 1])
+                for idx in 1 .. gen.Length - 1 do
+                    let g = gen[idx]
+                    env.RegisterTy { Sym = g.Sym; Span = g.Span } (TGen g)
 
                 let super = ResizeArray()
 
@@ -794,7 +813,7 @@ type internal Traverse(env: Environment) =
 
                 let processParam (p: Param) = p.Ty |> Option.get |> this.Type
 
-                let processMember (method: Map<string, Function>) (m: TraitMember) =
+                let processMethod (method: Map<string, Function>) (m: TraitMember) =
                     match m with
                     | TraitMethod m ->
                         match m.Default with
@@ -811,10 +830,9 @@ type internal Traverse(env: Environment) =
                         let f = { Param = param; Ret = ret }
 
                         Map.add m.Name.Sym f method
-                    | TraitType t -> method
-                    | _ -> failwith "Not Implemented"
+                    | _ -> method
 
-                let method = t.Item |> Array.map _.Member |> Array.fold processMember Map.empty
+                let method = t.Item |> Array.map _.Member |> Array.fold processMethod Map.empty
 
                 let methodSafe f =
                     (TFn f).FindTGen() |> Seq.forall (fun g -> g.Id <> 0)
@@ -828,7 +846,8 @@ type internal Traverse(env: Environment) =
                       Method = method
                       Generic = gen
                       ObjectSafe = safe
-                      Super = super }
+                      Super = super
+                      DepIndex = 1 + t.TyParam.Length }
             | Impl i ->
                 env.EnterScope TypeScope
 

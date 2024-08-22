@@ -103,7 +103,7 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
 
     let unionFind = Dictionary<int, Type>()
     let traitImpl = Dictionary<Trait, ResizeArray<TraitImpl>>(HashIdentity.Reference)
-    let pending = ResizeArray<Obligation>()
+    let pending = Dictionary<Pred, Obligation>()
     let predCache = HashSet<Pred>()
 
     let mutable varId = 0
@@ -212,43 +212,34 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
             for KeyValue(var, ty) in union do
                 unionFind.Add(var, ty)
 
-            let mutable remainIdx = 0
+            for key in pending.Keys |> Array.ofSeq do
+                let ob = pending[key]
 
-            for idx in 0 .. pending.Count - 1 do
-                let ob = pending[idx]
+                let remain (v: Var) =
+                    match this.NormalizeTy(TVar v) with
+                    | TVar v -> Some v
+                    | _ -> None
 
-                let newTVar (v: Var) =
-                    if union.ContainsKey v.Id then
-                        match union[v.Id] with
-                        | TVar v -> Some v
-                        | _ -> None
-                    else
-                        Some v
+                let remain = Array.choose remain ob.TVar
 
-                let newTVar = Array.choose newTVar ob.TVar
-
-                if newTVar.Length = 0 then
+                if remain.Length = 0 then
                     let pred =
                         { ob.Pred with
                             Type = Array.map this.NormalizeTy ob.Pred.Type }
 
                     if not (this.HasTrait span pred) then
                         error.Add(TraitNotImpl(pred, ob.Span))
-                else if newTVar = ob.TVar then
-                    pending[remainIdx] <- ob
-                    remainIdx <- remainIdx + 1
-                else
+
+                    pending.Remove key |> ignore
+                else if remain <> ob.TVar then
                     let ob =
                         { ob with
                             Pred =
                                 { ob.Pred with
                                     Type = Array.map this.NormalizeTy ob.Pred.Type }
-                            TVar = newTVar }
+                            TVar = remain }
 
-                    pending[remainIdx] <- ob
-                    remainIdx <- remainIdx + 1
-
-            pending.RemoveRange(remainIdx, pending.Count - remainIdx)
+                    pending[key] <- ob
 
         | Error unionError ->
             for e in unionError do
@@ -323,19 +314,20 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
         let generic = map.Values.ToArray()
         let ty = { Param = param; Ret = ret }
 
-        let pred = ResizeArray()
-        let super = Dictionary()
+        let pred = HashSet()
 
         let addToPred (p: Pred) =
-            pred.Add p
+            if not (pred.Contains p) then
+                pred.Add p |> ignore
 
-            for s in this.AllSuperTrait p.Trait do
-                super.Add({ p with Trait = s }, pred)
+                // improvement by super
+                // TODO: properly handle super trait with multi params
+                for s in this.AllSuperTrait p.Trait do
+                    pred.Remove { p with Trait = s } |> ignore
 
-        let mutable remainIdx = 0
+        for KeyValue(key, ob) in pending |> Array.ofSeq do
+            pending.Remove key |> ignore
 
-        for idx in 0 .. pending.Count - 1 do
-            let ob = pending[idx]
             let remain key = Map.containsKey key map |> not
             let remain = Array.filter remain ob.TVar
 
@@ -344,34 +336,47 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                     { Trait = ob.Pred.Trait
                       Type = Array.map resolve ob.Pred.Type }
 
+                // improvment by instance
                 match this.TraitByInst p with
                 | None -> addToPred p
                 | Some p ->
                     for p in p do
                         addToPred p
             else if Array.forall outScope remain then
-                pending[remainIdx] <-
+                let newKey =
+                    { key with
+                        Type = Array.map resolve key.Type }
+
+                pending[newKey] <-
                     { ob with
                         TVar = remain
                         Pred =
                             { ob.Pred with
                                 Type = Array.map resolve ob.Pred.Type } }
 
-                remainIdx <- remainIdx + 1
             else
                 let unresolved = Array.filter (outScope >> not) remain
 
                 for u in unresolved do
                     error.Add(AmbiguousTypeVar u)
 
-        pending.RemoveRange(remainIdx, pending.Count - remainIdx)
-
-        let bySuper pred = not (super.ContainsKey pred)
-        let pred = pred.ToArray() |> Array.filter bySuper
-
         { Generic = generic
           Type = TFn ty
-          Pred = pred }
+          Pred = pred.ToArray() }
+
+    member this.AddOb({ Pred = pred } as ob: Obligation) =
+        let key =
+            { pred with
+                Type = Array.take pred.Trait.DepIndex pred.Type }
+
+        if pending.ContainsKey key then
+            let prev = pending[key]
+
+            // improvement by functional dependency
+            for (t1, t2) in Array.zip prev.Pred.Type pred.Type do
+                this.Unify t1 t2 ob.Span
+        else
+            pending.Add(key, ob)
 
     member this.AllSuperTrait trait_ =
         seq {
@@ -641,7 +646,9 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
 
             let ty, pred = this.Instantiate scm id.Span
             let ob = Array.map (Obligation.FromPred id.Span) pred
-            pending.AddRange ob
+
+            for ob in ob do
+                this.AddOb ob
 
             Some ty
 
@@ -688,7 +695,9 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
             let scm = sema.DeclTy[def]
             let ty, pred = this.Instantiate scm id.Span
             let ob = Array.map (Obligation.FromPred id.Span) pred
-            pending.AddRange ob
+
+            for ob in ob do
+                this.AddOb ob
 
             Some ty
 
@@ -748,7 +757,7 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                 let tr = sema.Trait[id]
                 let map = Map [| tr.Generic[0], ty |]
 
-                if not (Array.isEmpty tvar) || tr.Generic.Length > 1 then
+                if not (Array.isEmpty tvar) || (tr.Generic.Length > 1 && tr.DepIndex > 1) then
 
                     let genTVar =
                         Array.map (fun (gen: Generic) -> this.NewTVar gen.Span) tr.Generic[1..]
@@ -766,14 +775,14 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                           TVar = Array.append tvar genTVar
                           Span = span }
 
+                    this.AddOb ob
+
                     let map =
                         genTVar
                         |> Array.map TVar
                         |> Array.zip tr.Generic[1..]
                         |> Map.ofArray
                         |> Map.foldBack Map.add map
-
-                    pending.Add ob
 
                     Some(tr, map)
                 else if this.HasTrait span { Trait = tr; Type = [| ty |] } then

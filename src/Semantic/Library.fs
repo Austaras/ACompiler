@@ -239,11 +239,15 @@ and Enum =
       Generic: Generic[] }
 
 and Trait =
-    { Name: Id
-      Method: Map<string, Function>
-      Generic: Generic[]
-      ObjectSafe: bool
-      Super: Trait[] }
+    {
+        Name: Id
+        Method: Map<string, Function>
+        Generic: Generic[]
+        ObjectSafe: bool
+        Super: Trait[]
+        /// where functional dependency start
+        DepIndex: int
+    }
 
 and Pred = { Trait: Trait; Type: Type[] }
 

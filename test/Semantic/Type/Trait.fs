@@ -188,20 +188,20 @@ fn twice(c, a, b) {
 }"
     |> toBe (Map [| "twice", "<T0, T1, T2>|T0, T1, T2| -> () where T0: Collect<T1>, T0: Collect<T2>" |])
 
-// [<Fact>]
-// let GoodCollect () =
-//     runInfer
-//         "
-// trait Collect {
-//     type C
-//     fn insert(self, value: C)
-// }
+[<Fact>]
+let GoodCollect () =
+    runAnalysis
+        "
+trait Collect {
+    type C
+    fn insert(self, value: C)
+}
 
-// fn twice(c, a, b) {
-//     c.insert(a)
-//     c.insert(b)
-// }"
-//     |> toBe (Map [| "twice", "<T0, T1>|T0, T1, T1| -> () where T0: Collect<T1>" |])
+fn twice(c, a, b) {
+    c.insert(a)
+    c.insert(b)
+}"
+    |> toBe (Map [| "twice", "<T0, T1>|T0, T1, T1| -> () where T0: Collect<T1>" |])
 
 [<Fact>]
 let PolyAdd () =
@@ -211,21 +211,25 @@ trait Add<Rhs> {
     fn add(self, rhs: Rhs) -> Self
 }
 
-impl Add<i64> for i64 {
-    fn add(self, rhs: i64) -> i64 {
+impl Add<int> for int {
+    fn add(self, rhs: int) -> i64 {
         self
     }
 }
 
-fn add(a: i64) {
+fn add(a: int) {
     a.add(a)
 }
 
-fn add_poly(a: i64, b) {
+fn add_poly(a: int, b) {
     a.add(b)
+}
+
+fn main() {
+    add_poly(1, 2)
 }"
     |> toBe (
         Map
-            [| "add", "|i64| -> i64"
-               "add_poly", "<T0>|i64, T0| -> i64 where i64: Add<T0>" |]
+            [| "add", "|int| -> int"
+               "add_poly", "<T0>|int, T0| -> int where int: Add<T0>" |]
     )

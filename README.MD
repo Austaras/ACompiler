@@ -55,7 +55,7 @@ Test out various compiler technology with a toy compiler for a toy language **in
 - [ ] cross module type check
 - [x] type class
   - [x] multi parameter type class
-  - [ ] functional dependency
+  - [x] functional dependency
   - [ ] number type class
   - [ ] field selection
   - [ ] existential type
