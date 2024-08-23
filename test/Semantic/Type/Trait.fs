@@ -253,5 +253,9 @@ impl Add for int {
 
 fn add(a: int, b) {
     a.add(b)
+}
+
+fn add_infer(a) {
+    a.add(1)
 }"
     |> toBe (Map [| "add", "|int, int| -> int" |])

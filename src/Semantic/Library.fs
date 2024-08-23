@@ -248,6 +248,10 @@ and Trait =
 
     member this.FreeVarLength = this.Generic.Length - this.DepName.Length
 
+    member this.GetFree ty = Array.take this.FreeVarLength ty
+
+    member this.GetDep ty = Array.skip this.FreeVarLength ty
+
     member this.HasDep name =
         Array.exists (fun (d: Id) -> d.Sym = name) this.DepName
 
