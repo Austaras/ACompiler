@@ -201,7 +201,7 @@ fn twice(c, a, b) {
     c.insert(a)
     c.insert(b)
 }"
-    |> toBe (Map [| "twice", "<T0, T1>|T0, T1, T1| -> () where T0: Collect<T1>" |])
+    |> toBe (Map [| "twice", "<T0, T1>|T0, T1, T1| -> () where T0: Collect<C = T1>" |])
 
 [<Fact>]
 let PolyAdd () =
@@ -233,3 +233,25 @@ fn main() {
             [| "add", "|int| -> int"
                "add_poly", "<T0>|int, T0| -> int where int: Add<T0>" |]
     )
+
+[<Fact>]
+let AddDep () =
+    runAnalysis
+        "
+trait Add {
+    type Res
+    fn add(self, rhs: Self) -> Res
+}
+
+impl Add for int {
+    type Res = int
+
+    fn add(self, rhs: Self) -> Res {
+        self
+    }
+}
+
+fn add(a: int, b) {
+    a.add(b)
+}"
+    |> toBe (Map [| "add", "|int, int| -> int" |])

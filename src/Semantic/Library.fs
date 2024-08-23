@@ -239,15 +239,17 @@ and Enum =
       Generic: Generic[] }
 
 and Trait =
-    {
-        Name: Id
-        Method: Map<string, Function>
-        Generic: Generic[]
-        ObjectSafe: bool
-        Super: Trait[]
-        /// where functional dependency start
-        DepIndex: int
-    }
+    { Name: Id
+      Method: Map<string, Function>
+      Generic: Generic[]
+      ObjectSafe: bool
+      Super: Trait[]
+      DepName: Id[] }
+
+    member this.FreeVarLength = this.Generic.Length - this.DepName.Length
+
+    member this.HasDep name =
+        Array.exists (fun (d: Id) -> d.Sym = name) this.DepName
 
 and Pred = { Trait: Trait; Type: Type[] }
 
@@ -279,7 +281,17 @@ type Scheme =
                     if ty.Length = 1 then
                         bound
                     else
-                        let gen = ty[1..] |> Array.map _.Print() |> String.concat ", "
+                        let print (idx, ty: Type) =
+                            let ty = ty.Print()
+                            let idx = idx + 1
+
+                            if idx >= tr.FreeVarLength then
+                                let name = tr.DepName[idx - tr.FreeVarLength].Sym
+                                $"{name} = {ty}"
+                            else
+                                ty
+
+                        let gen = ty[1..] |> Array.indexed |> Array.map print |> String.concat ", "
                         $"{bound}<{gen}>"
 
                 let pred = this.Pred |> Array.map print |> String.concat ", "
@@ -351,6 +363,7 @@ type Error =
     | Undefined of Id
     | UndefinedField of Span * string
     | UndefinedMethod of Span * Type * string
+    | UndefinedAssocType of Span * Id
     | UndefinedVariant of Id * Id
     | DuplicateDefinition of Id * Id
     | DuplicateField of Id
@@ -374,3 +387,4 @@ type Error =
     | UnboundGeneric of Generic
     | UnboundSelfType of Span
     | TraitNotImpl of Pred * Span
+    | TraitMemberMissing of Id * Id * Span

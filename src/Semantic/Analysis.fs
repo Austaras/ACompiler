@@ -575,8 +575,10 @@ type internal Traverse(env: Environment) =
                         { Trait = tr
                           Type = Array.append [| TGen generic |] gen }
 
+                    let assoc = Array.skip tr.FreeVarLength p.Type
+
                     pred.Add p
-                    env.AddPred p
+                    env.AddPred p assoc
 
         gen.ToArray(), pred.ToArray()
 
@@ -813,7 +815,7 @@ type internal Traverse(env: Environment) =
 
                 let processParam (p: Param) = p.Ty |> Option.get |> this.Type
 
-                let processMethod (method: Map<string, Function>) (m: TraitMember) =
+                let processMember (method: Map<string, Function>, tyName: Id[]) (m: TraitMember) =
                     match m with
                     | TraitMethod m ->
                         match m.Default with
@@ -829,10 +831,13 @@ type internal Traverse(env: Environment) =
 
                         let f = { Param = param; Ret = ret }
 
-                        Map.add m.Name.Sym f method
-                    | _ -> method
+                        Map.add m.Name.Sym f method, tyName
 
-                let method = t.Item |> Array.map _.Member |> Array.fold processMethod Map.empty
+                    | TraitType t -> method, Array.append tyName [| t.Name |]
+                    | TraitValue _ -> method, tyName
+
+                let method, tyName =
+                    t.Item |> Array.map _.Member |> Array.fold processMember (Map.empty, [||])
 
                 let methodSafe f =
                     (TFn f).FindTGen() |> Seq.forall (fun g -> g.Id <> 0)
@@ -847,11 +852,12 @@ type internal Traverse(env: Environment) =
                       Generic = gen
                       ObjectSafe = safe
                       Super = super
-                      DepIndex = 1 + t.TyParam.Length }
+                      DepName = tyName }
             | Impl i ->
                 env.EnterScope TypeScope
 
                 let gen, pred = this.TyParam i.TyParam
+                let genGroup = if gen.Length > 0 then gen[0].GroupId else env.NewGenGroup()
 
                 let trait_, trGen =
                     match i.Trait with
@@ -868,7 +874,32 @@ type internal Traverse(env: Environment) =
 
                 match env.GetTrait trait_.Sym with
                 | None -> env.AddError(Undefined trait_)
-                | Some t -> env.ImplTrait gen pred t trGen ty i.Span
+                | Some t ->
+                    let processTy assoc (mem: ImplItem) =
+                        match mem.Item with
+                        | AssocType a ->
+                            let ty = this.Type a.Ty
+
+                            if t.HasDep a.Name.Sym then
+                                Map.add a.Name.Sym ty assoc
+                            else
+                                env.AddError(UndefinedAssocType(i.Span, a.Name))
+                                assoc
+                        | Method _ -> assoc
+                        | AssocValue _ -> assoc
+
+                    let assocTy = Array.fold processTy Map.empty i.Item
+
+                    let processTy gen (name: Id) =
+                        match Map.tryFind name.Sym assocTy with
+                        | Some ty -> Array.append gen [| ty |]
+                        | None ->
+                            env.AddError(TraitMemberMissing(t.Name, name, i.Span))
+                            gen
+
+                    let trGen = Array.fold processTy trGen t.DepName
+
+                    env.ImplTrait gen pred t trGen ty i.Span
 
                 env.ExitScope()
 

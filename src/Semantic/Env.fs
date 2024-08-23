@@ -104,7 +104,7 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
     let unionFind = Dictionary<int, Type>()
     let traitImpl = Dictionary<Trait, ResizeArray<TraitImpl>>(HashIdentity.Reference)
     let pending = Dictionary<Pred, Obligation>()
-    let predCache = HashSet<Pred>()
+    let predCache = Dictionary<Pred, Type[]>()
 
     let mutable varId = 0
     let mutable genId = 0
@@ -227,7 +227,7 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                         { ob.Pred with
                             Type = Array.map this.NormalizeTy ob.Pred.Type }
 
-                    if not (this.HasTrait span pred) then
+                    if this.HasTrait span pred = None then
                         error.Add(TraitNotImpl(pred, ob.Span))
 
                     pending.Remove key |> ignore
@@ -320,11 +320,6 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
             if not (pred.Contains p) then
                 pred.Add p |> ignore
 
-                // improvement by super
-                // TODO: properly handle super trait with multi params
-                for s in this.AllSuperTrait p.Trait do
-                    pred.Remove { p with Trait = s } |> ignore
-
         for KeyValue(key, ob) in pending |> Array.ofSeq do
             pending.Remove key |> ignore
 
@@ -339,7 +334,8 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                 // improvment by instance
                 match this.TraitByInst p with
                 | None -> addToPred p
-                | Some p ->
+                // TODO: what shall we do?
+                | Some(p, _) ->
                     for p in p do
                         addToPred p
             else if Array.forall outScope remain then
@@ -367,7 +363,7 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
     member this.AddOb({ Pred = pred } as ob: Obligation) =
         let key =
             { pred with
-                Type = Array.take pred.Trait.DepIndex pred.Type }
+                Type = Array.take pred.Trait.FreeVarLength pred.Type }
 
         if pending.ContainsKey key then
             let prev = pending[key]
@@ -375,8 +371,14 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
             // improvement by functional dependency
             for (t1, t2) in Array.zip prev.Pred.Type pred.Type do
                 this.Unify t1 t2 ob.Span
+
         else
             pending.Add(key, ob)
+
+            // improvement by super
+            // TODO: properly handle super trait with multi params
+            for s in this.AllSuperTrait key.Trait do
+                pending.Remove { key with Trait = s } |> ignore
 
     member this.AllSuperTrait trait_ =
         seq {
@@ -406,13 +408,13 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                 { Trait = super
                   Type = Array.append ty traitTy }
 
-            if not (this.HasTrait span pred) then
+            if this.HasTrait span pred = None then
                 error.Add(TraitNotImpl(pred, span))
 
         if traitImpl.ContainsKey trait_ then
             let value = traitImpl[trait_]
 
-            let overlap (ty, prevTy) =
+            let overlap (prevTy, ty) =
                 match this.UnifyInner prevTy ty Span.dummy with
                 | Ok _ -> Some prevTy
                 | Error _ -> None
@@ -426,9 +428,10 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
 
                 let instTy (ty: Type) = ty.InstantiateWithMap map
 
-                let prevTy = Array.map instTy prev.Type
+                let prevTy = prev.Type |> Array.take trait_.FreeVarLength |> Array.map instTy
 
-                let res = Array.zip ty prevTy |> Array.map overlap
+                let res =
+                    ty |> Array.take trait_.FreeVarLength |> Array.zip prevTy |> Array.map overlap
 
                 if Array.contains None res then
                     None
@@ -449,7 +452,7 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
     member this.TraitByInst pred =
         let value = traitImpl[pred.Trait]
 
-        let overlap subst (ty, prevTy) =
+        let overlap subst (prevTy, ty) =
             let prevTy = this.NormalizeTyWith subst prevTy
 
             match this.UnifyInner prevTy ty Span.dummy with
@@ -469,7 +472,7 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
 
             let instTy (ty: Type) = ty.InstantiateWithMap map
 
-            let prevTy = Array.map instTy prev.Type
+            let implTy = Array.map instTy prev.Type
 
             let instPred (pred: Pred) =
                 let inst (ty: Type) = ty.InstantiateWithMap map
@@ -481,7 +484,11 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
 
             let subst = Dictionary()
 
-            let res = Array.zip pred.Type prevTy |> Array.map (overlap subst)
+            let res =
+                implTy
+                |> Array.take pred.Trait.FreeVarLength
+                |> Array.zip pred.Type
+                |> Array.map (overlap subst)
 
             if Array.contains false res then
                 None
@@ -492,32 +499,32 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
 
                 let prevPred = Array.map normal prevPred
 
-                Some prevPred
+                Some(prevPred, Array.skip pred.Trait.FreeVarLength implTy)
 
         Util.pick allOverlap value
 
     member this.HasTrait span pred =
-
         // in cache, fast path
-        if predCache.Contains pred then
-            true
+        if predCache.ContainsKey pred then
+            Some(predCache[pred])
         else if not (traitImpl.ContainsKey pred.Trait) then
-            false
+            None
         else
             match this.TraitByInst pred with
-            | None -> false
-            | Some p ->
-                if Array.forall (this.HasTrait span) p then
-                    predCache.Add pred |> ignore
-                    true
+            | None -> None
+            | Some(p, assoc) ->
+                // TODO: same here
+                if Array.forall (this.HasTrait span >> Option.isSome) p then
+                    this.AddPred pred assoc
+                    Some(assoc)
                 else
-                    false
+                    None
 
-    member this.AddPred(pred: Pred) =
+    member this.AddPred (pred: Pred) assoc =
         for super in this.AllSuperTrait pred.Trait do
-            predCache.Add({ pred with Trait = super }) |> ignore
+            predCache[{ pred with Trait = super }] <- [||]
 
-        predCache.Add pred |> ignore
+        predCache.Add(pred, assoc)
 
     member _.EnterScope data =
         let s = Scope.Create data
@@ -757,8 +764,7 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                 let tr = sema.Trait[id]
                 let map = Map [| tr.Generic[0], ty |]
 
-                if not (Array.isEmpty tvar) || (tr.Generic.Length > 1 && tr.DepIndex > 1) then
-
+                if not (Array.isEmpty tvar) || tr.FreeVarLength > 1 then
                     let genTVar =
                         Array.map (fun (gen: Generic) -> this.NewTVar gen.Span) tr.Generic[1..]
 
@@ -768,7 +774,7 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                         { Trait = tr
                           Type = Array.append [| ty |] genTy }
 
-                    predCache.Add pred |> ignore
+                    predCache.Add(pred, [||])
 
                     let ob =
                         { Pred = pred
@@ -785,10 +791,17 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                         |> Map.foldBack Map.add map
 
                     Some(tr, map)
-                else if this.HasTrait span { Trait = tr; Type = [| ty |] } then
-                    Some(tr, map)
                 else
-                    None
+                    match this.HasTrait span { Trait = tr; Type = [| ty |] } with
+                    | Some assoc ->
+                        let map =
+                            assoc
+                            |> Array.zip tr.Generic[tr.FreeVarLength ..]
+                            |> Map.ofArray
+                            |> Map.foldBack Map.add map
+
+                        Some(tr, map)
+                    | None -> None
 
         let trait_ = this.Pick findTrait
 
