@@ -7,9 +7,14 @@ type WorkList<'T>(init: IEnumerable<'T>) =
     let set = HashSet<'T>(init)
 
     member _.Add data =
-        if not (set.Contains data) then
+        let inserted = set.Add data
+
+        if inserted then
             list.Add data
-            set.Add data |> ignore
+
+        inserted
+
+    member _.Contain data = set.Contains data
 
     member _.ToSeq() =
         seq {

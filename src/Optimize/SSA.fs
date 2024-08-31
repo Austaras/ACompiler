@@ -20,7 +20,16 @@ type SSA(f: Func) =
         for _ in blockIndex do
             dom.Add(Set(blockIndex))
 
-        let todo = WorkList(blockIndex)
+        let todo = WorkList([||])
+
+        let rec visit idx =
+            let inserted = todo.Add idx
+
+            if inserted then
+                for next in f.CFG[idx].Succ do
+                    visit next
+
+        visit 0
 
         for id in todo do
             let cfgData = f.CFG[id]
@@ -36,7 +45,7 @@ type SSA(f: Func) =
 
             if currDom <> dom[id] then
                 for s in cfgData.Succ do
-                    todo.Add s
+                    todo.Add s |> ignore
 
                 dom[id] <- currDom
 
@@ -133,7 +142,7 @@ type SSA(f: Func) =
                             phiNode[front].Add(var, value)
 
                             if not (defVarInBlock[var].Contains front) then
-                                todo.Add front
+                                todo.Add front |> ignore
 
         phiNode
 
