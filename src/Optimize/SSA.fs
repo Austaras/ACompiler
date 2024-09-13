@@ -11,68 +11,99 @@ type DomTree = { ImmDom: int; Children: int[] }
 
 type SSA(f: Func) =
     member _.DomFront() =
+        // calc dfs span tree
+        let dfNum = Array.create f.Block.Length 0 |> ResizeArray
+        let revDf = Array.create f.Block.Length 0 |> ResizeArray
+        let parent = Array.create f.Block.Length 0 |> ResizeArray
 
-        let blockIndex = f.Block |> Array.indexed |> Array.map fst
+        let rec dfs idx count =
+            dfNum[idx] <- count
+            revDf[count] <- idx
+
+            let fold count next =
+                if dfNum[next] = 0 then
+                    parent[next] <- idx
+                    dfs next (count + 1)
+                else
+                    count
+
+            Array.fold fold count f.CFG[idx].Succ
+
+        dfs 0 0 |> ignore
+
+        let semiDom = Array.create f.Block.Length 0 |> ResizeArray
+        let ancestor = Array.create f.Block.Length 0 |> ResizeArray
+        let bucket = f.Block |> Array.map (fun _ -> HashSet()) |> ResizeArray
+        let immDom = Array.create f.Block.Length 0 |> ResizeArray
+        let sameDom = Array.create f.Block.Length 0 |> ResizeArray
+
+        let lowestAncestor node =
+            let rec find lowest curr =
+                if ancestor[curr] <> 0 then
+                    let node =
+                        if dfNum[semiDom[curr]] < dfNum[semiDom[lowest]] then
+                            curr
+                        else
+                            lowest
+
+                    find node ancestor[curr]
+                else
+                    lowest
+
+            find node node
+
+        // calc semi dom
+        for i = f.Block.Length - 1 downto 1 do
+            let node = revDf[i]
+            let parentNode = parent[node]
+
+            let mutable semi = parentNode
+
+            for pred in f.CFG[node].Pred do
+                let semiCandidate =
+                    if dfNum[pred] <= dfNum[node] then
+                        pred
+                    else
+                        semiDom[lowestAncestor pred]
+
+                if dfNum[semiCandidate] < dfNum[semi] then
+                    semi <- semiCandidate
+
+            semiDom[node] <- semi
+            bucket[semi].Add(node) |> ignore
+            ancestor[node] <- parentNode
+
+            // calc dom from semi dom, part 1
+            for node in bucket[parentNode] do
+                let y = lowestAncestor node
+
+                if semiDom[y] = semiDom[node] then
+                    immDom[node] <- parentNode
+                else
+                    sameDom[node] <- y
+
+            bucket[parentNode].Clear()
+
+        // calc dom from semi dom, part 2
+        for i = 1 to f.Block.Length - 1 do
+            let node = revDf[i]
+
+            if sameDom[node] <> 0 then
+                immDom[node] <- immDom[sameDom[node]]
 
         // calc dominance tree
-        let dom = ResizeArray()
-
-        for _ in blockIndex do
-            dom.Add(Set(blockIndex))
-
-        let todo = WorkList([||])
-
-        let rec visit idx =
-            let inserted = todo.Add idx
-
-            if inserted then
-                for next in f.CFG[idx].Succ do
-                    visit next
-
-        visit 0
-
-        for id in todo do
-            let cfgData = f.CFG[id]
-            let currDom = Set([| id |])
-
-            let predDom =
-                if cfgData.Pred.Length > 0 then
-                    cfgData.Pred |> Seq.map (fun id -> dom[id]) |> Set.intersectMany
-                else
-                    Set.empty
-
-            let currDom = Set.union currDom predDom
-
-            if currDom <> dom[id] then
-                for s in cfgData.Succ do
-                    todo.Add s |> ignore
-
-                dom[id] <- currDom
-
         let domTree = ResizeArray()
 
-        for _ in blockIndex do
-            domTree.Add { ImmDom = 0; Children = [||] }
+        for node, immDom in Seq.indexed immDom do
+            domTree.Add({ ImmDom = immDom; Children = [||] })
 
-        for id in blockIndex do
-            let mutable immDom = 0
-
-            for currDom in dom[id] do
-                if currDom <> id && currDom <> immDom && dom[currDom].Contains immDom then
-                    immDom <- currDom
-
-            domTree[id] <- { domTree[id] with ImmDom = immDom }
-
-            if immDom <> id then
+            if node <> 0 then
                 domTree[immDom] <-
                     { domTree[immDom] with
-                        Children = Array.append domTree[immDom].Children [| id |] }
+                        Children = Array.append domTree[immDom].Children [| node |] }
 
         // calc dominance frontier
-        let domFront = ResizeArray()
-
-        for _ in blockIndex do
-            domFront.Add(HashSet())
+        let domFront = f.Block |> Array.map (fun _ -> HashSet()) |> ResizeArray
 
         let rec dominate parent child =
             let child = domTree[child]
@@ -258,7 +289,7 @@ type SSA(f: Func) =
         let varMapping = ResizeArray()
         let mutable currIdx = 0
 
-        for id in 0 .. var.Count - 1 do
+        for id = 0 to var.Count - 1 do
             if shouldRemove.Contains id then
                 varMapping.Add -1
             else
