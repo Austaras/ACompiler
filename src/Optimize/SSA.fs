@@ -35,23 +35,23 @@ type SSA(f: Func) =
         let bucket = f.Block |> Array.map (fun _ -> HashSet())
         let immDom = Array.create f.Block.Length 0
         let sameDom = Array.create f.Block.Length 0
+        let lowest = Array.create f.Block.Length 0
 
-        let lowestAncestor node =
-            let rec find lowest curr =
-                if ancestor[curr] <> 0 then
-                    let node =
-                        if dfNum[semiDom[curr]] < dfNum[semiDom[lowest]] then
-                            curr
-                        else
-                            lowest
+        let rec findLowest node =
+            let ance = ancestor[node]
 
-                    find node ancestor[curr]
-                else
-                    lowest
+            if ancestor[ance] <> 0 then
+                let newAnce = findLowest ance
+                ancestor[node] <- ancestor[ance]
 
-            find node node
+                if dfNum[semiDom[newAnce]] < dfNum[semiDom[lowest[node]]] then
+                    lowest[node] <- newAnce
 
-        let link ance node = ancestor[node] <- ance
+            lowest[node]
+
+        let link ance node =
+            ancestor[node] <- ance
+            lowest[node] <- node
 
         // calc semi dom
         for i = f.Block.Length - 1 downto 1 do
@@ -65,7 +65,7 @@ type SSA(f: Func) =
                     if dfNum[pred] <= dfNum[node] then
                         pred
                     else
-                        semiDom[lowestAncestor pred]
+                        semiDom[findLowest pred]
 
                 if dfNum[semiCandidate] < dfNum[semi] then
                     semi <- semiCandidate
@@ -76,7 +76,7 @@ type SSA(f: Func) =
 
             // calc dom from semi dom, part 1
             for node in bucket[parentNode] do
-                let y = lowestAncestor node
+                let y = findLowest node
 
                 if semiDom[y] = semiDom[node] then
                     immDom[node] <- parentNode
