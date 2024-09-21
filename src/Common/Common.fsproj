@@ -9,7 +9,6 @@
     <Compile Include="Span.fs" />
     <Compile Include="Util.fs" />
     <Compile Include="MultiMap.fs" />
-    <Compile Include="WorkList.fs" />
     <Compile Include="Library.fs" />
   </ItemGroup>
 </Project>

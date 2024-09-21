@@ -1,0 +1,16 @@
+fn calc(mut k: int) {
+    let i = 1
+    let mut j = 1
+
+    while k < 100 {
+        if j < 20 {
+            j = i
+            k = k + 1
+        } else {
+            j = k
+            k = k + 2
+        }
+    }
+
+    j
+}

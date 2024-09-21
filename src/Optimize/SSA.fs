@@ -1,20 +1,19 @@
 module Optimize.SSA
 
-open System.Linq
 open System.Collections.Generic
 
-open Common.WorkList
-open Common.Util.Util
+open Common.Span
 open Optimize.FLIR
+open Optimize.WorkList
 
 type DomTree = { ImmDom: int; Children: int[] }
 
 type SSA(f: Func) =
     member _.DomFront() =
         // calc dfs span tree
-        let dfNum = Array.create f.Block.Length 0 |> ResizeArray
-        let revDf = Array.create f.Block.Length 0 |> ResizeArray
-        let parent = Array.create f.Block.Length 0 |> ResizeArray
+        let dfNum = Array.create f.Block.Length 0
+        let revDf = Array.create f.Block.Length 0
+        let parent = Array.create f.Block.Length 0
 
         let rec dfs idx count =
             dfNum[idx] <- count
@@ -31,11 +30,11 @@ type SSA(f: Func) =
 
         dfs 0 0 |> ignore
 
-        let semiDom = Array.create f.Block.Length 0 |> ResizeArray
-        let ancestor = Array.create f.Block.Length 0 |> ResizeArray
-        let bucket = f.Block |> Array.map (fun _ -> HashSet()) |> ResizeArray
-        let immDom = Array.create f.Block.Length 0 |> ResizeArray
-        let sameDom = Array.create f.Block.Length 0 |> ResizeArray
+        let semiDom = Array.create f.Block.Length 0
+        let ancestor = Array.create f.Block.Length 0
+        let bucket = f.Block |> Array.map (fun _ -> HashSet())
+        let immDom = Array.create f.Block.Length 0
+        let sameDom = Array.create f.Block.Length 0
 
         let lowestAncestor node =
             let rec find lowest curr =
@@ -51,6 +50,8 @@ type SSA(f: Func) =
                     lowest
 
             find node node
+
+        let link ance node = ancestor[node] <- ance
 
         // calc semi dom
         for i = f.Block.Length - 1 downto 1 do
@@ -71,7 +72,7 @@ type SSA(f: Func) =
 
             semiDom[node] <- semi
             bucket[semi].Add(node) |> ignore
-            ancestor[node] <- parentNode
+            link parentNode node
 
             // calc dom from semi dom, part 1
             for node in bucket[parentNode] do
@@ -92,18 +93,16 @@ type SSA(f: Func) =
                 immDom[node] <- immDom[sameDom[node]]
 
         // calc dominance tree
-        let domTree = ResizeArray()
+        let domTree = Array.map (fun immDom -> { ImmDom = immDom; Children = [||] }) immDom
 
         for node, immDom in Seq.indexed immDom do
-            domTree.Add({ ImmDom = immDom; Children = [||] })
-
             if node <> 0 then
                 domTree[immDom] <-
                     { domTree[immDom] with
                         Children = Array.append domTree[immDom].Children [| node |] }
 
         // calc dominance frontier
-        let domFront = f.Block |> Array.map (fun _ -> HashSet()) |> ResizeArray
+        let domFront = f.Block |> Array.map (fun _ -> HashSet())
 
         let rec dominate parent child =
             let child = domTree[child]
@@ -132,14 +131,11 @@ type SSA(f: Func) =
 
         domTree, domFront
 
-    member _.PlacePhi(domFront: ResizeArray<HashSet<int>>) =
+    member _.PlacePhi(domFront: HashSet<int>[]) =
         let defVarInBlock = Dictionary<int, HashSet<int>>()
         let phiBlockOfVar = Dictionary<int, HashSet<int>>()
 
-        let phiNode = ResizeArray()
-
-        for _ in f.Block do
-            phiNode.Add(Dictionary())
+        let phiNode = Array.map (fun _ -> Dictionary()) f.Block
 
         for id, b in Array.indexed f.Block do
             if id = 0 then
@@ -177,7 +173,7 @@ type SSA(f: Func) =
 
         phiNode
 
-    member _.RewriteBlock (domTree: ResizeArray<DomTree>) (phiNode: ResizeArray<Dictionary<int, int[]>>) =
+    member _.RewriteBlock (domTree: DomTree[]) (phiNode: Dictionary<int, int[]>[]) =
         let var = ResizeArray(f.Var)
 
         let addVar id =
@@ -265,11 +261,7 @@ type SSA(f: Func) =
 
         var, newBlock
 
-    member _.Minimize
-        (phiNode: ResizeArray<Dictionary<int, int[]>>)
-        (var: ResizeArray<Var>)
-        (newBlock: ResizeArray<Block>)
-        =
+    member _.Minimize (phiNode: Dictionary<int, int[]>[]) (var: ResizeArray<Var>) (newBlock: ResizeArray<Block>) =
         let shouldRemove = HashSet(seq { 0 .. var.Count - 1 })
 
         for block, currPhi in Seq.zip newBlock phiNode do
@@ -323,7 +315,7 @@ type SSA(f: Func) =
             { block.Rewrite def use_ with
                 Phi = currPhi }
 
-        let newBlock = newBlock |> Seq.zip phiNode |> Seq.map minimize |> Array.ofSeq
+        let newBlock = newBlock |> Seq.zip phiNode |> Seq.map minimize |> ResizeArray
 
         let filterVar (idx, var) =
             if not (shouldRemove.Contains idx) then Some var else None
@@ -332,13 +324,82 @@ type SSA(f: Func) =
 
         var, newBlock
 
+    member _.EdgeSplit(block: ResizeArray<Block>) =
+        let cfg = ResizeArray(f.CFG)
+        let dedunt = Dictionary()
+
+        for idx in 0 .. f.CFG.Length - 1 do
+            for sIdx in cfg[idx].Succ do
+                let node = cfg[idx]
+                let succ = cfg[sIdx]
+
+                if node.Succ.Length > 1 && succ.Pred.Length > 1 then
+                    let newBlock =
+                        if dedunt.ContainsKey sIdx then
+                            dedunt[sIdx]
+                        else
+                            let newBlock = block.Count
+                            dedunt.Add(sIdx, newBlock)
+
+                            block.Add(
+                                { Phi = Map.empty
+                                  Instr = [||]
+                                  Trans = Jump { Target = sIdx; Span = Span.dummy } }
+                            )
+
+                            cfg.Add { Pred = [||]; Succ = [| sIdx |] }
+
+                            newBlock
+
+                    let mapBlock id = if id = sIdx then newBlock else id
+
+                    let newTx =
+                        match block[idx].Trans with
+                        | Jump _
+                        | Return _
+                        | Unreachable _ -> failwith "Unreachable"
+                        | Branch b ->
+                            let b =
+                                if b.One = sIdx then
+                                    { b with One = newBlock }
+                                else
+                                    { b with Zero = newBlock }
+
+                            Branch b
+                        | Switch s ->
+                            let map (target, value) = mapBlock target, value
+
+                            let newDest = Array.map map s.Dest
+
+                            Switch { s with Dest = newDest }
+
+                    block[idx] <- { block[idx] with Trans = newTx }
+
+                    let newSucc: int array = Array.map mapBlock node.Succ
+
+                    cfg[idx] <- { cfg[idx] with Succ = newSucc }
+
+                    cfg[newBlock] <-
+                        { cfg[newBlock] with
+                            Pred = Array.append cfg[newBlock].Pred [| idx |] }
+
+                    let newPred = Array.map (fun id -> if id = idx then newBlock else id) succ.Pred
+
+                    cfg[sIdx] <- { cfg[sIdx] with Pred = newPred }
+
+        block, cfg
+
     member this.Transform() =
         let domTree, domFront = this.DomFront()
         let phiNode = this.PlacePhi domFront
         let var, newBlock = this.RewriteBlock domTree phiNode
         let var, newBlock = this.Minimize phiNode var newBlock
+        let newBlock, cfg = this.EdgeSplit newBlock
 
-        { f with Block = newBlock; Var = var }
+        { f with
+            Block = newBlock.ToArray()
+            Var = var
+            CFG = cfg.ToArray() }
 
 let ssaImpl (f: Func) =
     let ssa = SSA f
