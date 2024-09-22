@@ -5,8 +5,7 @@ open System.Collections.Generic
 
 open Optimize.FLIR
 
-let lvnImpl (b: Block) =
-    let mutable num = 0
+let lvnImpl (f: Func) (blockId: int, b: Block) =
     let binaryTable = Dictionary()
     let unaryTable = Dictionary()
 
@@ -17,6 +16,20 @@ let lvnImpl (b: Block) =
 
             if binaryTable.ContainsKey ident then
                 let var = binaryTable[ident]
+
+                let varData =
+                    { BlockId = blockId
+                      Data = ForTarget b.Target }
+
+                f.Var[var] <- f.Var[var].WithUse varData
+
+                match b.Left with
+                | Const _ -> ()
+                | Binding l -> f.Var[l] <- f.Var[l].WithoutUse varData
+
+                match b.Right with
+                | Const _ -> ()
+                | Binding r -> f.Var[r] <- f.Var[r].WithoutUse varData
 
                 Assign
                     { Target = b.Target
@@ -30,6 +43,16 @@ let lvnImpl (b: Block) =
 
             if unaryTable.ContainsKey ident then
                 let var = unaryTable[ident]
+
+                let varData =
+                    { BlockId = blockId
+                      Data = ForTarget u.Target }
+
+                f.Var[var] <- f.Var[var].WithUse varData
+
+                match u.Value with
+                | Const _ -> ()
+                | Binding l -> f.Var[l] <- f.Var[l].WithoutUse varData
 
                 Assign
                     { Target = u.Target

@@ -191,7 +191,26 @@ type UnaryOp =
         | Ext true -> "sext"
         | Ext false -> "zext"
 
-type Var = { Name: string; Type: Type }
+type UseData =
+    | InTx
+    | InPhi of int
+    | ForTarget of int
+
+type Use = { BlockId: int; Data: UseData }
+
+type Var =
+    { Name: string
+      Type: Type
+      Def: int
+      Use: Use[] }
+
+    member this.WithUse data =
+        { this with
+            Use = Array.append this.Use [| data |] }
+
+    member this.WithoutUse data =
+        { this with
+            Use = Array.filter ((<>) data) this.Use }
 
 type Value =
     | Const of uint64
@@ -237,10 +256,20 @@ type Instr =
 
     member this.Target =
         match this with
-        | Binary b -> Some b.Target
-        | Assign a -> Some a.Target
-        | Unary n -> Some n.Target
-        | Call c -> Some c.Target
+        | Binary b -> b.Target
+        | Assign a -> a.Target
+        | Unary n -> n.Target
+        | Call c -> c.Target
+        | Load -> failwith "Not Implemented"
+        | Store -> failwith "Not Implemented"
+        | Alloc -> failwith "Not Implemented"
+
+    member this.Value =
+        match this with
+        | Binary b -> [| b.Left; b.Right |]
+        | Assign a -> [| a.Value |]
+        | Unary u -> [| u.Value |]
+        | Call c -> c.Arg
         | Load -> failwith "Not Implemented"
         | Store -> failwith "Not Implemented"
         | Alloc -> failwith "Not Implemented"
@@ -411,9 +440,7 @@ type Func =
             for stm in block.Instr do
                 tw.Write(String.replicate 8 " ")
 
-                match stm.Target with
-                | Some target -> tw.Write(varToString target)
-                | None -> ()
+                tw.Write(varToString stm.Target)
 
                 tw.Write " = "
 
@@ -473,7 +500,7 @@ type Module =
 let transLocal trans (m: Module) =
     let trans f =
         { f with
-            Block = Array.map trans f.Block }
+            Block = f.Block |> Array.indexed |> Array.map (trans f) }
 
     { m with Func = Array.map trans m.Func }
 

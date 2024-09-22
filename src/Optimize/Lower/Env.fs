@@ -45,7 +45,13 @@ type Env() =
 
     member _.AddVar ty =
         let id = var.Count
-        var.Add { Name = ""; Type = ty }
+
+        var.Add
+            { Name = ""
+              Type = ty
+              Def = 0
+              Use = [||] }
+
         id
 
     member this.OfTarget target ty =
@@ -55,7 +61,13 @@ type Env() =
 
     member _.DeclareVar ty (def: AST.Id) =
         let id = var.Count
-        var.Add { Name = def.Sym; Type = ty }
+
+        var.Add
+            { Name = def.Sym
+              Type = ty
+              Def = 0
+              Use = [||] }
+
         varMap.Add(def, id)
         id
 

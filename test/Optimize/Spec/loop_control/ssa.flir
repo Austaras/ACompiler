@@ -28,8 +28,9 @@ fn (n1: i64) -> i64 {
         br _7 ? '7 : '8
     }
     '6: {
-        sum12 = Φ(sum3, sum9, sum11)
-        _0 = sum12
+        i12 = Φ(i2, i10, i10)
+        sum13 = Φ(sum3, sum9, sum11)
+        _0 = sum13
         ret _0
     }
     '7: {

@@ -70,7 +70,9 @@ Test out various compiler technology with a toy compiler for a toy language **in
   - [ ] generic
 - [x] SSA
 - [ ] optimization
-  - [ ] LVN
+  - [x] LVN
+  - [x] DCE
+  - [ ] SCCP
 
 ### Code Architecture
 

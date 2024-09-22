@@ -146,13 +146,12 @@ type SSA(f: Func) =
                         defVarInBlock.Add(p, HashSet [| id |])
 
             for instr in b.Instr do
-                match instr.Target with
-                | Some t ->
-                    if defVarInBlock.ContainsKey t then
-                        defVarInBlock[t].Add id |> ignore
-                    else
-                        defVarInBlock.Add(t, HashSet [| id |])
-                | None -> ()
+                let t = instr.Target
+
+                if defVarInBlock.ContainsKey t then
+                    defVarInBlock[t].Add id |> ignore
+                else
+                    defVarInBlock.Add(t, HashSet [| id |])
 
         for KeyValue(var, defIn) in defVarInBlock do
             if defIn.Count > 1 then
@@ -177,7 +176,7 @@ type SSA(f: Func) =
         let var = ResizeArray(f.Var)
 
         let addVar id =
-            var.Add var[id]
+            var.Add { var[id] with Use = [||] }
             var.Count - 1
 
         let defined = HashSet()
@@ -231,11 +230,105 @@ type SSA(f: Func) =
                     else
                         resolve env varId |> Option.get |> Binding
 
+            let reInstr (instrId, instr) =
+                let instr =
+                    match instr with
+                    | Assign a ->
+                        Assign
+                            { a with
+                                Value = reUse a.Value
+                                Target = reDef a.Target }
+                    | Unary u ->
+                        Unary
+                            { u with
+                                Value = reUse u.Value
+                                Target = reDef u.Target }
+                    | Binary b ->
+                        Binary
+                            { b with
+                                Left = reUse b.Left
+                                Right = reUse b.Right
+                                Target = reDef b.Target }
+                    | Call c ->
+                        Call
+                            { c with
+                                Arg = Array.map reUse c.Arg
+                                Target = reDef c.Target }
+                    | Load -> failwith "Not Implemented"
+                    | Store -> failwith "Not Implemented"
+                    | Alloc -> failwith "Not Implemented"
+
+                let target = instr.Target
+                var[target] <- { var[target] with Def = blockId }
+
+                let getBinding v =
+                    match v with
+                    | Binding i -> Some i
+                    | Const _ -> None
+
+                let binding = instr.Value |> Array.choose getBinding
+
+                for id in binding do
+                    let useData =
+                        { BlockId = blockId
+                          Data = ForTarget target }
+
+                    var[id] <- var[id].WithUse useData
+
+                instr
+
             let block = newBlock[blockId]
+            let instr = block.Instr |> Array.indexed |> Array.map reInstr
 
-            let block = block.Rewrite reDef reUse
+            let useInTrans v =
+                match v with
+                | Const _ -> ()
+                | Binding id ->
+                    let useData = { BlockId = blockId; Data = InTx }
 
-            newBlock[blockId] <- block
+                    var[id] <- var[id].WithUse useData
+
+            let trans =
+                match block.Trans with
+                | Branch b ->
+                    let value = reUse b.Value
+                    useInTrans value
+                    Branch { b with Value = value }
+                | Return r ->
+                    let value =
+                        match r.Value with
+                        | None -> None
+                        | Some value ->
+                            let value = reUse value
+                            useInTrans value
+                            Some value
+
+                    Return { r with Value = value }
+                | Switch s ->
+                    let value = reUse s.Value
+                    useInTrans value
+                    Switch { s with Value = value }
+                | Jump _
+                | Unreachable _ -> block.Trans
+
+            let block =
+                { block with
+                    Instr = instr
+                    Trans = trans }
+
+            let phi = phiNode[blockId] |> Seq.map (|KeyValue|) |> Map.ofSeq
+
+            for KeyValue(varId, valueId) in phi do
+                var[varId] <- { var[varId] with Def = blockId }
+
+                for valueId in valueId do
+                    let useData =
+                        { BlockId = blockId
+                          Data = InPhi varId }
+
+                    var[valueId] <- var[valueId].WithUse useData
+
+            newBlock[blockId] <- { block with Phi = phi }
 
             for succ in f.CFG[blockId].Succ do
                 let predIdx = Array.findIndex ((=) blockId) f.CFG[succ].Pred
@@ -288,8 +381,6 @@ type SSA(f: Func) =
                 varMapping.Add currIdx
                 currIdx <- currIdx + 1
 
-        let mapVar id = varMapping[id]
-
         let chooseVar id =
             if shouldRemove.Contains id then
                 None
@@ -301,7 +392,7 @@ type SSA(f: Func) =
                 if shouldRemove.Contains key then
                     None
                 else
-                    Some(mapVar key, Array.choose chooseVar value)
+                    Some(varMapping[key], Array.choose chooseVar value)
 
             let currPhi = currPhi |> Seq.map (|KeyValue|) |> Seq.choose rewritePhi |> Map.ofSeq
 
@@ -393,12 +484,12 @@ type SSA(f: Func) =
         let domTree, domFront = this.DomFront()
         let phiNode = this.PlacePhi domFront
         let var, newBlock = this.RewriteBlock domTree phiNode
-        let var, newBlock = this.Minimize phiNode var newBlock
+        // let var, newBlock = this.Minimize phiNode var newBlock
         let newBlock, cfg = this.EdgeSplit newBlock
 
         { f with
             Block = newBlock.ToArray()
-            Var = var
+            Var = var.ToArray()
             CFG = cfg.ToArray() }
 
 let ssaImpl (f: Func) =
