@@ -265,14 +265,18 @@ type Instr =
         | Alloc -> failwith "Not Implemented"
 
     member this.Value =
-        match this with
-        | Binary b -> [| b.Left; b.Right |]
-        | Assign a -> [| a.Value |]
-        | Unary u -> [| u.Value |]
-        | Call c -> c.Arg
-        | Load -> failwith "Not Implemented"
-        | Store -> failwith "Not Implemented"
-        | Alloc -> failwith "Not Implemented"
+        seq {
+            match this with
+            | Binary b ->
+                yield b.Left
+                yield b.Right
+            | Assign a -> yield a.Value
+            | Unary u -> yield u.Value
+            | Call c -> yield! c.Arg
+            | Load -> failwith "Not Implemented"
+            | Store -> failwith "Not Implemented"
+            | Alloc -> failwith "Not Implemented"
+        }
 
 type Jump = { Target: int; Span: Span }
 
@@ -284,7 +288,7 @@ type Branch =
 
 type Switch =
     { Value: Value
-      Dest: (int * Value)[]
+      Dest: (int * uint64)[]
       Default: int
       Span: Span }
 
@@ -297,9 +301,25 @@ type Transfer =
     | Return of Ret
     | Unreachable of Span
 
+    member this.Target() =
+        seq {
+            match this with
+            | Jump j -> yield j.Target
+            | Branch b ->
+                yield b.One
+                yield b.Zero
+            | Switch s ->
+                for dest, _ in s.Dest do
+                    yield dest
+
+                yield s.Default
+            | Return _
+            | Unreachable _ -> ()
+        }
+
 /// Basic block
 type Block =
-    { Phi: Map<int, int[]>
+    { Phi: Map<int, Value[]>
       Instr: Instr[]
       Trans: Transfer }
 
@@ -391,7 +411,7 @@ type Func =
       Param: int[]
       Var: Var[]
       Span: Span
-      Ret: Option<int> }
+      Ret: Option<Type> }
 
     member this.Print(tw: IO.TextWriter) =
         let labelToString id = "'" + string id
@@ -416,14 +436,14 @@ type Func =
 
         let ret =
             match this.Ret with
-            | Some ret -> " -> " + this.Var[ret].Type.ToString
+            | Some ret -> " -> " + ret.ToString
             | None -> ""
 
         let header = $"fn ({param}){ret} {{"
 
         tw.WriteLine(header)
 
-        for (idx, block) in Array.indexed this.Block do
+        for idx, block in Array.indexed this.Block do
             let id = labelToString idx
             tw.WriteLine $"    {id}: {{"
 
@@ -431,7 +451,7 @@ type Func =
                 tw.Write(String.replicate 8 " ")
                 tw.Write(varToString var)
                 tw.Write " = Φ("
-                let choose = choose |> Array.map varToString
+                let choose = choose |> Array.map valueToString
                 let choose = String.Join(", ", choose)
 
                 tw.Write choose

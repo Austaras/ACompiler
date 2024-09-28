@@ -126,7 +126,7 @@ type Env() =
             this.AddEdge id b.One
             this.AddEdge id b.Zero
         | Switch s ->
-            for (t, _) in s.Dest do
+            for t, _ in s.Dest do
                 this.AddEdge id t
 
             this.AddEdge id s.Default
@@ -238,6 +238,11 @@ type Env() =
         let toCFG cfg : CFGNode =
             { Pred = cfg.Pred.ToArray()
               Succ = cfg.Succ.ToArray() }
+
+        let ret =
+            match ret with
+            | Some ret -> Some var[ret].Type
+            | None -> None
 
         let f =
             { Block = block.ToArray()

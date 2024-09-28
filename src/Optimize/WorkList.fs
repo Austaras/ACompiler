@@ -26,6 +26,8 @@ type WorkList<'T>(init: IEnumerable<'T>) =
         else
             None
 
+    member _.IsEmpty() = idx >= list.Count
+
     member _.ToSeq() =
         seq {
             while idx < list.Count do

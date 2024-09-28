@@ -58,7 +58,7 @@ let cfgShouldMatch (f: Func) =
         | Switch s ->
             Assert.Equal(s.Dest.Length, node.Succ.Length)
 
-            for (dest, _) in s.Dest do
+            for dest, _ in s.Dest do
                 Assert.Contains(dest, node.Succ)
                 Assert.Contains(idx, f.CFG[dest].Pred)
         | Return _

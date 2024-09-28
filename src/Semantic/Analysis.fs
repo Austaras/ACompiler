@@ -134,7 +134,7 @@ type internal Traverse(env: Environment) =
                 let first = allSym[0]
                 let firstKey = first |> Map.keys |> Array.ofSeq
 
-                for (idx, sym) in Array.indexed allSym do
+                for idx, sym in Array.indexed allSym do
                     if idx > 0 then
                         let currKey = sym |> Map.keys |> Array.ofSeq
 
@@ -197,7 +197,7 @@ type internal Traverse(env: Environment) =
 
         let map = proc Map.empty ty pat
 
-        for (id, ty, mut) in map.Values do
+        for id, ty, mut in map.Values do
             let info =
                 { Def = id
                   Mut = mut
@@ -473,7 +473,7 @@ type internal Traverse(env: Environment) =
 
             env.EnterScope closureScope
 
-            for (param, ty) in Array.zip c.Param paramTy do
+            for param, ty in Array.zip c.Param paramTy do
                 this.Pat ParamPat param.Pat ty
 
             let ret = this.Expr c.Body
@@ -548,7 +548,7 @@ type internal Traverse(env: Environment) =
         let gen = ResizeArray()
         let pred = ResizeArray()
 
-        for (idx, p) in Array.indexed p do
+        for idx, p in Array.indexed p do
             let generic =
                 { GroupId = group
                   Id = idx
@@ -910,7 +910,7 @@ type internal Traverse(env: Environment) =
 
                 env.EnterScope(FnScope fnScope)
 
-                for (param, ty) in Array.zip f.Param fnScope.Param do
+                for param, ty in Array.zip f.Param fnScope.Param do
                     this.Pat ParamPat param.Pat ty
 
                 let ret = this.Block f.Body

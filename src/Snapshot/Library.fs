@@ -28,7 +28,7 @@ let shouldMatch (actual: TextWriter -> unit) snap =
             let msg = StringBuilder().AppendLine("Failed to match snapshot:")
             let mutable offset = 0
 
-            for (idx, line) in diff.Lines |> Seq.indexed do
+            for idx, line in diff.Lines |> Seq.indexed do
                 let sign, color =
                     match line.Type with
                     | DiffBuilder.Model.ChangeType.Deleted -> "-", System.ConsoleColor.Red

@@ -156,7 +156,7 @@ type Dump(tw: TextWriter) =
             this.Prop "prefix"
             tw.WriteLine p.ToString
 
-        for (i, t) in p.Seg do
+        for i, t in p.Seg do
             this.Prop "seg"
             this.Id i
 

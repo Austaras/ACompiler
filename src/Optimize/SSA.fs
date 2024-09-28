@@ -266,7 +266,7 @@ type SSA(f: Func) =
                     | Binding i -> Some i
                     | Const _ -> None
 
-                let binding = instr.Value |> Array.choose getBinding
+                let binding = instr.Value |> Seq.choose getBinding |> Array.ofSeq
 
                 for id in binding do
                     let useData =
@@ -316,19 +316,7 @@ type SSA(f: Func) =
                     Instr = instr
                     Trans = trans }
 
-            let phi = phiNode[blockId] |> Seq.map (|KeyValue|) |> Map.ofSeq
-
-            for KeyValue(varId, valueId) in phi do
-                var[varId] <- { var[varId] with Def = blockId }
-
-                for valueId in valueId do
-                    let useData =
-                        { BlockId = blockId
-                          Data = InPhi varId }
-
-                    var[valueId] <- var[valueId].WithUse useData
-
-            newBlock[blockId] <- { block with Phi = phi }
+            newBlock[blockId] <- block
 
             for succ in f.CFG[blockId].Succ do
                 let predIdx = Array.findIndex ((=) blockId) f.CFG[succ].Pred
@@ -339,79 +327,29 @@ type SSA(f: Func) =
                     let newVar = resolve newEnv choose[predIdx]
 
                     match newVar with
-                    | Some newVar ->
-                        Array.set choose predIdx newVar
-                        currPhi[varId] <- choose
+                    | Some newVar -> choose[predIdx] <- newVar
                     // only defined in one path
                     | None -> ()
-
-                newBlock[succ] <- newBlock[succ]
 
             for child in domTree[blockId].Children do
                 rewrite newEnv child
 
         rewrite [||] 0
 
-        var, newBlock
+        for idx in 0 .. newBlock.Count - 1 do
+            let phi =
+                phiNode[idx]
+                |> Seq.map (fun (KeyValue(var, value)) -> var, Array.map Binding value)
+                |> Map.ofSeq
 
-    member _.Minimize (phiNode: Dictionary<int, int[]>[]) (var: ResizeArray<Var>) (newBlock: ResizeArray<Block>) =
-        let shouldRemove = HashSet(seq { 0 .. var.Count - 1 })
+            for KeyValue(phiVar, value) in phiNode[idx] do
+                var[phiVar] <- { var[phiVar] with Def = idx }
 
-        for block, currPhi in Seq.zip newBlock phiNode do
-            let def i = shouldRemove.Remove i |> ignore
+                for value in value do
+                    let use_ = { BlockId = idx; Data = InPhi phiVar }
+                    var[value] <- var[value].WithUse use_
 
-            let use_ value =
-                match value with
-                | Binding i -> shouldRemove.Remove i |> ignore
-                | Const _ -> ()
-
-            for choose in currPhi.Values do
-                for c in choose do
-                    use_ (Binding c)
-
-            block.Analyze def use_
-
-        let varMapping = ResizeArray()
-        let mutable currIdx = 0
-
-        for id = 0 to var.Count - 1 do
-            if shouldRemove.Contains id then
-                varMapping.Add -1
-            else
-                varMapping.Add currIdx
-                currIdx <- currIdx + 1
-
-        let chooseVar id =
-            if shouldRemove.Contains id then
-                None
-            else
-                Some varMapping[id]
-
-        let minimize (currPhi: Dictionary<int, int[]>, block: Block) =
-            let rewritePhi (key, value) =
-                if shouldRemove.Contains key then
-                    None
-                else
-                    Some(varMapping[key], Array.choose chooseVar value)
-
-            let currPhi = currPhi |> Seq.map (|KeyValue|) |> Seq.choose rewritePhi |> Map.ofSeq
-
-            let def id = varMapping[id]
-
-            let use_ value =
-                match value with
-                | Const c -> Const c
-                | Binding i -> Binding varMapping[i]
-
-            { block.Rewrite def use_ with
-                Phi = currPhi }
-
-        let newBlock = newBlock |> Seq.zip phiNode |> Seq.map minimize |> ResizeArray
-
-        let filterVar (idx, var) =
-            if not (shouldRemove.Contains idx) then Some var else None
-
-        let var = var |> Seq.indexed |> Seq.choose filterVar |> Array.ofSeq
+            newBlock[idx] <- { newBlock[idx] with Phi = phi }
 
         var, newBlock
 
@@ -484,7 +422,6 @@ type SSA(f: Func) =
         let domTree, domFront = this.DomFront()
         let phiNode = this.PlacePhi domFront
         let var, newBlock = this.RewriteBlock domTree phiNode
-        // let var, newBlock = this.Minimize phiNode var newBlock
         let newBlock, cfg = this.EdgeSplit newBlock
 
         { f with

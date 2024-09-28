@@ -348,7 +348,7 @@ type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
 
         let mutable res = None
 
-        for (idx, stmt) in Array.indexed b.Stmt do
+        for idx, stmt in Array.indexed b.Stmt do
             match stmt with
             | AST.ExprStmt e ->
                 let target = if idx = b.Stmt.Length - 1 then target else None
@@ -388,7 +388,7 @@ type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
         let param =
             let param = ResizeArray()
 
-            for (ty, p) in Array.zip fnTy.Param f.Param do
+            for ty, p in Array.zip fnTy.Param f.Param do
                 if habitable ty > 1 then
                     let id = this.Pat p.Pat
                     param.Add id

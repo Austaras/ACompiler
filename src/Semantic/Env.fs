@@ -177,7 +177,7 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                 if f1.Param.Length <> f2.Param.Length then
                     error.Add(TypeMismatch(expect, actual, span))
                 else
-                    for (p1, p2) in (Array.zip f1.Param f2.Param) do
+                    for p1, p2 in (Array.zip f1.Param f2.Param) do
                         unify p1 p2
 
                     unify f1.Ret f2.Ret
@@ -186,14 +186,14 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
 
             | TStruct a1, TStruct a2
             | TEnum a1, TEnum a2 when a1.Name = a2.Name ->
-                for (v1, v2) in Array.zip a1.Generic a2.Generic do
+                for v1, v2 in Array.zip a1.Generic a2.Generic do
                     unify v1 v2
 
             | TTuple t1, TTuple t2 ->
                 if t1.Length <> t2.Length then
                     error.Add(ParamLenMismatch(span, t1.Length, t2.Length))
                 else
-                    for (t1, t2) in Array.zip t1 t2 do
+                    for t1, t2 in Array.zip t1 t2 do
                         unify t1 t2
 
             | TSlice t1, TSlice t2 -> unify t1 t2
@@ -239,7 +239,7 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
                         | Some assoc ->
                             let toUnify = pred.Type |> pred.Trait.GetDep |> Array.zip assoc
 
-                            for (assoc, ty) in toUnify do
+                            for assoc, ty in toUnify do
                                 this.Unify assoc ty span
                         | None -> error.Add(TraitNotImpl(pred, ob.Span))
 
@@ -379,7 +379,7 @@ type Environment(sema: SemanticInfo, error: ResizeArray<Error>) =
             let prev = pending[key]
 
             // improvement by functional dependency
-            for (t1, t2) in Array.zip prev.Pred.Type pred.Type do
+            for t1, t2 in Array.zip prev.Pred.Type pred.Type do
                 this.Unify t1 t2 ob.Span
 
         else
