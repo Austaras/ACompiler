@@ -403,11 +403,11 @@ type Block =
             Instr = instr
             Trans = trans }
 
-type CFGNode = { Pred: int[]; Succ: int[] }
+type GraphNode = { Pred: int[]; Succ: int[] }
 
 type Func =
     { Block: Block[]
-      CFG: CFGNode[]
+      CFG: GraphNode[]
       Param: int[]
       Var: Var[]
       Span: Span

@@ -2,7 +2,7 @@
 module Optimize.Pass.SCCP
 
 open Optimize.FLIR
-open Optimize.WorkList
+open Optimize.Util
 
 type Value =
     | Top
@@ -11,8 +11,6 @@ type Value =
 
 type VarValue(count: int) =
     let value = Array.create count Bottom
-
-    member _.Value = value
 
     member _.ValueOf v =
         match v with
@@ -32,44 +30,56 @@ type VarValue(count: int) =
             let left = this.ValueOf b.Left
             let right = this.ValueOf b.Right
 
-
             match left, right with
             | Top, _
             | _, Top -> Top
             | Bottom, _
             | _, Bottom -> Bottom
             | Known l, Known r ->
-                match b.Op with
-                | Add -> Known(l + r)
-                | Sub -> Known(l - r)
-                | Mul -> Known(l * r)
-                | Div -> Known(l / r)
-                | Rem -> failwith "Not Implemented"
-                | Xor -> failwith "Not Implemented"
-                | And -> failwith "Not Implemented"
-                | Or -> failwith "Not Implemented"
-                | Shl -> failwith "Not Implemented"
-                | Shr(_) -> failwith "Not Implemented"
-                | Eq -> Known(if l = r then uint64 0 else uint64 1)
-                | NotEq -> Known(if l = r then uint64 1 else uint64 0)
-                | Lt false -> Known(if l < r then uint64 1 else uint64 0)
-                | Lt true -> Known(if int64 l < int64 r then uint64 1 else uint64 0)
-                | LtEq(_) -> failwith "Not Implemented"
-                | GtEq(_) -> failwith "Not Implemented"
-                | Gt(_) -> failwith "Not Implemented"
-        | Unary(_) -> failwith "Not Implemented"
+                let value =
+                    match b.Op with
+                    | Add -> l + r
+                    | Sub -> l - r
+                    | Mul -> l * r
+                    | Div -> l / r
+                    | Rem -> failwith "Not Implemented"
+                    | Xor -> failwith "Not Implemented"
+                    | And -> failwith "Not Implemented"
+                    | Or -> failwith "Not Implemented"
+                    | Shl -> failwith "Not Implemented"
+                    | Shr(_) -> failwith "Not Implemented"
+                    | Eq -> if l = r then uint64 0 else uint64 1
+                    | NotEq -> if l = r then uint64 1 else uint64 0
+                    | Lt false -> if l < r then uint64 1 else uint64 0
+                    | Lt true -> if int64 l < int64 r then uint64 1 else uint64 0
+                    | LtEq false -> if int64 l <= int64 r then uint64 1 else uint64 0
+                    | LtEq true -> if l <= r then uint64 1 else uint64 0
+                    | GtEq false -> if l >= r then uint64 1 else uint64 0
+                    | GtEq true -> if int64 l >= int64 r then uint64 1 else uint64 0
+                    | Gt false -> if l > r then uint64 1 else uint64 0
+                    | Gt true -> if int64 l > int64 r then uint64 1 else uint64 0
+
+                Known value
+        | Unary u ->
+            match this.ValueOf u.Value with
+            | Bottom -> Bottom
+            | Top -> Top
+            | Known c ->
+                let value =
+                    match u.Op with
+                    | Neg -> uint64 0 - c
+                    | Not -> ~~~c
+                    | Ext(_) -> failwith "Not Implemented"
+
+                Known value
         | Store -> failwith "Not Implemented"
 
-let sccpImpl (f: Func) =
-    let var = f.Var
-    let block = f.Block
-    let cfg = f.CFG
-
+let calc (var: Var[]) (param: int[]) (block: Block[]) (cfg: GraphNode[]) =
     let varValue = VarValue var.Length
     let blockReachable = Array.create block.Length false
     blockReachable[0] <- true
 
-    for param in f.Param do
+    for param in param do
         varValue.SetValue param Top
 
     let varList = WorkList(seq { 0 .. var.Length - 1 })
@@ -143,7 +153,7 @@ let sccpImpl (f: Func) =
                         match varValue.GetValue varId with
                         | Bottom -> ()
                         | Top ->
-                            if blockReachable[f.CFG[blockId].Pred[idx]] then
+                            if blockReachable[cfg[blockId].Pred[idx]] then
                                 varValue.SetValue phiVar Top
 
                                 match prevValue with
@@ -152,7 +162,7 @@ let sccpImpl (f: Func) =
                                 | Bottom -> varList.Add phiVar |> ignore
                         | Known v ->
                             let calcPhi res (idx, phiValue) =
-                                let predBlock = f.CFG[blockId].Pred[idx]
+                                let predBlock = cfg[blockId].Pred[idx]
 
                                 if blockReachable[predBlock] then
                                     let value = varValue.ValueOf phiValue
@@ -197,7 +207,7 @@ let sccpImpl (f: Func) =
                 let prevValue = varValue.GetValue phiVar
 
                 let calcPhi res (idx, phiValue) =
-                    let predBlock = f.CFG[blockId].Pred[idx]
+                    let predBlock = cfg[blockId].Pred[idx]
 
                     if blockReachable[predBlock] then
                         let value = varValue.ValueOf phiValue
@@ -292,139 +302,24 @@ let sccpImpl (f: Func) =
             | Return _
             | Unreachable _ -> ()
 
-    let varMapping = Array.create var.Length -1
-    let mutable currIdx = 0
+    varValue, blockReachable
 
-    for id = 0 to var.Length - 1 do
+let sccpImpl (f: Func) =
+    let var = f.Var
+    let param = f.Param
+    let block = f.Block
+    let cfg = f.CFG
+
+    let varValue, blockReachable = calc var param block cfg
+
+    let getVarValue id =
         match varValue.GetValue id with
-        | Known _
-        | Bottom -> ()
-        | Top ->
-            varMapping[id] <- currIdx
-            currIdx <- currIdx + 1
-
-    let blockMapping = Array.create block.Length -1
-    let mutable currIdx = 0
-
-    for idx, reachable in Array.indexed blockReachable do
-        if reachable then
-            blockMapping[idx] <- currIdx
-            currIdx <- currIdx + 1
-
-    let cfg = cfg |> Array.map (fun _ -> { Pred = [||]; Succ = [||] })
-
-    let choosePhi value =
-        match value with
-        | Const _ -> Some value
-        | Binding id ->
-            match varValue.GetValue id with
-            | Bottom -> None
-            | Known c -> Some(Const c)
-            | Top -> Some(Binding varMapping[id])
-
-    let rewriteBlock (idx: int, block: Block) =
-        let rewritePhi (key, value) =
-            match varValue.GetValue key with
-            | Known _
-            | Bottom -> None
-            | Top -> Some(varMapping[key], Array.choose choosePhi value)
-
-        let phi = block.Phi |> Seq.map (|KeyValue|) |> Seq.choose rewritePhi |> Map.ofSeq
-        let rewriteDef id = varMapping[id]
-
-        let rewriteUse value =
-            match value with
-            | Const c -> Const c
-            | Binding i ->
-                match varValue.GetValue i with
-                | Bottom -> failwith "Unreachable"
-                | Known v -> Const v
-                | Top -> Binding varMapping[i]
-
-        let rewriteTx tx =
-            match tx with
-            | Jump j ->
-                Jump
-                    { j with
-                        Target = blockMapping[j.Target] }
-            | Branch b ->
-                let zero = blockMapping[b.Zero]
-                let one = blockMapping[b.One]
-
-                match b.Value with
-                | Binding _ -> Branch { b with Zero = zero; One = one }
-                | Const c ->
-                    if c = uint64 0 then
-                        Jump { Target = zero; Span = b.Span }
-                    else
-                        Jump { Target = one; Span = b.Span }
-
-            | Switch(_) -> failwith "Not Implemented"
-            | Return r -> Return r
-            | Unreachable r -> Unreachable r
-
-        if blockMapping[idx] = -1 then
-            None
-        else
-            let block = block.Rewrite rewriteDef rewriteUse
-            let instr = Array.filter (fun (instr: Instr) -> instr.Target <> -1) block.Instr
-            let tx = rewriteTx block.Trans
-
-            for target in tx.Target() do
-                let idx = blockMapping[idx]
-
-                cfg[idx] <-
-                    { cfg[idx] with
-                        Succ = Array.append cfg[idx].Succ [| target |] }
-
-                cfg[target] <-
-                    { cfg[target] with
-                        Pred = Array.append cfg[target].Pred [| idx |] }
-
-            Some { Instr = instr; Phi = phi; Trans = tx }
-
-    let block = block |> Array.indexed |> Array.choose rewriteBlock
-
-    let filterUse use_ =
-        match use_.Data with
-        | InTx ->
-            Some
-                { use_ with
-                    BlockId = blockMapping[use_.BlockId] }
-        | InPhi phi ->
-            match varValue.GetValue phi with
-            | Known _
-            | Bottom -> None
-            | Top ->
-                Some
-                    { BlockId = blockMapping[use_.BlockId]
-                      Data = InPhi varMapping[phi] }
-        | ForTarget target ->
-            match varValue.GetValue target with
-            | Known _
-            | Bottom -> None
-            | Top ->
-                Some
-                    { BlockId = blockMapping[use_.BlockId]
-                      Data = ForTarget varMapping[target] }
-
-    let filterVar idx =
-        match varValue.GetValue idx with
-        | Top ->
-            Some
-                { var[idx] with
-                    Def = blockMapping[var[idx].Def]
-                    Use = Array.choose filterUse var[idx].Use }
-        | Known _
         | Bottom -> None
+        | Known c -> Some(Const c)
+        | Top -> Some(Binding id)
 
-    let var = seq { 0 .. var.Length - 1 } |> Seq.choose filterVar |> Array.ofSeq
-    let param = Array.map (fun id -> varMapping[id]) f.Param
+    let varValue = seq { 0 .. var.Length - 1 } |> Seq.map getVarValue |> Array.ofSeq
 
-    { f with
-        Param = param
-        Var = var
-        Block = block
-        CFG = cfg }
+    removeVarAndBlock f varValue blockReachable
 
 let sccp = transRegional sccpImpl

@@ -33,11 +33,10 @@ let arch = Common.Target.X86_64
 let specFile = getAllFile "/Spec"
 let spec = specFile.Keys |> Seq.map (Array.create 1)
 
-let optConfig = Optimization.Release
-
 let lowerSnap = Snapshot("raw.flir")
 let ssaSnap = Snapshot("ssa.flir")
 let optSnap = Snapshot("opt.flir")
+let aggrSnap = Snapshot("aggr.flir")
 
 let cfgShouldMatch (f: Func) =
     for idx in 0 .. f.Block.Length - 1 do
@@ -84,15 +83,22 @@ let Spec name =
         for f in m.Func do
             cfgShouldMatch f
 
-        let m = ssa m
-        ssaSnap.ShouldMatch m.Print specFile[name]
+        let ssaModule = ssa m
+        ssaSnap.ShouldMatch ssaModule.Print specFile[name]
 
-        for f in m.Func do
+        for f in ssaModule.Func do
             cfgShouldMatch f
 
-        let m = optimize optConfig m
+        let m = optimize Optimization.Release ssaModule
         optSnap.ShouldMatch m.Print specFile[name]
 
         for f in m.Func do
             cfgShouldMatch f
+
+        let m = optimize Optimization.Aggressive ssaModule
+        aggrSnap.ShouldMatch m.Print specFile[name]
+
+        for f in m.Func do
+            cfgShouldMatch f
+
     | Error e -> failwithf "type error %A" e

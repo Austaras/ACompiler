@@ -4,11 +4,11 @@ module Optimize.DCE
 open System.Collections.Generic
 
 open Optimize.FLIR
-open Optimize.WorkList
+open Optimize.Util
 
-let dceImpl (f: Func) =
-    let var = f.Var
-    let block = f.Block
+let dceImpl (phiOnly: bool) (f: Func) =
+    let var = Array.copy f.Var
+    let block = Array.copy f.Block
     let worklist = WorkList([||])
     let removed = HashSet()
 
@@ -28,7 +28,7 @@ let dceImpl (f: Func) =
 
         if block.Phi.ContainsKey id then
             true
-        else
+        else if not phiOnly then
             let instr = Array.find (findInstr id) block.Instr
 
             match instr with
@@ -39,6 +39,8 @@ let dceImpl (f: Func) =
             | Load
             | Store
             | Alloc -> false
+        else
+            false
 
     for id in 0 .. f.Var.Length - 1 do
         if var[id].Use.Length = 0 && canRemove id then
@@ -142,4 +144,4 @@ let dceImpl (f: Func) =
 
     { f with Var = var; Block = block }
 
-let dce = transRegional dceImpl
+let dce phiOnly = transRegional (dceImpl phiOnly)

@@ -4,7 +4,7 @@ fn bubble_sort(arr: [int]) {
 
     while i < arr.len {
         swapped = false
-        
+
         let mut j = 0
 
         while j < arr.len - i - 1 {

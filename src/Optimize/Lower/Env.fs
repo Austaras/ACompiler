@@ -235,7 +235,7 @@ type Env() =
     member _.ExitScope() = scope.Pop()
 
     member _.FinalizeFn param ret span =
-        let toCFG cfg : CFGNode =
+        let toCFG cfg : GraphNode =
             { Pred = cfg.Pred.ToArray()
               Succ = cfg.Succ.ToArray() }
 

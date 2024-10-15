@@ -7,11 +7,12 @@
     <Compile Include="Library.fs" />
     <Compile Include="Lower/Env.fs" />
     <Compile Include="Lower/Lower.fs" />
-    <Compile Include="WorkList.fs" />
+    <Compile Include="Util.fs" />
     <Compile Include="SSA.fs" />
     <Compile Include="Pass/LVN.fs" />
     <Compile Include="Pass/DCE.fs" />
     <Compile Include="Pass/SCCP.fs" />
+    <Compile Include="Pass/ADCE.fs" />
     <Compile Include="Optimize.fs" />
   </ItemGroup>
   <ItemGroup>

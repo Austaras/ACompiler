@@ -4,133 +4,9 @@ open System.Collections.Generic
 
 open Common.Span
 open Optimize.FLIR
-open Optimize.WorkList
-
-type DomTree = { ImmDom: int; Children: int[] }
+open Optimize.Util
 
 type SSA(f: Func) =
-    member _.DomFront() =
-        // calc dfs span tree
-        let dfNum = Array.create f.Block.Length 0
-        let revDf = Array.create f.Block.Length 0
-        let parent = Array.create f.Block.Length 0
-
-        let rec dfs idx count =
-            dfNum[idx] <- count
-            revDf[count] <- idx
-
-            let fold count next =
-                if dfNum[next] = 0 then
-                    parent[next] <- idx
-                    dfs next (count + 1)
-                else
-                    count
-
-            Array.fold fold count f.CFG[idx].Succ
-
-        dfs 0 0 |> ignore
-
-        let semiDom = Array.create f.Block.Length 0
-        let ancestor = Array.create f.Block.Length 0
-        let bucket = f.Block |> Array.map (fun _ -> HashSet())
-        let immDom = Array.create f.Block.Length 0
-        let sameDom = Array.create f.Block.Length 0
-        let lowest = Array.create f.Block.Length 0
-
-        let rec findLowest node =
-            let ance = ancestor[node]
-
-            if ancestor[ance] <> 0 then
-                let newAnce = findLowest ance
-                ancestor[node] <- ancestor[ance]
-
-                if dfNum[semiDom[newAnce]] < dfNum[semiDom[lowest[node]]] then
-                    lowest[node] <- newAnce
-
-            lowest[node]
-
-        let link ance node =
-            ancestor[node] <- ance
-            lowest[node] <- node
-
-        // calc semi dom
-        for i = f.Block.Length - 1 downto 1 do
-            let node = revDf[i]
-            let parentNode = parent[node]
-
-            let mutable semi = parentNode
-
-            for pred in f.CFG[node].Pred do
-                let semiCandidate =
-                    if dfNum[pred] <= dfNum[node] then
-                        pred
-                    else
-                        semiDom[findLowest pred]
-
-                if dfNum[semiCandidate] < dfNum[semi] then
-                    semi <- semiCandidate
-
-            semiDom[node] <- semi
-            bucket[semi].Add(node) |> ignore
-            link parentNode node
-
-            // calc dom from semi dom, part 1
-            for node in bucket[parentNode] do
-                let y = findLowest node
-
-                if semiDom[y] = semiDom[node] then
-                    immDom[node] <- parentNode
-                else
-                    sameDom[node] <- y
-
-            bucket[parentNode].Clear()
-
-        // calc dom from semi dom, part 2
-        for i = 1 to f.Block.Length - 1 do
-            let node = revDf[i]
-
-            if sameDom[node] <> 0 then
-                immDom[node] <- immDom[sameDom[node]]
-
-        // calc dominance tree
-        let domTree = Array.map (fun immDom -> { ImmDom = immDom; Children = [||] }) immDom
-
-        for node, immDom in Seq.indexed immDom do
-            if node <> 0 then
-                domTree[immDom] <-
-                    { domTree[immDom] with
-                        Children = Array.append domTree[immDom].Children [| node |] }
-
-        // calc dominance frontier
-        let domFront = f.Block |> Array.map (fun _ -> HashSet())
-
-        let rec dominate parent child =
-            let child = domTree[child]
-
-            if child.ImmDom = parent then true
-            else if child.ImmDom = 0 then false
-            else dominate parent child.ImmDom
-
-        let rec calc blockId =
-            let currDF = HashSet()
-
-            for succBlock in f.CFG[blockId].Succ do
-                if domTree[succBlock].ImmDom <> blockId then
-                    currDF.Add succBlock |> ignore
-
-            for child in domTree[blockId].Children do
-                calc child
-
-                for front in domFront[child] do
-                    if not (dominate blockId front) then
-                        currDF.Add front |> ignore
-
-            domFront[blockId] <- currDF
-
-        calc 0
-
-        domTree, domFront
-
     member _.PlacePhi(domFront: HashSet<int>[]) =
         let defVarInBlock = Dictionary<int, HashSet<int>>()
         let phiBlockOfVar = Dictionary<int, HashSet<int>>()
@@ -419,7 +295,7 @@ type SSA(f: Func) =
         block, cfg
 
     member this.Transform() =
-        let domTree, domFront = this.DomFront()
+        let domTree, domFront = domFront f.CFG
         let phiNode = this.PlacePhi domFront
         let var, newBlock = this.RewriteBlock domTree phiNode
         let newBlock, cfg = this.EdgeSplit newBlock

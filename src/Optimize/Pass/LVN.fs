@@ -5,7 +5,7 @@ open System.Collections.Generic
 
 open Optimize.FLIR
 
-let lvnImpl (f: Func) (blockId: int, b: Block) =
+let rewriteBlock (newVar: Var[]) (blockId: int) (block: Block) =
     let binaryTable = Dictionary()
     let unaryTable = Dictionary()
 
@@ -21,15 +21,15 @@ let lvnImpl (f: Func) (blockId: int, b: Block) =
                     { BlockId = blockId
                       Data = ForTarget b.Target }
 
-                f.Var[var] <- f.Var[var].WithUse varData
+                newVar[var] <- newVar[var].WithUse varData
 
                 match b.Left with
                 | Const _ -> ()
-                | Binding l -> f.Var[l] <- f.Var[l].WithoutUse varData
+                | Binding l -> newVar[l] <- newVar[l].WithoutUse varData
 
                 match b.Right with
                 | Const _ -> ()
-                | Binding r -> f.Var[r] <- f.Var[r].WithoutUse varData
+                | Binding r -> newVar[r] <- newVar[r].WithoutUse varData
 
                 Assign
                     { Target = b.Target
@@ -48,11 +48,11 @@ let lvnImpl (f: Func) (blockId: int, b: Block) =
                     { BlockId = blockId
                       Data = ForTarget u.Target }
 
-                f.Var[var] <- f.Var[var].WithUse varData
+                newVar[var] <- newVar[var].WithUse varData
 
                 match u.Value with
                 | Const _ -> ()
-                | Binding l -> f.Var[l] <- f.Var[l].WithoutUse varData
+                | Binding u -> newVar[u] <- newVar[u].WithoutUse varData
 
                 Assign
                     { Target = u.Target
@@ -63,7 +63,15 @@ let lvnImpl (f: Func) (blockId: int, b: Block) =
                 Unary u
         | _ -> instr
 
-    { b with
-        Instr = Array.map rewrite b.Instr }
+    { block with
+        Instr = Array.map rewrite block.Instr }
 
-let lvn = transLocal lvnImpl
+let lvnImpl (f: Func) =
+    let var = Array.copy f.Var
+
+    let block =
+        f.Block |> Array.indexed |> Array.map (fun (idx, b) -> rewriteBlock var idx b)
+
+    { f with Block = block; Var = var }
+
+let lvn = transRegional lvnImpl
