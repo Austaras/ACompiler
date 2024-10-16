@@ -1,0 +1,11 @@
+fn sum(arr: [int]) {
+    let mut sum = 0
+
+    let mut idx = 0
+
+    while idx < arr.len {
+        sum += arr[idx]
+    }
+
+    sum
+}

@@ -183,7 +183,7 @@ let calc (var: Var[]) (param: int[]) (block: Block[]) (cfg: GraphNode[]) =
                             match prevValue, res with
                             | Known _, Top
                             | Bottom, Known _
-                            | Known _, Known _ -> varList.Add phiVar |> ignore
+                            | Known _, Known _ when prevValue <> res -> varList.Add phiVar |> ignore
                             | _ -> ()
 
                     | ForTarget target ->
@@ -197,7 +197,7 @@ let calc (var: Var[]) (param: int[]) (block: Block[]) (cfg: GraphNode[]) =
                         match prevValue, value with
                         | Known _, Top
                         | Bottom, Known _
-                        | Known _, Known _ -> varList.Add target |> ignore
+                        | Known _, Known _ when prevValue <> value -> varList.Add target |> ignore
                         | _ -> ()
 
         match blockList.Next() with
@@ -229,7 +229,7 @@ let calc (var: Var[]) (param: int[]) (block: Block[]) (cfg: GraphNode[]) =
                 match prevValue, res with
                 | Known _, Top
                 | Bottom, Known _
-                | Known _, Known _ -> varList.Add phiVar |> ignore
+                | Known _, Known _ when prevValue <> res -> varList.Add phiVar |> ignore
                 | _ -> ()
 
             for instr in block[blockId].Instr do
@@ -242,7 +242,7 @@ let calc (var: Var[]) (param: int[]) (block: Block[]) (cfg: GraphNode[]) =
                 match prevValue, value with
                 | Known _, Top
                 | Bottom, Known _
-                | Known _, Known _ -> varList.Add instr.Target |> ignore
+                | Known _, Known _ when prevValue <> value -> varList.Add instr.Target |> ignore
                 | _ -> ()
 
             match block[blockId].Trans with

@@ -27,6 +27,7 @@ type Reserved =
     | LET
     | MUTABLE
     | CONST
+    | STATIC
     | TYPE
     | TRAIT
     | IMPL

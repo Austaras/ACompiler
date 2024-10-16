@@ -19,6 +19,7 @@ let classify input =
     | "fn" -> Reserved FUNCTION
     | "return" -> Reserved RETURN
     | "let" -> Reserved LET
+    | "static" -> Reserved STATIC
     | "mut" -> Reserved MUTABLE
     | "const" -> Reserved CONST
     | "type" -> Reserved TYPE
