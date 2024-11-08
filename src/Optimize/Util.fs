@@ -235,7 +235,10 @@ let cdg (f: Func) =
 
     res
 
-let removeVarAndBlock (f: Func) (varValue: Option<Value>[]) (blockReachable: bool[]) =
+let removeOnlyMapping arr =
+    arr |> Array.indexed |> Array.map (fun (idx, live) -> if live then idx else -1)
+
+let removeVarAndBlock (f: Func) (varValue: Option<Value>[]) (blockMap: int[]) =
     let var = f.Var
     let block = f.Block
     let cfg = f.CFG
@@ -252,13 +255,22 @@ let removeVarAndBlock (f: Func) (varValue: Option<Value>[]) (blockReachable: boo
             varMapping[id] <- currIdx
             currIdx <- currIdx + 1
 
-    let blockMapping = Array.create block.Length -1
+    let blockRemoved = Dictionary()
     let mutable currIdx = 0
 
-    for idx, reachable in Array.indexed blockReachable do
-        if reachable then
-            blockMapping[idx] <- currIdx
+    let mapIdx (idx, replace) =
+        if replace = idx then
             currIdx <- currIdx + 1
+            currIdx - 1
+        else
+            blockRemoved[idx] <- replace
+            -1
+
+    let blockMap = blockMap |> Array.indexed |> Array.map mapIdx
+
+    for KeyValue(from, toIdx) in blockRemoved do
+        if toIdx <> -1 then
+            blockMap[from] <- blockMap[toIdx]
 
     let cfg = cfg |> Array.map (fun _ -> { Pred = [||]; Succ = [||] })
 
@@ -292,13 +304,10 @@ let removeVarAndBlock (f: Func) (varValue: Option<Value>[]) (blockReachable: boo
 
         let rewriteTx tx =
             match tx with
-            | Jump j ->
-                Jump
-                    { j with
-                        Target = blockMapping[j.Target] }
+            | Jump j -> Jump { j with Target = blockMap[j.Target] }
             | Branch b ->
-                let zero = blockMapping[b.Zero]
-                let one = blockMapping[b.One]
+                let zero = blockMap[b.Zero]
+                let one = blockMap[b.One]
 
                 match b.Value with
                 | Binding _ -> Branch { b with Zero = zero; One = one }
@@ -312,7 +321,7 @@ let removeVarAndBlock (f: Func) (varValue: Option<Value>[]) (blockReachable: boo
             | Return r -> Return r
             | Unreachable r -> Unreachable r
 
-        if blockMapping[idx] = -1 then
+        if blockRemoved.ContainsKey idx then
             None
         else
             let block = block.Rewrite rewriteDef rewriteUse
@@ -320,7 +329,7 @@ let removeVarAndBlock (f: Func) (varValue: Option<Value>[]) (blockReachable: boo
             let tx = rewriteTx block.Trans
 
             for target in tx.Target() do
-                let idx = blockMapping[idx]
+                let idx = blockMap[idx]
 
                 cfg[idx] <-
                     { cfg[idx] with
@@ -339,14 +348,14 @@ let removeVarAndBlock (f: Func) (varValue: Option<Value>[]) (blockReachable: boo
         | InTx ->
             Some
                 { use_ with
-                    BlockId = blockMapping[use_.BlockId] }
+                    BlockId = blockMap[use_.BlockId] }
         | InPhi phi ->
             match varValue[phi] with
             | None
             | Some(Const _) -> None
             | Some(Binding phi) ->
                 Some
-                    { BlockId = blockMapping[use_.BlockId]
+                    { BlockId = blockMap[use_.BlockId]
                       Data = InPhi varMapping[phi] }
         | ForTarget target ->
             match varValue[target] with
@@ -354,7 +363,7 @@ let removeVarAndBlock (f: Func) (varValue: Option<Value>[]) (blockReachable: boo
             | Some(Const _) -> None
             | Some(Binding target) ->
                 Some
-                    { BlockId = blockMapping[use_.BlockId]
+                    { BlockId = blockMap[use_.BlockId]
                       Data = ForTarget varMapping[target] }
 
     let filterVar idx =
@@ -362,7 +371,7 @@ let removeVarAndBlock (f: Func) (varValue: Option<Value>[]) (blockReachable: boo
         | Some(Binding id) ->
             Some
                 { var[id] with
-                    Def = blockMapping[var[id].Def]
+                    Def = blockMap[var[id].Def]
                     Use = Array.choose filterUse var[id].Use }
         | None
         | Some(Const _) -> None

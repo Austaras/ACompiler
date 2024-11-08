@@ -5,9 +5,9 @@
   </PropertyGroup>
   <ItemGroup>
     <Compile Include="Library.fs" />
+    <Compile Include="Util.fs" />
     <Compile Include="Lower/Env.fs" />
     <Compile Include="Lower/Lower.fs" />
-    <Compile Include="Util.fs" />
     <Compile Include="SSA.fs" />
     <Compile Include="Pass/LVN.fs" />
     <Compile Include="Pass/DCE.fs" />

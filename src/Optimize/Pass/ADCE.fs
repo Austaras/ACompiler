@@ -103,6 +103,6 @@ let adceImpl (f: Func) =
 
     let varValue = varLive |> Array.indexed |> Array.map mapVarValue
 
-    removeVarAndBlock f varValue blockLive
+    removeVarAndBlock f varValue (removeOnlyMapping blockLive)
 
 let adce = transRegional adceImpl

@@ -72,7 +72,10 @@ Test out various compiler technology with a toy compiler for a toy language **in
 - [ ] optimization
   - [x] LVN
   - [x] DCE
-  - [ ] SCCP
+  - [x] SCCP
+  - [x] Aggressive DCE
+  - [ ] LICM
+  - [ ] SCEV
 
 ### Code Architecture
 

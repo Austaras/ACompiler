@@ -6,6 +6,7 @@ open System.Linq
 open Common.Span
 open Syntax
 open Optimize.FLIR
+open Optimize.Util
 
 type ScopeInfo =
     | Loop
@@ -251,6 +252,34 @@ type Env() =
               Param = param
               Ret = ret
               Span = span }
+
+        let shouldRemove = Dictionary()
+
+        for idx, data in Seq.indexed cfg do
+            if
+                data.Pred.Count = 1
+                && data.Succ.Count = 1
+                && Array.length f.Block[idx].Instr = 0
+            then
+                shouldRemove.Add(idx, data.Succ |> Seq.head) |> ignore
+
+        let varMapping =
+            seq { 0 .. f.Var.Length - 1 }
+            |> Seq.map (fun idx -> Some(Binding idx))
+            |> Array.ofSeq
+
+        let rec resolve idx =
+            if shouldRemove.ContainsKey idx then
+                resolve (shouldRemove[idx])
+            else
+                idx
+
+        let blockMapping =
+            seq { 0 .. f.Block.Length - 1 }
+            |> Seq.map (fun idx -> resolve idx)
+            |> Array.ofSeq
+
+        let f = removeVarAndBlock f varMapping blockMapping
 
         block.Clear()
         var.Clear()
