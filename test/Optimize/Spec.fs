@@ -30,7 +30,7 @@ let getAllFile path =
 
 let arch = Common.Target.X86_64
 
-let specFile = getAllFile "/Spec"
+let specFile = getAllFile "/../Spec"
 let spec = specFile.Keys |> Seq.map (Array.create 1)
 
 let lowerSnap = Snapshot("raw.flir")
@@ -54,10 +54,10 @@ let cfgShouldMatch (f: Func) =
             Assert.Contains(b.One, node.Succ)
             Assert.Contains(idx, f.CFG[b.Zero].Pred)
             Assert.Contains(idx, f.CFG[b.One].Pred)
-        | Switch s ->
+        | Indirect s ->
             Assert.Equal(s.Dest.Length, node.Succ.Length)
 
-            for dest, _ in s.Dest do
+            for dest in s.Dest do
                 Assert.Contains(dest, node.Succ)
                 Assert.Contains(idx, f.CFG[dest].Pred)
         | Return _

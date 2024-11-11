@@ -244,13 +244,18 @@ type Call =
       Arg: Value[]
       Span: Span }
 
+type Load =
+    { Target: int
+      Base: Value
+      Offset: Value }
+
 /// Instrument
 type Instr =
     | Assign of Assign
     | Binary of Binary
     | Unary of Unary
     | Call of Call
-    | Load
+    | Load of Load
     | Store
     | Alloc
 
@@ -260,7 +265,7 @@ type Instr =
         | Assign a -> a.Target
         | Unary n -> n.Target
         | Call c -> c.Target
-        | Load -> failwith "Not Implemented"
+        | Load l -> l.Target
         | Store -> failwith "Not Implemented"
         | Alloc -> failwith "Not Implemented"
 
@@ -273,7 +278,9 @@ type Instr =
             | Assign a -> yield a.Value
             | Unary u -> yield u.Value
             | Call c -> yield! c.Arg
-            | Load -> failwith "Not Implemented"
+            | Load l ->
+                yield l.Base
+                yield l.Offset
             | Store -> failwith "Not Implemented"
             | Alloc -> failwith "Not Implemented"
         }
@@ -286,10 +293,9 @@ type Branch =
       One: int
       Span: Span }
 
-type Switch =
+type Indirect =
     { Value: Value
-      Dest: (int * uint64)[]
-      Default: int
+      Dest: int[]
       Span: Span }
 
 type Ret = { Value: Option<Value>; Span: Span }
@@ -297,7 +303,7 @@ type Ret = { Value: Option<Value>; Span: Span }
 type Transfer =
     | Jump of Jump
     | Branch of Branch
-    | Switch of Switch
+    | Indirect of Indirect
     | Return of Ret
     | Unreachable of Span
 
@@ -308,11 +314,9 @@ type Transfer =
             | Branch b ->
                 yield b.One
                 yield b.Zero
-            | Switch s ->
-                for dest, _ in s.Dest do
+            | Indirect s ->
+                for dest in s.Dest do
                     yield dest
-
-                yield s.Default
             | Return _
             | Unreachable _ -> ()
         }
@@ -341,7 +345,11 @@ type Block =
                     use_ arg
 
                 def c.Target
-            | Load -> failwith "Not Implemented"
+            | Load l ->
+                use_ l.Base
+                use_ l.Offset
+
+                def l.Target
             | Store -> failwith "Not Implemented"
             | Alloc -> failwith "Not Implemented"
 
@@ -351,7 +359,7 @@ type Block =
             match r.Value with
             | None -> ()
             | Some v -> use_ v
-        | Switch s -> use_ s.Value
+        | Indirect s -> use_ s.Value
         | Jump _
         | Unreachable _ -> ()
 
@@ -379,7 +387,12 @@ type Block =
                     { c with
                         Arg = Array.map use_ c.Arg
                         Target = def c.Target }
-            | Load -> failwith "Not Implemented"
+            | Load l ->
+                Load
+                    { l with
+                        Base = use_ l.Base
+                        Offset = use_ l.Offset
+                        Target = def l.Target }
             | Store -> failwith "Not Implemented"
             | Alloc -> failwith "Not Implemented"
 
@@ -395,7 +408,7 @@ type Block =
                     | Some v -> Some(use_ v)
 
                 Return { r with Value = value }
-            | Switch s -> Switch { s with Value = use_ s.Value }
+            | Indirect s -> Indirect { s with Value = use_ s.Value }
             | Jump _
             | Unreachable _ -> this.Trans
 
@@ -478,7 +491,7 @@ type Func =
                         let v = valueToString n.Value
                         $"! {v}"
                     | Call c -> failwith "Not Implemented"
-                    | Load -> failwith "Not Implemented"
+                    | Load l -> failwith "Not Implemented"
                     | Store -> failwith "Not Implemented"
                     | Alloc -> failwith "Not Implemented"
 
@@ -500,7 +513,7 @@ type Func =
                       + match r.Value with
                         | Some i -> $" {valueToString i}"
                         | None -> ""
-                  | Switch s -> failwith "Not Implemented"
+                  | Indirect s -> failwith "Not Implemented"
                   | Unreachable _ -> "Unreachable"
 
             tw.WriteLine trans |> ignore

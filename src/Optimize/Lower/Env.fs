@@ -126,11 +126,9 @@ type Env() =
         | Branch b ->
             this.AddEdge id b.One
             this.AddEdge id b.Zero
-        | Switch s ->
-            for t, _ in s.Dest do
+        | Indirect s ->
+            for t in s.Dest do
                 this.AddEdge id t
-
-            this.AddEdge id s.Default
         | Return _
         | Unreachable _ -> ()
 

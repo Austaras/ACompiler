@@ -34,7 +34,7 @@ let adceImpl (f: Func) =
         if not prev then
             match f.Block[id].Trans with
             | Branch { Value = value }
-            | Switch { Value = value } -> markValue value
+            | Indirect { Value = value } -> markValue value
             | _ -> ()
 
             let control = cdg[id].Pred
@@ -44,9 +44,6 @@ let adceImpl (f: Func) =
                 | Branch b ->
                     markBlock control
                     markValue b.Value
-                | Switch s ->
-                    markBlock control
-                    markValue s.Value
                 | _ -> ()
 
             match f.Block[id].Trans with
@@ -54,11 +51,6 @@ let adceImpl (f: Func) =
             | Branch b ->
                 markBlock b.Zero
                 markBlock b.One
-            | Switch s ->
-                markBlock s.Default
-
-                for target, _ in s.Dest do
-                    markBlock target
             | _ -> ()
 
     for (blockIdx, block) in Array.indexed f.Block do
@@ -74,7 +66,7 @@ let adceImpl (f: Func) =
         for instr in block.Instr do
             match instr with
             | Call _
-            | Load
+            | Load _
             | Store
             | Alloc ->
                 markBlock blockIdx

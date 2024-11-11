@@ -317,7 +317,7 @@ let removeVarAndBlock (f: Func) (varValue: Option<Value>[]) (blockMap: int[]) =
                     else
                         Jump { Target = one; Span = b.Span }
 
-            | Switch _ -> failwith "Not Implemented"
+            | Indirect _ -> failwith "Not Implemented"
             | Return r -> Return r
             | Unreachable r -> Unreachable r
 

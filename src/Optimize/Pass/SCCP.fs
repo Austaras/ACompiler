@@ -23,7 +23,7 @@ type VarValue(count: int) =
     member this.Eval instr =
         match instr with
         | Call _
-        | Load
+        | Load _
         | Alloc -> Top
         | Assign v -> this.ValueOf v.Value
         | Binary b ->
@@ -112,8 +112,8 @@ let calc (var: Var[]) (param: int[]) (block: Block[]) (cfg: GraphNode[]) =
 
                                 if not prevBlock then
                                     blockList.Add b.One |> ignore
-                            | Switch s ->
-                                for targetBlock, _ in s.Dest do
+                            | Indirect s ->
+                                for targetBlock in s.Dest do
                                     let prevBlock = blockReachable[targetBlock]
                                     blockReachable[targetBlock] <- true
 
@@ -137,9 +137,9 @@ let calc (var: Var[]) (param: int[]) (block: Block[]) (cfg: GraphNode[]) =
 
                                     if not prevBlock then
                                         blockList.Add b.One |> ignore
-                            | Switch s ->
-                                for targetBlock, targetValue in s.Dest do
-                                    if v = targetValue then
+                            | Indirect s ->
+                                for targetValue, targetBlock in Array.indexed s.Dest do
+                                    if int v = targetValue then
                                         let prevBlock = blockReachable[targetBlock]
                                         blockReachable[targetBlock] <- true
 
@@ -281,19 +281,19 @@ let calc (var: Var[]) (param: int[]) (block: Block[]) (cfg: GraphNode[]) =
                         if not prevBlock then
                             blockList.Add b.One |> ignore
             // TODO: switch default
-            | Switch s ->
+            | Indirect s ->
                 match varValue.ValueOf s.Value with
                 | Bottom -> ()
                 | Top ->
-                    for targetBlock, _ in s.Dest do
+                    for targetBlock in s.Dest do
                         let prevBlock = blockReachable[targetBlock]
                         blockReachable[targetBlock] <- true
 
                         if not prevBlock then
                             blockList.Add targetBlock |> ignore
                 | Known v ->
-                    for targetBlock, targetValue in s.Dest do
-                        if v = targetValue then
+                    for targetValue, targetBlock in Array.indexed s.Dest do
+                        if int v = targetValue then
                             let prevBlock = blockReachable[targetBlock]
                             blockReachable[targetBlock] <- true
 

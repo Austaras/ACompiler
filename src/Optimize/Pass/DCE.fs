@@ -36,7 +36,7 @@ let dceImpl (phiOnly: bool) (f: Func) =
             | Unary _
             | Binary _ -> true
             | Call _
-            | Load
+            | Load _
             | Store
             | Alloc -> false
         else

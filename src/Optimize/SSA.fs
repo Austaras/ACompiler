@@ -130,7 +130,12 @@ type SSA(f: Func) =
                             { c with
                                 Arg = Array.map reUse c.Arg
                                 Target = reDef c.Target }
-                    | Load -> failwith "Not Implemented"
+                    | Load l ->
+                        Load
+                            { l with
+                                Base = reUse l.Base
+                                Offset = reUse l.Offset
+                                Target = reDef l.Target }
                     | Store -> failwith "Not Implemented"
                     | Alloc -> failwith "Not Implemented"
 
@@ -180,10 +185,10 @@ type SSA(f: Func) =
                             Some value
 
                     Return { r with Value = value }
-                | Switch s ->
+                | Indirect s ->
                     let value = reUse s.Value
                     useInTrans value
-                    Switch { s with Value = value }
+                    Indirect { s with Value = value }
                 | Jump _
                 | Unreachable _ -> block.Trans
 
@@ -271,12 +276,10 @@ type SSA(f: Func) =
                                     { b with Zero = newBlock }
 
                             Branch b
-                        | Switch s ->
-                            let map (target, value) = mapBlock target, value
+                        | Indirect s ->
+                            let newDest = Array.map mapBlock s.Dest
 
-                            let newDest = Array.map map s.Dest
-
-                            Switch { s with Dest = newDest }
+                            Indirect { s with Dest = newDest }
 
                     block[idx] <- { block[idx] with Trans = newTx }
 
