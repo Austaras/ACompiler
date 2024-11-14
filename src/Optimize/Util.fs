@@ -238,7 +238,7 @@ let cdg (f: Func) =
 let removeOnlyMapping arr =
     arr |> Array.indexed |> Array.map (fun (idx, live) -> if live then idx else -1)
 
-let removeVarAndBlock (f: Func) (varValue: Option<Value>[]) (blockMap: int[]) =
+let mapVarAndBlock (f: Func) (varValue: Option<Value>[]) (blockMap: int[]) =
     let var = f.Var
     let block = f.Block
     let cfg = f.CFG

@@ -236,7 +236,6 @@ type SSA(f: Func) =
 
     member _.EdgeSplit(block: ResizeArray<Block>) =
         let cfg = ResizeArray(f.CFG)
-        let dedunt = Dictionary()
 
         for idx in 0 .. f.CFG.Length - 1 do
             for sIdx in cfg[idx].Succ do
@@ -245,21 +244,17 @@ type SSA(f: Func) =
 
                 if node.Succ.Length > 1 && succ.Pred.Length > 1 then
                     let newBlock =
-                        if dedunt.ContainsKey sIdx then
-                            dedunt[sIdx]
-                        else
-                            let newBlock = block.Count
-                            dedunt.Add(sIdx, newBlock)
+                        let newBlock = block.Count
 
-                            block.Add(
-                                { Phi = Map.empty
-                                  Instr = [||]
-                                  Trans = Jump { Target = sIdx; Span = Span.dummy } }
-                            )
+                        block.Add(
+                            { Phi = Map.empty
+                              Instr = [||]
+                              Trans = Jump { Target = sIdx; Span = Span.dummy } }
+                        )
 
-                            cfg.Add { Pred = [||]; Succ = [| sIdx |] }
+                        cfg.Add { Pred = [||]; Succ = [| sIdx |] }
 
-                            newBlock
+                        newBlock
 
                     let mapBlock id = if id = sIdx then newBlock else id
 

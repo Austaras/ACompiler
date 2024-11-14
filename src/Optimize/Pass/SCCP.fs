@@ -320,6 +320,6 @@ let sccpImpl (f: Func) =
 
     let varValue = seq { 0 .. var.Length - 1 } |> Seq.map getVarValue |> Array.ofSeq
 
-    removeVarAndBlock f varValue (removeOnlyMapping blockReachable)
+    mapVarAndBlock f varValue (removeOnlyMapping blockReachable)
 
 let sccp = transRegional sccpImpl

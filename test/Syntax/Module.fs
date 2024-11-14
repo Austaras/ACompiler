@@ -31,3 +31,9 @@ let std = getAllFile "rt"
 [<Theory>]
 [<MemberData(nameof (std))>]
 let Std path = parseModuleOk path
+
+let spec = getAllFile "test/Spec"
+
+[<Theory>]
+[<MemberData(nameof (std))>]
+let Spec path = parseModuleOk path

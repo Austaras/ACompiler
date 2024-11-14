@@ -277,7 +277,7 @@ type Env() =
             |> Seq.map (fun idx -> resolve idx)
             |> Array.ofSeq
 
-        let f = removeVarAndBlock f varMapping blockMapping
+        let f = mapVarAndBlock f varMapping blockMapping
 
         block.Clear()
         var.Clear()

@@ -1,20 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
+
   <PropertyGroup>
     <TargetFramework>net9.0</TargetFramework>
+
     <IsPackable>false</IsPackable>
     <GenerateProgramFile>false</GenerateProgramFile>
     <IsTestProject>true</IsTestProject>
   </PropertyGroup>
+
   <ItemGroup>
-    <Compile Include="Type/Common.fs" />
-    <Compile Include="Type/Closure.fs" />
-    <Compile Include="Type/ADT.fs" />
-    <Compile Include="Type/Poly.fs" />
-    <Compile Include="Type/Match.fs" />
-    <Compile Include="Type/Trait.fs" />
-    <Compile Include="Capture.fs" />
+    <Compile Include="Spec.fs" />
     <Compile Include="Program.fs" />
   </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Microsoft.NET.Test.Sdk" Version="17.11.1" />
     <PackageReference Include="xunit" Version="2.9.2" />
@@ -27,8 +25,5 @@
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
   </ItemGroup>
-  <ItemGroup>
-    <ProjectReference Include="..\..\src\Syntax\Syntax.fsproj" />
-    <ProjectReference Include="..\..\src\Semantic\Semantic.fsproj" />
-  </ItemGroup>
+
 </Project>
