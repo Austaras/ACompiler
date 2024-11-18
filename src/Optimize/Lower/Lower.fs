@@ -341,6 +341,16 @@ type internal Lower(arch: Arch, m: AST.Module, sema: Semantic.SemanticInfo) =
             env.Break b
             Const 0UL
 
+        | AST.Return r ->
+            let value =
+                match r.Value with
+                | Some r -> this.Expr None r |> Some
+                | None -> None
+
+            let _ = env.FinalizeBlock(Return { Value = value; Span = r.Span })
+
+            Const 0UL
+
         | _ -> failwith "Not Implemented"
 
     member this.Block (target: Option<int>) (info: ScopeInfo) (b: AST.Block) =

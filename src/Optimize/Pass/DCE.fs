@@ -77,71 +77,13 @@ let dceImpl (phiOnly: bool) (f: Func) =
 
             block[blockId] <- { currBlock with Instr = instr }
 
-    let varMapping = Array.create var.Length -1
-    let mutable currIdx = 0
+    let varMapping =
+        seq { 0 .. var.Length - 1 }
+        |> Seq.map (fun idx -> if removed.Contains idx then None else Some(Binding idx))
+        |> Array.ofSeq
 
-    for id = 0 to var.Length - 1 do
-        if not (removed.Contains id) then
-            varMapping[id] <- currIdx
-            currIdx <- currIdx + 1
+    let blockMapping = seq { 0 .. block.Length - 1 } |> Array.ofSeq
 
-    let chooseVar value =
-        match value with
-        | Const c -> Some value
-        | Binding id ->
-            if varMapping[id] = -1 then
-                None
-            else
-                Some(Binding varMapping[id])
-
-    let rewriteBlock (block: Block) =
-        let rewritePhi (key, value) =
-            if removed.Contains key then
-                None
-            else
-                Some(varMapping[key], Array.choose chooseVar value)
-
-        let phi = block.Phi |> Seq.map (|KeyValue|) |> Seq.choose rewritePhi |> Map.ofSeq
-        let rewriteDef id = varMapping[id]
-
-        let rewriteUse value =
-            match value with
-            | Const c -> Const c
-            | Binding i -> Binding varMapping[i]
-
-        { block.Rewrite rewriteDef rewriteUse with
-            Phi = phi }
-
-    let block = block |> Array.map rewriteBlock
-
-    let filterUse use_ =
-        match use_.Data with
-        | InTx -> Some use_
-        | InPhi phi ->
-            if removed.Contains phi then
-                None
-            else
-                Some
-                    { BlockId = use_.BlockId
-                      Data = InPhi varMapping[phi] }
-        | ForTarget target ->
-            if removed.Contains target then
-                None
-            else
-                Some
-                    { BlockId = use_.BlockId
-                      Data = ForTarget varMapping[target] }
-
-    let filterVar idx =
-        if not (removed.Contains idx) then
-            Some
-                { var[idx] with
-                    Use = Array.choose filterUse var[idx].Use }
-        else
-            None
-
-    let var = seq { 0 .. var.Length - 1 } |> Seq.choose filterVar |> Array.ofSeq
-
-    { f with Var = var; Block = block }
+    mapVarAndBlock f varMapping blockMapping
 
 let dce phiOnly = transRegional (dceImpl phiOnly)

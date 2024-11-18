@@ -298,7 +298,7 @@ let mapVarAndBlock (f: Func) (varValue: Option<Value>[]) (blockMap: int[]) =
             | Const c -> Const c
             | Binding i ->
                 match varValue[i] with
-                | None -> failwith "Unreachable"
+                | None -> Const 0xdeadbeefUL
                 | Some(Const c) -> Const c
                 | Some(Binding i) -> Binding varMapping[i]
 
