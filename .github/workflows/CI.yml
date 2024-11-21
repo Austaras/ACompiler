@@ -20,11 +20,11 @@ jobs:
       - name: Install dependencies
         run: dotnet restore
 
-      # - name: Install tools
-      #   run: dotnet tool restore
+      - name: Install tools
+        run: dotnet tool restore
 
-      # - name: Format
-      #   run: dotnet fantomas --check .
+      - name: Format
+        run: dotnet fantomas --check .
 
       - name: Build
         run: dotnet build --configuration Release --no-restore
