@@ -279,26 +279,38 @@ type Scheme =
             if this.Pred.Length = 0 then
                 res
             else
-                let print { Type = ty; Trait = tr } =
-                    let bound = ty[0].Print() + ": " + tr.Name.Sym
+                let print (ty: Type, pred: Pred[]) =
+                    let head = ty.Print() + ": "
 
-                    if ty.Length = 1 then
-                        bound
-                    else
-                        let print (idx, ty: Type) =
-                            let ty = ty.Print()
-                            let idx = idx + 1
+                    let print (tr: Trait) (idx: int, ty: Type) =
+                        let idx = idx + 1
 
-                            if idx >= tr.FreeVarLength then
-                                let name = tr.DepName[idx - tr.FreeVarLength].Sym
-                                $"{name} = {ty}"
-                            else
-                                ty
+                        if idx >= tr.FreeVarLength then
+                            let name = tr.DepName[idx - tr.FreeVarLength].Sym
+                            $"{name} = {ty.Print()}"
+                        else
+                            ty.Print()
 
-                        let gen = ty[1..] |> Array.indexed |> Array.map print |> String.concat ", "
-                        $"{bound}<{gen}>"
+                    let print (pred: Pred) =
+                        let tr = pred.Trait.Name.Sym
 
-                let pred = this.Pred |> Array.map print |> String.concat ", "
+                        if pred.Type.Length > 1 then
+                            let gen =
+                                pred.Type[1..]
+                                |> Array.indexed
+                                |> Array.map (print pred.Trait)
+                                |> String.concat ", "
+
+                            $"{tr}<{gen}>"
+                        else
+                            tr
+
+                    let bound = pred |> Array.map print |> String.concat " + "
+
+                    head + bound
+
+                let pred =
+                    this.Pred |> Array.groupBy _.Type[0] |> Array.map print |> String.concat ", "
 
                 $"{res} where {pred}"
 

@@ -25,7 +25,7 @@ Test out various compiler technology with a toy compiler for a toy language **in
    - HM type inference with trait and operator overloading
    - c style function declaration that are hoisted and cannot capture environment
    - internal mutable
-   - impl block and trait, but user need to import them
+   - impl block and trait, but impl trait has name and user need to import them like in Scala
    - string is UTF8 and char is UTF32
 3. Pratically functional
    - provide immutable std lib and tail call optimization
@@ -60,6 +60,7 @@ Test out various compiler technology with a toy compiler for a toy language **in
   - [ ] field selection
   - [ ] existential type
   - [ ] TRIE based resolution
+  - [ ] name instance
   - [ ] lower
 - [ ] pattern match
   - [ ] coverage
