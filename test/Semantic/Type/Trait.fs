@@ -235,6 +235,33 @@ fn main() {
     )
 
 [<Fact>]
+let PolyReturn () =
+    runAnalysis
+        "
+trait Parse<T> {
+    fn parse(self) -> T
+}
+
+impl Parse<int> for int {
+    fn parse(self) -> int {
+        self
+    }
+}
+
+impl Parse<bool> for int {
+    fn parse(self) -> bool {
+        self >= 0
+    }
+}
+
+fn p() {
+    let a = 1
+    let b: bool = a.parse()
+    let c: int = a.parse()
+}"
+    |> toBe (Map [| "p", "|| -> ()" |])
+
+[<Fact>]
 let AddDep () =
     runAnalysis
         "
