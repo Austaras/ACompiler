@@ -287,7 +287,7 @@ type Lexer(input: string, error: ResizeArray<Error>) =
                             if j = len then
                                 raise (ParserExp(IncompleteMultilineComment(Span.Make pos (j - 1))))
                             else if j + 1 < len && input[j] = '*' && input[j + 1] = '/' then
-                                let token = Comment(MultiLine, input[pos .. (j + 1)])
+                                let token = Comment(MultiLine, input[(pos + 2) .. (j - 1)])
                                 token, j + 1
                             else
                                 takeWhen (j + 1)

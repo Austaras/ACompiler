@@ -1,0 +1,21 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/src/">
+    <Project Path="src/CodeGen/CodeGen.fsproj" />
+    <Project Path="src/Common/Common.fsproj" />
+    <Project Path="src/Optimize/Optimize.fsproj" />
+    <Project Path="src/Semantic/Semantic.fsproj" />
+    <Project Path="src/Snapshot/Snapshot.fsproj" />
+    <Project Path="src/Syntax/Syntax.fsproj" />
+  </Folder>
+  <Folder Name="/test/">
+    <Project Path="test/CodeGen/CodeGen.Test.fsproj" />
+    <Project Path="test/Optimize/Optimize.Test.fsproj" />
+    <Project Path="test/Semantic/Semantic.Test.fsproj" />
+    <Project Path="test/Syntax/Syntax.Test.fsproj" />
+  </Folder>
+</Solution>

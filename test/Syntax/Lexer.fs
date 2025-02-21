@@ -89,7 +89,7 @@ let Composite () =
     )
 
 [<Fact>]
-let Comment =
+let Comment () =
     Assert.Equivalent(
         [| Identifier "aaa"; Comment(SingleLine, " single comment a + b") |],
         lexStripSpan "aaa // single comment a + b"
